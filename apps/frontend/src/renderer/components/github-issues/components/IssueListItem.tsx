@@ -20,6 +20,7 @@ export const IssueListItem = memo(function IssueListItem({
   isSelectable,
   isChecked,
   onToggleSelect,
+  compact,
 }: IssueListItemProps) {
   return (
     <div
@@ -58,27 +59,29 @@ export const IssueListItem = memo(function IssueListItem({
           <h4 className="text-sm font-medium text-foreground truncate">
             {issue.title}
           </h4>
-          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <User className="h-3 w-3" />
-              {issue.author.login}
+          {!compact && (
+            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {issue.author.login}
+              </div>
+              {issue.commentsCount > 0 && (
+                <div className="flex items-center gap-1">
+                  <MessageCircle className="h-3 w-3" />
+                  {issue.commentsCount}
+                </div>
+              )}
+              {issue.labels.length > 0 && (
+                <div className="flex items-center gap-1">
+                  <Tag className="h-3 w-3" />
+                  {issue.labels.length}
+                </div>
+              )}
+              {completenessScore !== undefined && (
+                <CompletenessIndicator score={completenessScore} compact />
+              )}
             </div>
-            {issue.commentsCount > 0 && (
-              <div className="flex items-center gap-1">
-                <MessageCircle className="h-3 w-3" />
-                {issue.commentsCount}
-              </div>
-            )}
-            {issue.labels.length > 0 && (
-              <div className="flex items-center gap-1">
-                <Tag className="h-3 w-3" />
-                {issue.labels.length}
-              </div>
-            )}
-            {completenessScore !== undefined && (
-              <CompletenessIndicator score={completenessScore} compact />
-            )}
-          </div>
+          )}
         </div>
         <Button
           variant="ghost"
@@ -100,5 +103,6 @@ export const IssueListItem = memo(function IssueListItem({
     && prev.triageState === next.triageState
     && prev.completenessScore === next.completenessScore
     && prev.isChecked === next.isChecked
-    && prev.isSelectable === next.isSelectable;
+    && prev.isSelectable === next.isSelectable
+    && prev.compact === next.compact;
 });

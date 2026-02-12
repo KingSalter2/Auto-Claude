@@ -382,6 +382,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
             enrichments={enrichments}
             selectedIssueNumbers={selectedIssueNumbers}
             onToggleSelect={handleToggleSelect}
+            compact={triageModeEnabled}
           />
         </section>
 

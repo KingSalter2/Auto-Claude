@@ -22,6 +22,7 @@ export interface IssueListItemProps {
   isSelectable?: boolean;
   isChecked?: boolean;
   onToggleSelect?: () => void;
+  compact?: boolean;
 }
 
 export interface IssueDetailProps {
@@ -115,6 +116,7 @@ export interface IssueListProps {
   enrichments?: Record<string, IssueEnrichment>;
   selectedIssueNumbers?: Set<number>;
   onToggleSelect?: (issueNumber: number) => void;
+  compact?: boolean;
 }
 
 export interface EmptyStateProps {

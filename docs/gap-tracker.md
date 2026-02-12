@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 18 / 41 complete
+**Status:** 19 / 41 complete
 
 ---
 
@@ -481,16 +481,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 ## TIER 4 — Polish
 
 ### GAP-39: No compact card mode for IssueList in 3-panel
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Small-Medium
 - **Doc ref:** Phase 4 PRD > US-4 > AC4.4; Phase 4 impl plan WP-8.5
 - **Files to modify:** `types/index.ts`, `components/IssueList.tsx`, `components/IssueListItem.tsx`, `GitHubIssues.tsx`
-- **Fix:** Add compact prop to IssueListProps/IssueListItemProps. When compact, hide metadata footer row. Pass compact={triageModeEnabled} from GitHubIssues.
-- **Tests:** Render IssueListItem compact=true → metadata footer hidden
-- **Test status:** `PENDING`
+- **Fix:** Added compact prop to IssueListItemProps and IssueListProps. When compact=true, metadata footer row (author, comments, labels, completeness) is hidden. Passed compact={triageModeEnabled} from GitHubIssues. Added to memo comparison.
+- **Tests:** 4 new tests in IssueListItem.test.tsx: normal shows metadata, compact hides metadata, compact shows title, compact shows issue number
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** pending
 
 ### GAP-40: Label sync debounce not implemented
 - **Status:** `PENDING`

@@ -19,6 +19,7 @@ export function IssueList({
   enrichments,
   selectedIssueNumbers,
   onToggleSelect,
+  compact,
 }: IssueListProps) {
   const { t } = useTranslation('common');
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -91,6 +92,7 @@ export function IssueList({
               isSelectable={!!onToggleSelect}
               isChecked={selectedIssueNumbers?.has(issue.number) ?? false}
               onToggleSelect={onToggleSelect ? () => onToggleSelect(issue.number) : undefined}
+              compact={compact}
             />
           );
         })}
