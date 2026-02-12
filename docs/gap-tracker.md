@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 3 / 41 complete
+**Status:** 4 / 41 complete
 
 ---
 
@@ -466,16 +466,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** —
 
 ### GAP-38: Missing aria-labels on AI action buttons
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Small
 - **Doc ref:** Phase 3 PRD > US-1 AC1.13, US-2 AC2.11, US-5 AC5.13
-- **Files to modify:** `renderer/components/github-issues/components/EnrichmentPanel.tsx`, `renderer/components/github-issues/components/BulkActionBar.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
-- **Fix:** Add aria-label to AI Triage, Improve Issue, Split Issue buttons in EnrichmentPanel. Add aria-label to Triage All button in BulkActionBar. Add i18n keys.
-- **Tests:** Verify buttons have aria-label attributes
-- **Test status:** `PENDING`
+- **Files modified:** `EnrichmentPanel.tsx`, `BulkActionBar.tsx`, `BulkActionBar.test.tsx`
+- **Fix:** Added aria-label to AI Triage, Improve Issue, Split Issue buttons in EnrichmentPanel. Added aria-label to Triage All and toolbar in BulkActionBar (using i18n keys).
+- **Tests:** 18 tests pass (10 EnrichmentPanel + 8 BulkActionBar including new Triage All aria-label test)
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** GAP-38
 
 ---
 
@@ -550,6 +550,7 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 | 2026-02-12 | GAP-18 | DONE — i18n in 6 components (5 + MetricsDashboard), 7 test files updated, 75 tests pass | GAP-18 |
 | 2026-02-12 | GAP-17 | DONE — risksEdgeCases section added to EnrichmentPanel, i18n keys added EN+FR, 10 tests pass | GAP-17 |
 | 2026-02-12 | GAP-24 | DONE — 3 panels changed to `<section>` with i18n aria-label, lint clean | GAP-24 |
+| 2026-02-12 | GAP-38 | DONE — aria-labels on AI buttons (EnrichmentPanel + BulkActionBar), 18 tests pass | GAP-38 |
 
 ---
 

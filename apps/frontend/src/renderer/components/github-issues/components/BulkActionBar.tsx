@@ -36,7 +36,7 @@ export function BulkActionBar({
   return (
     <div
       role="toolbar"
-      aria-label="Bulk actions"
+      aria-label={t('bulk.actions')}
       className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2"
     >
       <span className="text-sm font-medium text-foreground">
@@ -63,6 +63,7 @@ export function BulkActionBar({
           className="ml-2 px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isOperating}
           onClick={onTriageAll}
+          aria-label={t('aiTriage.triageAllButton')}
         >
           {t('aiTriage.triageAllButton')}
           <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">

@@ -76,6 +76,7 @@ export function EnrichmentPanel({
               type="button"
               className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent"
               onClick={onAITriage}
+              aria-label={t('aiTriage.enrichButton')}
             >
               {t('aiTriage.enrichButton')}
             </button>
@@ -85,6 +86,7 @@ export function EnrichmentPanel({
               type="button"
               className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent"
               onClick={onImproveIssue}
+              aria-label={t('aiTriage.improveButton')}
             >
               {t('aiTriage.improveButton')}
             </button>
@@ -94,6 +96,7 @@ export function EnrichmentPanel({
               type="button"
               className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent"
               onClick={onSplitIssue}
+              aria-label={t('aiTriage.splitButton')}
             >
               {t('aiTriage.splitButton')}
             </button>

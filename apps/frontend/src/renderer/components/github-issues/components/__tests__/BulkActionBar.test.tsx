@@ -5,6 +5,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { BulkActionBar } from '../BulkActionBar';
 
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+  }),
+}));
+
 describe('BulkActionBar', () => {
   it('not rendered when selectedCount is 0', () => {
     const { container } = render(
@@ -52,7 +58,7 @@ describe('BulkActionBar', () => {
     expect(screen.getByRole('toolbar')).toBeDefined();
   });
 
-  it('has aria-label "Bulk actions"', () => {
+  it('has i18n aria-label on toolbar', () => {
     render(
       <BulkActionBar
         selectedCount={2}
@@ -62,7 +68,7 @@ describe('BulkActionBar', () => {
     );
     expect(
       screen.getByRole('toolbar').getAttribute('aria-label'),
-    ).toBe('Bulk actions');
+    ).toBe('bulk.actions');
   });
 
   it('all buttons disabled when isOperating', () => {
@@ -98,5 +104,19 @@ describe('BulkActionBar', () => {
       />,
     );
     expect(screen.getByText('Processing 2/5...')).toBeDefined();
+  });
+
+  it('Triage All button has aria-label', () => {
+    render(
+      <BulkActionBar
+        selectedCount={3}
+        onBulkAction={vi.fn()}
+        isOperating={false}
+        untriagedCount={5}
+        onTriageAll={vi.fn()}
+      />,
+    );
+    const triageBtn = screen.getByRole('button', { name: 'aiTriage.triageAllButton' });
+    expect(triageBtn).toBeDefined();
   });
 });
