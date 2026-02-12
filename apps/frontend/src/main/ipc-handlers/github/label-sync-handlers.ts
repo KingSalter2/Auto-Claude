@@ -1,0 +1,197 @@
+/**
+ * Label Sync IPC handlers for Phase 4.
+ * Creates/removes `ac:*` namespaced labels on GitHub and syncs
+ * workflow state labels on individual issues.
+ */
+
+import { ipcMain } from 'electron';
+import type { BrowserWindow } from 'electron';
+import { execFileSync } from 'child_process';
+import path from 'node:path';
+import fs from 'node:fs';
+import { withProject } from './utils/project-middleware';
+import { getAugmentedEnv } from '../../env-utils';
+import { readEnrichmentFile } from './enrichment-persistence';
+import { createContextLogger } from './utils/logger';
+import {
+  getWorkflowLabels,
+  getLabelForState,
+  isAutoClaudeLabel,
+} from '../../../shared/constants/label-sync';
+import type { WorkflowState } from '../../../shared/types/enrichment';
+import type { LabelSyncConfig, LabelSyncResult } from '../../../shared/types/label-sync';
+
+const logger = createContextLogger('Label Sync');
+
+function getConfigPath(projectPath: string): string {
+  return path.join(projectPath, '.auto-claude', 'label-sync.json');
+}
+
+function readConfig(projectPath: string): LabelSyncConfig {
+  try {
+    const configPath = getConfigPath(projectPath);
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf-8')) as LabelSyncConfig;
+    }
+  } catch {
+    // Fall through to default
+  }
+  return { enabled: false, lastSyncedAt: null };
+}
+
+function writeConfig(projectPath: string, config: LabelSyncConfig): void {
+  const configPath = getConfigPath(projectPath);
+  const dir = path.join(projectPath, '.auto-claude');
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+}
+
+export function registerLabelSyncHandlers(
+  _getMainWindow: () => BrowserWindow | null,
+): void {
+  // Enable label sync — create all ac:* labels in the repo
+  ipcMain.handle(
+    'github:label-sync:enable',
+    async (_, projectId: string) => {
+      return withProject(projectId, async (project) => {
+        const labels = getWorkflowLabels();
+        const env = getAugmentedEnv();
+        const result: LabelSyncResult = { created: 0, updated: 0, removed: 0, errors: [] };
+
+        for (const label of labels) {
+          try {
+            execFileSync('gh', [
+              'label', 'create', label.name,
+              '--color', label.color,
+              '--description', label.description,
+              '--force',
+            ], { env, cwd: project.path, encoding: 'utf-8' });
+            result.created++;
+          } catch (error) {
+            result.errors.push({
+              label: label.name,
+              error: error instanceof Error ? error.message : 'Unknown error',
+            });
+          }
+        }
+
+        // Save config
+        const config: LabelSyncConfig = {
+          enabled: true,
+          lastSyncedAt: new Date().toISOString(),
+        };
+        writeConfig(project.path, config);
+
+        logger.debug('Label sync enabled', { result });
+        return result;
+      });
+    },
+  );
+
+  // Disable label sync — optionally remove all ac:* labels
+  ipcMain.handle(
+    'github:label-sync:disable',
+    async (_, projectId: string, cleanup: boolean) => {
+      return withProject(projectId, async (project) => {
+        if (cleanup) {
+          const env = getAugmentedEnv();
+          const data = await readEnrichmentFile(project.path);
+
+          // Remove ac:* labels from all issues
+          for (const [issueNumber, enrichment] of Object.entries(data.issues)) {
+            const label = getLabelForState(enrichment.triageState as WorkflowState);
+            try {
+              execFileSync('gh', [
+                'issue', 'edit', issueNumber,
+                '--remove-label', label,
+              ], { env, cwd: project.path, encoding: 'utf-8' });
+            } catch {
+              // Continue on error — label may not exist on this issue
+            }
+          }
+
+          // Delete label definitions
+          const labels = getWorkflowLabels();
+          for (const label of labels) {
+            try {
+              execFileSync('gh', [
+                'label', 'delete', label.name, '--yes',
+              ], { env, cwd: project.path, encoding: 'utf-8' });
+            } catch {
+              // Continue — label may not exist
+            }
+          }
+        }
+
+        writeConfig(project.path, { enabled: false, lastSyncedAt: null });
+        return { success: true };
+      });
+    },
+  );
+
+  // Sync a single issue's label
+  ipcMain.handle(
+    'github:label-sync:issue',
+    async (_, projectId: string, issueNumber: number, newState: string, _oldState: string | null) => {
+      return withProject(projectId, async (project) => {
+        const env = getAugmentedEnv();
+        const targetLabel = getLabelForState(newState as WorkflowState);
+
+        // Check current labels to avoid unnecessary API calls (GAP-1 fix)
+        try {
+          const labelsJson = execFileSync('gh', [
+            'issue', 'view', String(issueNumber),
+            '--json', 'labels',
+            '--jq', '.labels',
+          ], { env, cwd: project.path, encoding: 'utf-8' });
+
+          const currentLabels = JSON.parse(labelsJson) as Array<{ name: string }>;
+          const hasTargetLabel = currentLabels.some((l) => l.name === targetLabel);
+
+          if (hasTargetLabel) {
+            return { skipped: true };
+          }
+
+          // Build edit args: remove old ac:* labels, add new one
+          const args = ['issue', 'edit', String(issueNumber)];
+
+          for (const label of currentLabels) {
+            if (isAutoClaudeLabel(label.name) && label.name !== targetLabel) {
+              args.push('--remove-label', label.name);
+            }
+          }
+
+          args.push('--add-label', targetLabel);
+
+          execFileSync('gh', args, { env, cwd: project.path, encoding: 'utf-8' });
+          return { synced: true };
+        } catch (error) {
+          return { error: error instanceof Error ? error.message : 'Sync failed' };
+        }
+      });
+    },
+  );
+
+  // Get current label sync config
+  ipcMain.handle(
+    'github:label-sync:status',
+    async (_, projectId: string) => {
+      return withProject(projectId, async (project) => {
+        return readConfig(project.path);
+      });
+    },
+  );
+
+  // Save label sync config
+  ipcMain.handle(
+    'github:label-sync:save',
+    async (_, projectId: string, config: LabelSyncConfig) => {
+      return withProject(projectId, async (project) => {
+        writeConfig(project.path, config);
+        return { success: true };
+      });
+    },
+  );
+}
