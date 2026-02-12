@@ -400,6 +400,7 @@ export interface GitHubAPI {
   syncIssueLabel: (projectId: string, issueNumber: number, newState: string, oldState: string | null) => Promise<{ synced?: boolean; skipped?: boolean; error?: string }>;
   getLabelSyncStatus: (projectId: string) => Promise<LabelSyncConfig>;
   saveLabelSyncConfig: (projectId: string, config: LabelSyncConfig) => Promise<{ success: boolean }>;
+  bulkLabelSync: (projectId: string, issueNumbers: number[]) => Promise<{ synced: number; errors: number }>;
 
   // Dependencies (Phase 4)
   fetchDependencies: (projectId: string, issueNumber: number) => Promise<IssueDependencies & { error?: string; unavailable?: boolean }>;
@@ -1006,6 +1007,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   saveLabelSyncConfig: (projectId: string, config: LabelSyncConfig): Promise<{ success: boolean }> =>
     invokeIpc(IPC_CHANNELS.GITHUB_LABEL_SYNC_SAVE, projectId, config),
+
+  bulkLabelSync: (projectId: string, issueNumbers: number[]): Promise<{ synced: number; errors: number }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_LABEL_SYNC_BULK, projectId, issueNumbers),
 
   // Dependencies (Phase 4)
   fetchDependencies: (projectId: string, issueNumber: number) =>

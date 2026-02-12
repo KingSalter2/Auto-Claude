@@ -89,4 +89,16 @@ describe('LabelSyncSettings', () => {
     const button = screen.getByText('labelSync.syncing');
     expect(button.getAttribute('disabled')).not.toBeNull();
   });
+
+  it('shows color swatches when enabled', () => {
+    const { container } = render(<LabelSyncSettings {...defaultProps} enabled />);
+    const swatches = container.querySelectorAll('[data-testid="label-swatch"]');
+    expect(swatches.length).toBe(7);
+  });
+
+  it('does not show color swatches when disabled', () => {
+    const { container } = render(<LabelSyncSettings {...defaultProps} />);
+    const swatches = container.querySelectorAll('[data-testid="label-swatch"]');
+    expect(swatches.length).toBe(0);
+  });
 });

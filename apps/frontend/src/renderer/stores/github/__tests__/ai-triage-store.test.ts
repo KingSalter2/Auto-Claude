@@ -51,6 +51,7 @@ describe('useAITriageStore', () => {
       splitSuggestion: null,
       splitProgress: null,
       lastError: null,
+      lastBatchSnapshot: null,
     });
   });
 
@@ -300,6 +301,50 @@ describe('useAITriageStore', () => {
       });
       useAITriageStore.getState().clearEnrichmentResult();
       expect(useAITriageStore.getState().enrichmentResult).toBeNull();
+    });
+  });
+
+  describe('undoBatch', () => {
+    it('snapshotBeforeApply saves current review items', () => {
+      const items = [
+        makeReviewItem({ issueNumber: 1, status: 'accepted' }),
+        makeReviewItem({ issueNumber: 2, status: 'rejected' }),
+      ];
+      useAITriageStore.getState().addReviewItems(items);
+      useAITriageStore.getState().snapshotBeforeApply();
+
+      const snapshot = useAITriageStore.getState().lastBatchSnapshot;
+      expect(snapshot).toHaveLength(2);
+      expect(snapshot?.[0].status).toBe('accepted');
+    });
+
+    it('undoLastBatch restores snapshot and clears it', () => {
+      const items = [
+        makeReviewItem({ issueNumber: 1 }),
+        makeReviewItem({ issueNumber: 2 }),
+      ];
+      useAITriageStore.getState().addReviewItems(items);
+      useAITriageStore.getState().snapshotBeforeApply();
+
+      // Simulate apply — accept all
+      useAITriageStore.getState().acceptAllRemaining();
+      expect(useAITriageStore.getState().reviewItems[0].status).toBe('accepted');
+
+      // Undo
+      useAITriageStore.getState().undoLastBatch();
+      const restored = useAITriageStore.getState().reviewItems;
+      expect(restored[0].status).toBe('pending');
+      expect(restored[1].status).toBe('pending');
+      expect(useAITriageStore.getState().lastBatchSnapshot).toBeNull();
+    });
+
+    it('undoLastBatch does nothing when no snapshot', () => {
+      useAITriageStore.getState().addReviewItems([
+        makeReviewItem({ issueNumber: 1, status: 'accepted' }),
+      ]);
+      useAITriageStore.getState().undoLastBatch();
+      // Items unchanged
+      expect(useAITriageStore.getState().reviewItems[0].status).toBe('accepted');
     });
   });
 

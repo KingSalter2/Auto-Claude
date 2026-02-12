@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { getWorkflowLabels } from '../../../../shared/constants/label-sync';
 
 interface LabelSyncSettingsProps {
   enabled: boolean;
@@ -64,6 +65,25 @@ export function LabelSyncSettings({
         >
           {t('labelSync.disableAndCleanup')}
         </button>
+      )}
+
+      {enabled && (
+        <div className="flex flex-wrap gap-1.5">
+          {getWorkflowLabels().map((label) => (
+            <span
+              key={label.name}
+              data-testid="label-swatch"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style={{ backgroundColor: `#${label.color}20`, color: `#${label.color}` }}
+            >
+              <span
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: `#${label.color}` }}
+              />
+              {label.name}
+            </span>
+          ))}
+        </div>
       )}
 
       {error && (

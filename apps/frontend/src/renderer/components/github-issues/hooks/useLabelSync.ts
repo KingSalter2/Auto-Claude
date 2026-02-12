@@ -1,6 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
 import { useLabelSyncStore } from '../../../stores/github/label-sync-store';
+import { SYNC_DEBOUNCE_MS } from '../../../../shared/constants/label-sync';
 import type { LabelSyncConfig } from '../../../../shared/types/label-sync';
 
 export function useLabelSync() {
@@ -44,18 +45,50 @@ export function useLabelSync() {
     }
   }, [projectId, store]);
 
-  const syncIssueLabel = useCallback(async (
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, []);
+
+  const syncIssueLabel = useCallback((
     issueNumber: number,
     newState: string,
     oldState: string | null,
   ) => {
     if (!projectId || !store.config.enabled) return;
-    try {
-      await window.electronAPI.github.syncIssueLabel(projectId, issueNumber, newState, oldState);
-    } catch {
-      // Non-blocking — label sync failures shouldn't disrupt workflow
+
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
     }
+
+    syncTimerRef.current = setTimeout(async () => {
+      try {
+        await window.electronAPI.github.syncIssueLabel(projectId, issueNumber, newState, oldState);
+      } catch {
+        // Non-blocking — label sync failures shouldn't disrupt workflow
+      }
+    }, SYNC_DEBOUNCE_MS);
   }, [projectId, store.config.enabled]);
+
+  const bulkLabelSync = useCallback(async (issueNumbers: number[]) => {
+    if (!projectId || !store.config.enabled) return { synced: 0, errors: 0 };
+    store.setSyncing(true);
+    try {
+      const result = await window.electronAPI.github.bulkLabelSync(projectId, issueNumbers);
+      return result;
+    } catch (error) {
+      store.setError(error instanceof Error ? error.message : 'Bulk sync failed');
+      return { synced: 0, errors: 0 };
+    } finally {
+      store.setSyncing(false);
+    }
+  }, [projectId, store]);
 
   const saveConfig = useCallback(async (config: LabelSyncConfig) => {
     if (!projectId) return;
@@ -77,6 +110,7 @@ export function useLabelSync() {
     enableSync,
     disableSync,
     syncIssueLabel,
+    bulkLabelSync,
     saveConfig,
   };
 }

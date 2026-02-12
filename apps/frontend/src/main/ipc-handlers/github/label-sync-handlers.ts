@@ -184,6 +184,63 @@ export function registerLabelSyncHandlers(
     },
   );
 
+  // Bulk sync labels for multiple issues
+  ipcMain.handle(
+    'github:label-sync:bulk',
+    async (_, projectId: string, issueNumbers: number[]) => {
+      return withProject(projectId, async (project) => {
+        const config = readConfig(project.path);
+        if (!config.enabled) {
+          return { synced: 0, errors: 0 };
+        }
+
+        const env = getAugmentedEnv();
+        const data = await readEnrichmentFile(project.path);
+        let synced = 0;
+        let errors = 0;
+
+        for (const issueNumber of issueNumbers) {
+          const enrichment = data.issues[String(issueNumber)];
+          if (!enrichment?.triageState) continue;
+
+          const targetLabel = getLabelForState(enrichment.triageState as WorkflowState);
+
+          try {
+            // Get current labels
+            const labelsJson = execFileSync('gh', [
+              'issue', 'view', String(issueNumber),
+              '--json', 'labels',
+              '--jq', '.labels',
+            ], { env, cwd: project.path, encoding: 'utf-8' });
+
+            const currentLabels = JSON.parse(labelsJson) as Array<{ name: string }>;
+            if (currentLabels.some((l) => l.name === targetLabel)) {
+              synced++;
+              continue;
+            }
+
+            const args = ['issue', 'edit', String(issueNumber)];
+            for (const label of currentLabels) {
+              if (isAutoClaudeLabel(label.name) && label.name !== targetLabel) {
+                args.push('--remove-label', label.name);
+              }
+            }
+            args.push('--add-label', targetLabel);
+
+            execFileSync('gh', args, { env, cwd: project.path, encoding: 'utf-8' });
+            synced++;
+          } catch (error) {
+            logger.debug('Bulk sync error for issue', { issueNumber, error });
+            errors++;
+          }
+        }
+
+        logger.debug('Bulk label sync complete', { synced, errors });
+        return { synced, errors };
+      });
+    },
+  );
+
   // Save label sync config
   ipcMain.handle(
     'github:label-sync:save',

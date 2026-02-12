@@ -20,6 +20,7 @@ const mockGithub = {
   disableLabelSync: vi.fn(),
   syncIssueLabel: vi.fn(),
   saveLabelSyncConfig: vi.fn(),
+  bulkLabelSync: vi.fn(),
 };
 
 beforeEach(() => {
@@ -82,26 +83,58 @@ describe('useLabelSync', () => {
     expect(result.current.config.enabled).toBe(false);
   });
 
-  it('syncIssueLabel calls API when sync is enabled', async () => {
+  it('syncIssueLabel calls API after debounce when sync is enabled', async () => {
+    vi.useFakeTimers();
     mockGithub.syncIssueLabel.mockResolvedValue({ synced: true });
-    // Enable sync first
     useLabelSyncStore.getState().setConfig({ enabled: true, lastSyncedAt: 'now' });
 
     const { result } = renderHook(() => useLabelSync());
+    act(() => {
+      result.current.syncIssueLabel(42, 'triage', 'new');
+    });
+
+    // Not called yet — debounced
+    expect(mockGithub.syncIssueLabel).not.toHaveBeenCalled();
+
     await act(async () => {
-      await result.current.syncIssueLabel(42, 'triage', 'new');
+      vi.advanceTimersByTime(2000);
     });
 
     expect(mockGithub.syncIssueLabel).toHaveBeenCalledWith('test-project', 42, 'triage', 'new');
+    vi.useRealTimers();
   });
 
-  it('syncIssueLabel skips when sync is disabled', async () => {
+  it('syncIssueLabel skips when sync is disabled', () => {
+    vi.useFakeTimers();
     const { result } = renderHook(() => useLabelSync());
-    await act(async () => {
-      await result.current.syncIssueLabel(42, 'triage', 'new');
+    act(() => {
+      result.current.syncIssueLabel(42, 'triage', 'new');
     });
 
+    vi.advanceTimersByTime(2000);
     expect(mockGithub.syncIssueLabel).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('syncIssueLabel debounces rapid calls — only last fires', async () => {
+    vi.useFakeTimers();
+    mockGithub.syncIssueLabel.mockResolvedValue({ synced: true });
+    useLabelSyncStore.getState().setConfig({ enabled: true, lastSyncedAt: 'now' });
+
+    const { result } = renderHook(() => useLabelSync());
+    act(() => {
+      result.current.syncIssueLabel(42, 'triage', 'new');
+      result.current.syncIssueLabel(42, 'ready', 'triage');
+      result.current.syncIssueLabel(42, 'in_progress', 'ready');
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(mockGithub.syncIssueLabel).toHaveBeenCalledTimes(1);
+    expect(mockGithub.syncIssueLabel).toHaveBeenCalledWith('test-project', 42, 'in_progress', 'ready');
+    vi.useRealTimers();
   });
 
   it('saveConfig persists config', async () => {
@@ -115,6 +148,32 @@ describe('useLabelSync', () => {
 
     expect(mockGithub.saveLabelSyncConfig).toHaveBeenCalledWith('test-project', config);
     expect(result.current.config.enabled).toBe(true);
+  });
+
+  it('bulkLabelSync calls API when sync is enabled', async () => {
+    mockGithub.bulkLabelSync.mockResolvedValue({ synced: 3, errors: 0 });
+    useLabelSyncStore.getState().setConfig({ enabled: true, lastSyncedAt: 'now' });
+
+    const { result } = renderHook(() => useLabelSync());
+    let bulkResult: { synced: number; errors: number } | undefined;
+    await act(async () => {
+      bulkResult = await result.current.bulkLabelSync([1, 2, 3]);
+    });
+
+    expect(mockGithub.bulkLabelSync).toHaveBeenCalledWith('test-project', [1, 2, 3]);
+    expect(bulkResult?.synced).toBe(3);
+    expect(result.current.isSyncing).toBe(false);
+  });
+
+  it('bulkLabelSync skips when sync is disabled', async () => {
+    const { result } = renderHook(() => useLabelSync());
+    let bulkResult: { synced: number; errors: number } | undefined;
+    await act(async () => {
+      bulkResult = await result.current.bulkLabelSync([1, 2, 3]);
+    });
+
+    expect(mockGithub.bulkLabelSync).not.toHaveBeenCalled();
+    expect(bulkResult?.synced).toBe(0);
   });
 
   it('handles enable error gracefully', async () => {

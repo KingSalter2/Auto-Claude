@@ -576,7 +576,16 @@
     "apply": "Apply",
     "dismiss": "Dismiss",
     "auto": "Auto-applied",
-    "noResults": "No triage results to review"
+    "noResults": "No triage results to review",
+    "undo": "Undo"
+  },
+  "commentForm": {
+    "write": "Write",
+    "preview": "Preview",
+    "placeholder": "Write a comment...",
+    "emptyError": "Comment cannot be empty",
+    "submit": "Comment",
+    "submitting": "Submitting..."
   },
   "issueSplit": {
     "title": "Split Issue",

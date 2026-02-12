@@ -181,6 +181,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
 
   // AI Triage
   const aiTriage = useAITriage(selectedProject?.id ?? '');
+  const lastBatchSnapshot = useAITriageStore((s) => s.lastBatchSnapshot);
 
   // Triage mode (3-panel layout)
   const { isEnabled: triageModeEnabled, isAvailable: triageModeAvailable, toggle: toggleTriageMode } = useTriageMode();
@@ -393,7 +394,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       {/* Content */}
       <div className="flex-1 flex min-h-0">
         {/* Issue List */}
-        <section className={`${triageModeEnabled ? 'w-1/4' : 'w-1/2'} border-r border-border flex flex-col`} aria-label={t('panels.issueList')}>
+        <section className={`${triageModeEnabled ? 'w-1/4' : 'w-1/2'} border-r border-border flex flex-col`} aria-label={t('panels.issueList')} data-triage-panel="1" tabIndex={-1}>
           <IssueList
             issues={workflowFilteredIssues}
             selectedIssueNumber={selectedIssueNumber}
@@ -412,7 +413,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         </section>
 
         {/* Issue Detail */}
-        <section className={`w-1/2 flex flex-col ${triageModeEnabled ? 'border-r border-border' : ''}`} aria-label={t('panels.issueDetail')}>
+        <section className={`w-1/2 flex flex-col ${triageModeEnabled ? 'border-r border-border' : ''}`} aria-label={t('panels.issueDetail')} data-triage-panel="2" tabIndex={-1}>
           {selectedIssue ? (
             <IssueDetail
               issue={selectedIssue}
@@ -456,7 +457,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
 
         {/* Triage Sidebar (3rd panel) */}
         {triageModeEnabled && selectedIssue && (
-          <section className="w-1/4 flex flex-col" aria-label={t('panels.triageSidebar')}>
+          <section className="w-1/4 flex flex-col" aria-label={t('panels.triageSidebar')} data-triage-panel="3" tabIndex={-1}>
             <TriageSidebar
               enrichment={enrichments[String(selectedIssue.number)] ?? null}
               currentState={enrichments[String(selectedIssue.number)]?.triageState ?? 'new'}
@@ -519,7 +520,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
           onReject={aiTriage.rejectResult}
           onAcceptAll={() => { useAITriageStore.getState().acceptAllRemaining(); }}
           onDismiss={() => { useAITriageStore.getState().dismissReview(); }}
-          onApply={aiTriage.applyTriageResults}
+          onApply={() => { useAITriageStore.getState().snapshotBeforeApply(); aiTriage.applyTriageResults(); }}
+          onUndo={lastBatchSnapshot ? () => { useAITriageStore.getState().undoLastBatch(); } : undefined}
         />
       )}
 

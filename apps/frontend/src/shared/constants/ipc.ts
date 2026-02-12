@@ -497,6 +497,7 @@ export const IPC_CHANNELS = {
   GITHUB_LABEL_SYNC_ISSUE: 'github:label-sync:issue',
   GITHUB_LABEL_SYNC_STATUS: 'github:label-sync:status',
   GITHUB_LABEL_SYNC_SAVE: 'github:label-sync:save',
+  GITHUB_LABEL_SYNC_BULK: 'github:label-sync:bulk',
 
   // Dependencies (Phase 4)
   GITHUB_DEPS_FETCH: 'github:deps:fetch',

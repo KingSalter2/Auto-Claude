@@ -13,6 +13,7 @@ interface BatchTriageReviewProps {
   onAcceptAll: () => void;
   onDismiss: () => void;
   onApply: () => void;
+  onUndo?: () => void;
 }
 
 export function BatchTriageReview({
@@ -22,6 +23,7 @@ export function BatchTriageReview({
   onAcceptAll,
   onDismiss,
   onApply,
+  onUndo,
 }: BatchTriageReviewProps) {
   const { t } = useTranslation(['common']);
   const reviewed = items.filter((i) => i.status !== 'pending').length;
@@ -65,6 +67,16 @@ export function BatchTriageReview({
               onClick={onApply}
             >
               {t('common:batchReview.apply')}
+            </button>
+          )}
+          {onUndo && (
+            <button
+              type="button"
+              aria-label={t('common:batchReview.undo')}
+              className="text-xs px-3 py-1 rounded bg-amber-600 hover:bg-amber-500 text-white transition-colors"
+              onClick={onUndo}
+            >
+              {t('common:batchReview.undo')}
             </button>
           )}
           <button

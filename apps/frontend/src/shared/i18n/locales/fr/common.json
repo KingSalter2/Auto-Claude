@@ -576,7 +576,16 @@
     "apply": "Appliquer",
     "dismiss": "Fermer",
     "auto": "Auto-appliqué",
-    "noResults": "Aucun résultat de triage à revoir"
+    "noResults": "Aucun résultat de triage à revoir",
+    "undo": "Annuler"
+  },
+  "commentForm": {
+    "write": "Rédiger",
+    "preview": "Aperçu",
+    "placeholder": "Écrire un commentaire...",
+    "emptyError": "Le commentaire ne peut pas être vide",
+    "submit": "Commenter",
+    "submitting": "Envoi en cours..."
   },
   "issueSplit": {
     "title": "Diviser l'issue",

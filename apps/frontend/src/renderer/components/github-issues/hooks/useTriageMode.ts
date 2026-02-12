@@ -23,6 +23,27 @@ export function useTriageMode() {
     return () => window.removeEventListener('resize', check);
   }, [setEnabled]);
 
+  // Keyboard shortcuts: Ctrl+1/2/3 focus triage panels
+  useEffect(() => {
+    if (!isEnabled) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!e.ctrlKey) return;
+      const panelNumber =
+        e.key === '1' ? '1' : e.key === '2' ? '2' : e.key === '3' ? '3' : null;
+      if (!panelNumber) return;
+
+      e.preventDefault();
+      const panel = document.querySelector<HTMLElement>(
+        `[data-triage-panel="${panelNumber}"]`,
+      );
+      panel?.focus();
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isEnabled]);
+
   const toggle = useCallback(() => {
     if (!isAvailable) return;
     setEnabled(!isEnabled);

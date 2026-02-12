@@ -84,4 +84,20 @@ describe('BatchTriageReview', () => {
     render(<BatchTriageReview items={[]} {...defaultProps} />);
     expect(screen.getByText(/no.*results/i)).toBeDefined();
   });
+
+  it('shows undo button when onUndo provided', () => {
+    const items = [createItem(1, 'accepted')];
+    const onUndo = vi.fn();
+    render(<BatchTriageReview items={items} {...defaultProps} onUndo={onUndo} />);
+    const undoBtn = screen.getByRole('button', { name: /undo/i });
+    expect(undoBtn).toBeDefined();
+    fireEvent.click(undoBtn);
+    expect(onUndo).toHaveBeenCalled();
+  });
+
+  it('does not show undo button when onUndo is not provided', () => {
+    const items = [createItem(1, 'accepted')];
+    render(<BatchTriageReview items={items} {...defaultProps} />);
+    expect(screen.queryByRole('button', { name: /undo/i })).toBeNull();
+  });
 });

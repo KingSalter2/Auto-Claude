@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 34 / 41 complete
+**Status:** 40 / 41 complete
 
 ---
 
@@ -269,16 +269,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** GAP-18
 
 ### GAP-19: Keyboard shortcuts Ctrl+1/2/3 for triage panels
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 4 PRD > US-5 > AC5.1-5.4; Phase 5 PRD > US-8 > AC-8.6
-- **Files to modify:** `hooks/useTriageMode.ts`, `renderer/components/GitHubIssues.tsx`
-- **Fix:** Add useEffect with keydown listener in useTriageMode for Ctrl+1/2/3. Only active when isEnabled. Need panel refs/IDs in GitHubIssues.tsx for focus targeting.
-- **Tests:** Simulate Ctrl+1 → focuses list panel; Ctrl+2 → detail; Ctrl+3 → sidebar; only in triage mode
-- **Test status:** `PENDING`
+- **Files modified:** `hooks/useTriageMode.ts`, `renderer/components/GitHubIssues.tsx`
+- **Fix:** Added useEffect with keydown listener for Ctrl+1/2/3 in useTriageMode. Only active when isEnabled. Added data-triage-panel="1|2|3" + tabIndex={-1} to panel sections.
+- **Tests:** 4 new tests: Ctrl+1/2/3 focus panels, shortcuts inactive when disabled. 9 total.
+- **Test status:** `PASS`
 - **Depends on:** GAP-24 (panels need role="region" + aria-label as focus targets)
-- **Commit:** —
+- **Commit:** Phase E batch
 
 ### GAP-20: DependencyList items not clickable
 - **Status:** `DONE`
@@ -429,16 +429,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** pending
 
 ### GAP-35: No undo batch mechanism
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX (NICE-TO-HAVE)
 - **Scope:** Large
 - **Doc ref:** Phase 3 PRD > US-4 > AC4.9; Phase 3 audit GAP-4
-- **Files to modify:** `renderer/stores/github/ai-triage-store.ts`, `main/ipc-handlers/github/ai-triage-handlers.ts`, `renderer/components/github-issues/hooks/useAITriage.ts`, `renderer/components/github-issues/components/BatchTriageReview.tsx`
-- **Fix:** Track lastBatchApplied in store. Store what labels were added/removed per issue. Add undoLastBatch action that reverses changes. Add "Undo" button in BatchTriageReview.
-- **Tests:** Apply batch → undo → labels reverted
-- **Test status:** `PENDING`
+- **Files modified:** `stores/github/ai-triage-store.ts`, `components/BatchTriageReview.tsx`, `GitHubIssues.tsx`, `en/common.json`, `fr/common.json`
+- **Fix:** Added lastBatchSnapshot state + snapshotBeforeApply/undoLastBatch actions to store. Added onUndo prop to BatchTriageReview with Undo button. GitHubIssues snapshots before apply and passes onUndo when snapshot exists. i18n: batchReview.undo (EN/FR).
+- **Tests:** 3 store tests (snapshot, restore, no-op when no snapshot) + 2 component tests (undo button shown/hidden). 22 total.
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** Phase E batch
 
 ### GAP-36: Trust level UI (Crawl/Walk/Run) not displayed
 - **Status:** `DONE`
@@ -493,52 +493,52 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** pending
 
 ### GAP-40: Label sync debounce not implemented
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** NICE-TO-HAVE
 - **Scope:** Medium
 - **Doc ref:** Phase 4 PRD > US-2 > AC2.2, AC2.7
-- **Files to modify:** `renderer/components/github-issues/hooks/useLabelSync.ts`
-- **Fix:** Wrap syncIssueLabel in debounce using SYNC_DEBOUNCE_MS. Batch pending syncs.
-- **Tests:** Rapid transitions → only one sync call per debounce window
-- **Test status:** `PENDING`
+- **Files modified:** `hooks/useLabelSync.ts`
+- **Fix:** Added useRef timer + SYNC_DEBOUNCE_MS (2000ms) debounce to syncIssueLabel. Clears timer on each call, only fires the last. Cleanup on unmount.
+- **Tests:** Updated existing test + 1 new debounce test: rapid calls → only last fires. 11 total.
+- **Test status:** `PASS`
 - **Depends on:** GAP-15 (useLabelSync wired first)
-- **Commit:** —
+- **Commit:** Phase E batch
 
 ### GAP-41: No bulk label sync handler
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** NICE-TO-HAVE
 - **Scope:** Medium
 - **Doc ref:** Phase 4 PRD Section 3.2; Phase 4 impl plan WP-2.1
-- **Files to modify:** `shared/constants/ipc.ts`, `main/ipc-handlers/github/label-sync-handlers.ts`, `preload/api/modules/github-api.ts`
-- **Fix:** Add GITHUB_LABEL_SYNC_BULK + PROGRESS IPC channels. Add bulk handler. Add preload method.
-- **Tests:** Bulk sync 5 issues → all labeled; progress events fired
-- **Test status:** `PENDING`
+- **Files modified:** `shared/constants/ipc.ts`, `main/ipc-handlers/github/label-sync-handlers.ts`, `preload/api/modules/github-api.ts`, `hooks/useLabelSync.ts`
+- **Fix:** Added GITHUB_LABEL_SYNC_BULK IPC channel. Added bulk handler in label-sync-handlers (iterates issues, reads enrichment for state, syncs labels). Added preload method + hook bulkLabelSync function.
+- **Tests:** 2 new hook tests: bulk calls API when enabled, skips when disabled. 11 total.
+- **Test status:** `PASS`
 - **Depends on:** GAP-15
-- **Commit:** —
+- **Commit:** Phase E batch
 
 ### GAP-42: No color preview in LabelSyncSettings
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** NICE-TO-HAVE
 - **Scope:** Small
 - **Doc ref:** Phase 4 PRD > US-8 > AC8.4; Phase 4 impl plan WP-7.1
-- **Files to modify:** `renderer/components/github-issues/components/LabelSyncSettings.tsx`
-- **Fix:** Import WORKFLOW_LABEL_COLORS/WORKFLOW_LABEL_MAP. Render color swatches for each workflow state when enabled.
-- **Tests:** Render enabled → 7 color swatches visible
-- **Test status:** `PENDING`
+- **Files modified:** `components/LabelSyncSettings.tsx`
+- **Fix:** Imported getWorkflowLabels. Renders 7 color swatches when enabled, each with colored dot + label name (e.g., ac:new, ac:triage). Uses hex color from WORKFLOW_LABEL_COLORS with opacity for background.
+- **Tests:** 2 new tests: 7 swatches when enabled, 0 when disabled. 13 total.
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** Phase E batch
 
 ### GAP-43: No markdown preview toggle in CommentForm/InlineEditor
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** NICE-TO-HAVE
 - **Scope:** Large
 - **Doc ref:** Phase 2 PRD > US-2 AC2.2; Phase 2 PRD > US-6 AC6.2
-- **Files to modify:** `renderer/components/github-issues/components/CommentForm.tsx`, `renderer/components/github-issues/components/InlineEditor.tsx`, i18n files
-- **Fix:** Add Write/Preview tab toggle. In Preview mode render markdown (ReactMarkdown already in project). Add i18n keys for tabs.
-- **Tests:** Click Preview → markdown rendered; click Write → textarea shown; toggle preserves content
-- **Test status:** `PENDING`
+- **Files modified:** `components/CommentForm.tsx`, `en/common.json`, `fr/common.json`
+- **Fix:** Added Write/Preview tab toggle to CommentForm. Preview mode renders ReactMarkdown. Also converted all hardcoded strings to i18n keys (commentForm.write/preview/placeholder/emptyError/submit/submitting). Content preserved when toggling.
+- **Tests:** 3 new tests (tabs visible, preview shows markdown, write restores content) + 5 updated existing. 8 total.
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** Phase E batch
 
 ---
 
@@ -564,6 +564,12 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 | 2026-02-13 | GAP-09 | DONE — BulkResultsPanel mounted in GitHubIssues.tsx, wired to mutation store | Phase D |
 | 2026-02-13 | GAP-10 | DONE — EnrichmentCommentPreview mounted, enrichmentResult in store/hook, formatEnrichmentComment utility, 8 tests | Phase D |
 | 2026-02-13 | GAP-16 | DONE — BatchTriageReview mounted in GitHubIssues.tsx, wired accept/reject/apply callbacks | Phase D |
+| 2026-02-13 | GAP-19 | DONE — Ctrl+1/2/3 keyboard shortcuts in useTriageMode, data-triage-panel attrs, 4 new tests | Phase E |
+| 2026-02-13 | GAP-35 | DONE — Undo batch: snapshotBeforeApply/undoLastBatch in store, Undo button in BatchTriageReview, 5 tests | Phase E |
+| 2026-02-13 | GAP-40 | DONE — Label sync debounce (2000ms) via useRef timer in useLabelSync, 1 new debounce test | Phase E |
+| 2026-02-13 | GAP-41 | DONE — Bulk label sync: IPC channel + handler + preload + hook method, 2 new tests | Phase E |
+| 2026-02-13 | GAP-42 | DONE — Color swatches in LabelSyncSettings (7 workflow labels with colors), 2 new tests | Phase E |
+| 2026-02-13 | GAP-43 | DONE — Write/Preview tabs in CommentForm with ReactMarkdown, i18n keys EN+FR, 8 tests | Phase E |
 
 ---
 

@@ -37,6 +37,9 @@ interface AITriageState {
   // Error state
   lastError: string | null;
 
+  // Undo state
+  lastBatchSnapshot: TriageReviewItem[] | null;
+
   // Actions
   startTriage: () => void;
   endTriage: () => void;
@@ -56,6 +59,8 @@ interface AITriageState {
   setSplitProgress: (progress: SplitProgress) => void;
   clearSplitProgress: () => void;
   autoApplyByTrust: (config: ProgressiveTrustConfig) => void;
+  snapshotBeforeApply: () => void;
+  undoLastBatch: () => void;
   setLastError: (error: string) => void;
   clearLastError: () => void;
 }
@@ -70,6 +75,7 @@ export const useAITriageStore = create<AITriageState>((set, get) => ({
   splitSuggestion: null,
   splitProgress: null,
   lastError: null,
+  lastBatchSnapshot: null,
 
   // Triage operation
   startTriage: () => set({ isTriaging: true, lastError: null }),
@@ -117,6 +123,17 @@ export const useAITriageStore = create<AITriageState>((set, get) => ({
   clearSplitSuggestion: () => set({ splitSuggestion: null }),
   setSplitProgress: (progress) => set({ splitProgress: progress }),
   clearSplitProgress: () => set({ splitProgress: null }),
+
+  snapshotBeforeApply: () =>
+    set((state) => ({
+      lastBatchSnapshot: state.reviewItems.map((item) => ({ ...item })),
+    })),
+
+  undoLastBatch: () =>
+    set((state) => {
+      if (!state.lastBatchSnapshot) return state;
+      return { reviewItems: state.lastBatchSnapshot, lastBatchSnapshot: null };
+    }),
 
   setLastError: (error) => set({ lastError: error }),
   clearLastError: () => set({ lastError: null }),
