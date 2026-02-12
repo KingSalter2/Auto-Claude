@@ -224,7 +224,7 @@ export async function withProfilesLock<T>(fn: () => Promise<T>): Promise<T> {
  * @returns The updated ProfilesFile
  */
 export async function setActiveAPIProfile(profileId: string | null): Promise<ProfilesFile> {
-  return await atomicModifyProfiles((file) => {
+  return await atomicModifyProfiles(async (file) => {
     // Validate that the profile exists if setting an ID
     if (profileId !== null) {
       const profile = file.profiles.find(p => p.id === profileId);
@@ -232,6 +232,15 @@ export async function setActiveAPIProfile(profileId: string | null): Promise<Pro
         throw new Error(`API profile not found: ${profileId}`);
       }
     }
+
+    // When setting an API profile as active, also clear the OAuth profile
+    // from ClaudeProfileManager so determineActiveProfile() correctly detects API mode
+    if (profileId !== null) {
+      const { getClaudeProfileManager } = await import('../../claude-profile-manager');
+      const profileManager = getClaudeProfileManager();
+      profileManager.clearActiveProfile(); // Clear OAuth active profile
+    }
+
     return {
       ...file,
       activeProfileId: profileId

@@ -421,6 +421,22 @@ export class ClaudeProfileManager {
   }
 
   /**
+   * Clear the active profile (used when switching to API profile mode)
+   */
+  clearActiveProfile(): void {
+    const previousProfileId = this.data.activeProfileId;
+
+    if (process.env.DEBUG === 'true') {
+      console.warn('[ClaudeProfileManager] clearActiveProfile:', {
+        from: previousProfileId
+      });
+    }
+
+    this.data.activeProfileId = '';
+    this.save();
+  }
+
+  /**
    * Set the active profile
    */
   setActiveProfile(profileId: string): boolean {

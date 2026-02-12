@@ -58,6 +58,19 @@ export async function createTerminal(
     // For auth terminals, don't inject existing OAuth token - we want a fresh login
     const profileEnv = skipOAuthToken ? {} : PtyManager.getActiveProfileEnv();
 
+    // Check if an API profile is active (e.g., from proactive swap to GLM/z.ai)
+    // If so, include API env vars and clear OAuth vars so the terminal uses the right credentials
+    let apiProfileEnv: Record<string, string> = {};
+    try {
+      const { getAPIProfileEnv } = await import('../services/profile/profile-service');
+      apiProfileEnv = await getAPIProfileEnv();
+      if (Object.keys(apiProfileEnv).length > 0) {
+        debugLog('[TerminalLifecycle] API profile active, injecting ANTHROPIC_* env vars');
+      }
+    } catch (error) {
+      debugError('[TerminalLifecycle] Failed to get API profile env:', error);
+    }
+
     // Read env vars from Claude Code CLI settings files (.claude/settings.json hierarchy)
     const claudeCodeEnv = getClaudeCodeEnv(projectPath);
     if (Object.keys(claudeCodeEnv).length > 0) {
@@ -67,8 +80,15 @@ export async function createTerminal(
     // Merge environment variables (lowest to highest precedence):
     // 1. Claude Code settings env (from settings.json hierarchy)
     // 2. Profile env (CLAUDE_CONFIG_DIR, CLAUDE_CODE_OAUTH_TOKEN)
-    // 3. Custom env from TerminalCreateOptions
-    const mergedEnv = { ...claudeCodeEnv, ...profileEnv, ...(customEnv || {}) };
+    // 3. API profile env (ANTHROPIC_*, clears CLAUDE_CONFIG_DIR when active)
+    // 4. Custom env from TerminalCreateOptions
+    //
+    // When an API profile is active, clear OAuth vars so Claude Code
+    // doesn't try to use the rate-limited OAuth credentials
+    const effectiveApiEnv = Object.keys(apiProfileEnv).length > 0
+      ? { ...apiProfileEnv, CLAUDE_CONFIG_DIR: '', CLAUDE_CODE_OAUTH_TOKEN: '' }
+      : {};
+    const mergedEnv: Record<string, string> = { ...claudeCodeEnv, ...profileEnv, ...effectiveApiEnv, ...(customEnv || {}) };
 
     if (mergedEnv.CLAUDE_CODE_OAUTH_TOKEN) {
       debugLog('[TerminalLifecycle] Injecting OAuth token from active profile');

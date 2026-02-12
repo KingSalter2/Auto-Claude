@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import { promises as fsPromises } from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { app } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
 import { getFullCredentialsFromKeychain, clearKeychainCache, updateProfileSubscriptionMetadata } from '../claude-profile/credential-utils';
@@ -217,7 +218,8 @@ const YOLO_MODE_FLAG = ' --dangerously-skip-permissions';
 type ClaudeCommandConfig =
   | { method: 'default' }
   | { method: 'temp-file'; tempFile: string }
-  | { method: 'config-dir'; configDir: string };
+  | { method: 'config-dir'; configDir: string }
+  | { method: 'api-profile'; envVars: Record<string, string> };
 
 /**
  * Build the shell command for invoking Claude CLI.
@@ -297,6 +299,27 @@ export function buildClaudeShellCommand(
         // Unix/macOS: Use bash with config dir and history-safe prefixes
         const escapedConfigDir = escapeShellArg(config.configDir);
         return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace CLAUDE_CONFIG_DIR=${escapedConfigDir} ${pathPrefix}bash -c "exec ${fullCmd}"\r`;
+      }
+
+    case 'api-profile':
+      // API profile mode: Set ANTHROPIC_* env vars and clear OAuth vars
+      // Used when a proactive swap moved to an API profile (e.g., GLM via z.ai)
+      if (isWin) {
+        let envSetCommands = '';
+        for (const [key, value] of Object.entries(config.envVars)) {
+          envSetCommands += `set "${escapeForWindowsDoubleQuote(key)}=${escapeForWindowsDoubleQuote(value)}" && `;
+        }
+        // Clear OAuth vars so Claude Code doesn't use stale OAuth credentials
+        envSetCommands += 'set "CLAUDE_CONFIG_DIR=" && set "CLAUDE_CODE_OAUTH_TOKEN=" && ';
+        return `cls && ${cwdCommand}${envSetCommands}${pathPrefix}${fullCmd}\r`;
+      } else {
+        let envPrefix = '';
+        for (const [key, value] of Object.entries(config.envVars)) {
+          envPrefix += `${key}=${escapeShellArg(value)} `;
+        }
+        // Clear OAuth vars so Claude Code doesn't use stale OAuth credentials
+        envPrefix += 'CLAUDE_CONFIG_DIR= CLAUDE_CODE_OAUTH_TOKEN= ';
+        return `clear && ${cwdCommand}HISTFILE= HISTCONTROL=ignorespace ${envPrefix}${pathPrefix}bash -c "exec ${fullCmd}"\r`;
       }
 
     default:
@@ -1139,6 +1162,45 @@ export function invokeClaude(
       return; // Command already executed via configDir or temp-file method
     }
 
+    // Check if an API profile is active (e.g., from proactive swap to GLM/z.ai)
+    // Sync version: read profiles.json directly
+    try {
+      const profilesPath = path.join(app.getPath('userData'), 'auto-claude', 'profiles.json');
+      const profilesData = JSON.parse(fs.readFileSync(profilesPath, 'utf-8'));
+      if (profilesData.activeProfileId) {
+        const apiProfile = profilesData.profiles?.find(
+          (p: { id: string }) => p.id === profilesData.activeProfileId
+        );
+        if (apiProfile?.apiKey) {
+          const apiEnv: Record<string, string> = {};
+          if (apiProfile.baseUrl) apiEnv.ANTHROPIC_BASE_URL = apiProfile.baseUrl.trim();
+          if (apiProfile.apiKey) apiEnv.ANTHROPIC_AUTH_TOKEN = apiProfile.apiKey.trim();
+          if (apiProfile.models?.default) apiEnv.ANTHROPIC_MODEL = apiProfile.models.default.trim();
+          if (apiProfile.models?.haiku) apiEnv.ANTHROPIC_DEFAULT_HAIKU_MODEL = apiProfile.models.haiku.trim();
+          if (apiProfile.models?.sonnet) apiEnv.ANTHROPIC_DEFAULT_SONNET_MODEL = apiProfile.models.sonnet.trim();
+          if (apiProfile.models?.opus) apiEnv.ANTHROPIC_DEFAULT_OPUS_MODEL = apiProfile.models.opus.trim();
+
+          debugLog('[ClaudeIntegration:invokeClaude] API profile active, injecting ANTHROPIC_* env vars');
+          const apiCommand = buildClaudeShellCommand(
+            cwdCommand, pathPrefix, escapedClaudeCmd,
+            { method: 'api-profile', envVars: apiEnv },
+            extraFlags
+          );
+          debugLog('[ClaudeIntegration:invokeClaude] Executing command (api-profile method):', apiCommand);
+          PtyManager.writeToPty(terminal, apiCommand);
+
+          if (activeProfile) {
+            profileManager.markProfileUsed(activeProfile.id);
+          }
+          finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
+          debugLog('[ClaudeIntegration:invokeClaude] ========== INVOKE CLAUDE COMPLETE (api-profile) ==========');
+          return;
+        }
+      }
+    } catch (error) {
+      debugError('[ClaudeIntegration:invokeClaude] Failed to check API profile env:', error);
+    }
+
     // Fall back to default method
     if (activeProfile && !activeProfile.isDefault) {
       debugLog('[ClaudeIntegration:invokeClaude] Using terminal environment for non-default profile:', activeProfile.name);
@@ -1341,6 +1403,34 @@ export async function invokeClaudeAsync(
 
     if (executed) {
       return; // Command already executed via configDir or temp-file method
+    }
+
+    // Check if an API profile is active (e.g., from proactive swap to GLM/z.ai)
+    // When a proactive swap moves from OAuth to an API profile, profiles.json
+    // has activeProfileId set, but ClaudeProfileManager still returns the OAuth profile.
+    // We need to inject the API profile's env vars so Claude Code uses the right credentials.
+    try {
+      const { getAPIProfileEnv } = await import('../services/profile/profile-service');
+      const apiProfileEnv = await getAPIProfileEnv();
+      if (Object.keys(apiProfileEnv).length > 0) {
+        debugLog('[ClaudeIntegration:invokeClaudeAsync] API profile active, injecting ANTHROPIC_* env vars');
+        const command = buildClaudeShellCommand(
+          cwdCommand, pathPrefix, escapedClaudeCmd,
+          { method: 'api-profile', envVars: apiProfileEnv },
+          extraFlags
+        );
+        debugLog('[ClaudeIntegration:invokeClaudeAsync] Executing command (api-profile method):', command);
+        PtyManager.writeToPty(terminal, command);
+
+        if (activeProfile) {
+          profileManager.markProfileUsed(activeProfile.id);
+        }
+        finalizeClaudeInvoke(terminal, activeProfile, projectPath, startTime, getWindow, onSessionCapture);
+        debugLog('[ClaudeIntegration:invokeClaudeAsync] ========== INVOKE CLAUDE COMPLETE (api-profile) ==========');
+        return;
+      }
+    } catch (error) {
+      debugError('[ClaudeIntegration:invokeClaudeAsync] Failed to check API profile env:', error);
     }
 
     // Fall back to default method

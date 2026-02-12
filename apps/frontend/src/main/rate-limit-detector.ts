@@ -482,11 +482,10 @@ export async function getBestAvailableProfileEnv(): Promise<BestProfileEnvResult
     if (profilesFile.activeProfileId) {
       const activeAPI = profilesFile.profiles.find(p => p.id === profilesFile.activeProfileId);
       if (activeAPI?.apiKey) {
-        // API profile is active - return no-swap result
-        // Actual API env vars will be applied by getAPIProfileEnv() in spawnProcess
-        const activeOAuthEnv = profileManager.getActiveProfileEnv();
+        // API profile is active - return empty env so getAPIProfileEnv() API vars are used
+        // Don't return OAuth env vars (CLAUDE_CONFIG_DIR) as that would interfere with API mode
         return {
-          env: ensureCleanProfileEnv(activeOAuthEnv),
+          env: {},
           profileId: activeAPI.id,
           profileName: activeAPI.name,
           wasSwapped: false
@@ -540,6 +539,13 @@ export async function getBestAvailableProfileEnv(): Promise<BestProfileEnvResult
       // Persist the swap by updating the active profile
       if (bestAccount.type === 'oauth') {
         profileManager.setActiveProfile(bestAccount.id);
+        // Clear API active profile so getAPIProfileEnv() returns empty (OAuth mode)
+        try {
+          const { setActiveAPIProfile } = await import('./services/profile/profile-manager');
+          await setActiveAPIProfile(null);
+        } catch (error) {
+          console.error('[RateLimitDetector] Failed to clear active API profile:', error);
+        }
       } else {
         try {
           const { setActiveAPIProfile } = await import('./services/profile/profile-manager');

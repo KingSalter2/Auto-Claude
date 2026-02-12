@@ -293,6 +293,13 @@ export class AgentProcessManager {
     console.log('[AgentProcess] AUTO-SWAP: Switching from', currentProfileId, 'to', bestAccount.id, '(type:', bestAccount.type + ')');
     if (bestAccount.type === 'oauth') {
       profileManager.setActiveProfile(bestAccount.id);
+      // Clear API active profile so getAPIProfileEnv() returns empty (OAuth mode)
+      try {
+        const { setActiveAPIProfile } = await import('../services/profile/profile-manager');
+        await setActiveAPIProfile(null);
+      } catch (error) {
+        console.error('[AgentProcess] Failed to clear active API profile:', error);
+      }
     } else {
       const { setActiveAPIProfile } = await import('../services/profile/profile-manager');
       await setActiveAPIProfile(bestAccount.id);
@@ -388,6 +395,13 @@ export class AgentProcessManager {
     console.log('[AgentProcess] AUTH-FAILURE AUTO-SWAP:', currentProfileId, '->', bestAccount.id, '(type:', bestAccount.type + ')');
     if (bestAccount.type === 'oauth') {
       profileManager.setActiveProfile(bestAccount.id);
+      // Clear API active profile so getAPIProfileEnv() returns empty (OAuth mode)
+      try {
+        const { setActiveAPIProfile } = await import('../services/profile/profile-manager');
+        await setActiveAPIProfile(null);
+      } catch (error) {
+        console.error('[AgentProcess] Failed to clear active API profile:', error);
+      }
     } else {
       const { setActiveAPIProfile } = await import('../services/profile/profile-manager');
       await setActiveAPIProfile(bestAccount.id);

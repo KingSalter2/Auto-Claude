@@ -13,7 +13,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { AgentManager } from '../agent/agent-manager';
 import type { ProfileAssignmentReason, RunningTasksByProfile, ClaudeProfile } from '../../shared/types';
-import type { UnifiedAccount } from '../../shared/types/unified-account';
+import type { UnifiedSwapTarget } from '../claude-profile-manager';
 import type { ClaudeProfileManager } from '../claude-profile-manager';
 
 /**
@@ -106,7 +106,7 @@ export function registerQueueRoutingHandlers(
       options?: {
         excludeAccountId?: string;
       }
-    ): Promise<{ success: boolean; data?: UnifiedAccount | null; error?: string }> => {
+    ): Promise<{ success: boolean; data?: UnifiedSwapTarget | null; error?: string }> => {
       try {
         // If no profile manager is available, return null (no preference)
         if (!profileManager) {
@@ -134,7 +134,7 @@ export function registerQueueRoutingHandlers(
         if (bestAccount) {
           console.log('[QueueRouting] Best unified account selected:', {
             accountId: bestAccount.id,
-            accountName: bestAccount.displayName,
+            accountName: bestAccount.name,
             accountType: bestAccount.type,
             excludedId: options?.excludeAccountId
           });

@@ -773,24 +773,26 @@ export class UsageMonitor extends EventEmitter {
    * @returns The credential string or undefined if none available
    */
   private async getCredential(): Promise<string | undefined> {
-    // Try API profile first (highest priority)
+    // Priority order matches determineActiveProfile(): API first, then OAuth fallback
+    // This ensures usage monitoring reports the correct profile's usage
+
+    // First, try API profile credential (highest priority - terminals use API when active)
     try {
       const profilesFile = await loadProfilesFile();
       if (profilesFile.activeProfileId) {
-        const activeProfile = profilesFile.profiles.find(
+        const apiProfile = profilesFile.profiles.find(
           (p) => p.id === profilesFile.activeProfileId
         );
-        if (activeProfile?.apiKey) {
-          this.debugLog('[UsageMonitor:TRACE] Using API profile credential: ' + activeProfile.name);
-          return activeProfile.apiKey;
+        if (apiProfile?.apiKey) {
+          this.debugLog('[UsageMonitor:TRACE] Using API profile credential: ' + apiProfile.name);
+          return apiProfile.apiKey;
         }
       }
     } catch (error) {
-      // API profile loading failed, fall through to OAuth
       this.debugLog('[UsageMonitor:TRACE] Failed to load API profiles, falling back to OAuth:', error);
     }
 
-    // Fall back to OAuth profile - use ensureValidToken for proactive refresh
+    // Fall back to OAuth profile credential
     const profileManager = getClaudeProfileManager();
     const activeProfile = profileManager.getActiveProfile();
     if (activeProfile) {
@@ -998,12 +1000,18 @@ export class UsageMonitor extends EventEmitter {
 
   /**
    * Determine which profile is active (API profile vs OAuth profile)
-   * API profiles take priority over OAuth profiles
+   *
+   * Priority order:
+   * 1. API profiles - terminals use API credentials when activeProfileId is set
+   * 2. OAuth profiles - fallback when no API profile is active
+   *
+   * This matches terminal-lifecycle.ts behavior where getAPIProfileEnv() is called
+   * first and API vars take precedence over OAuth vars.
    *
    * @returns Active profile info or null if no profile is active
    */
   private async determineActiveProfile(): Promise<ActiveProfileResult | null> {
-    // First, check if an API profile is active
+    // First, check if an API profile is active (terminals use API when activeProfileId is set)
     try {
       const profilesFile = await loadProfilesFile();
       if (profilesFile.activeProfileId) {
@@ -1011,7 +1019,6 @@ export class UsageMonitor extends EventEmitter {
           (p) => p.id === profilesFile.activeProfileId
         );
         if (activeAPIProfile?.apiKey) {
-          // API profile is active and has an apiKey
           this.debugLog('[UsageMonitor:TRACE] Active auth type: API Profile', {
             profileId: activeAPIProfile.id,
             profileName: activeAPIProfile.name,
@@ -1020,58 +1027,53 @@ export class UsageMonitor extends EventEmitter {
           return {
             profileId: activeAPIProfile.id,
             profileName: activeAPIProfile.name,
+            profileEmail: undefined,
             isAPIProfile: true,
             baseUrl: activeAPIProfile.baseUrl
           };
         } else if (activeAPIProfile) {
-          // API profile exists but missing apiKey - fall back to OAuth
-          this.debugLog('[UsageMonitor:TRACE] Active API profile missing apiKey, falling back to OAuth', {
+          this.debugLog('[UsageMonitor:TRACE] Active API profile missing apiKey', {
             profileId: activeAPIProfile.id,
             profileName: activeAPIProfile.name
           });
         } else {
-          // activeProfileId is set but profile not found - fall through to OAuth
-          this.debugLog('[UsageMonitor:TRACE] Active API profile ID set but profile not found, falling back to OAuth');
+          this.debugLog('[UsageMonitor:TRACE] Active API profile ID set but profile not found');
         }
       }
     } catch (error) {
-      // Failed to load API profiles - fall through to OAuth
-      this.debugLog('[UsageMonitor:TRACE] Failed to load API profiles, falling back to OAuth:', error);
+      this.debugLog('[UsageMonitor:TRACE] Failed to load API profiles:', error);
     }
 
-    // If no API profile is active, check OAuth profiles
+    // No API profile active — check OAuth profiles
     const profileManager = getClaudeProfileManager();
     const activeOAuthProfile = profileManager.getActiveProfile();
 
-    if (!activeOAuthProfile) {
-      this.debugLog('[UsageMonitor] No active profile (neither API nor OAuth)');
-      return null;
+    if (activeOAuthProfile) {
+      // Get email from profile or try keychain
+      let profileEmail = activeOAuthProfile.email;
+      if (!profileEmail) {
+        // IMPORTANT: Always pass configDir - service name is based on expanded path (e.g., /Users/xxx/.claude)
+        const keychainCreds = getCredentialsFromKeychain(activeOAuthProfile.configDir);
+        profileEmail = keychainCreds.email ?? undefined;
+      }
+
+      this.debugLog('[UsageMonitor:TRACE] Active auth type: OAuth Profile', {
+        profileId: activeOAuthProfile.id,
+        profileName: activeOAuthProfile.name,
+        profileEmail
+      });
+
+      return {
+        profileId: activeOAuthProfile.id,
+        profileName: activeOAuthProfile.name,
+        profileEmail,
+        isAPIProfile: false,
+        baseUrl: 'https://api.anthropic.com'
+      };
     }
 
-    // Get email from profile or try keychain
-    let profileEmail = activeOAuthProfile.email;
-    if (!profileEmail) {
-      // Try to get email from keychain
-      // IMPORTANT: Always pass configDir - service name is based on expanded path (e.g., /Users/xxx/.claude)
-      const keychainCreds = getCredentialsFromKeychain(activeOAuthProfile.configDir);
-      profileEmail = keychainCreds.email ?? undefined;
-    }
-
-    this.debugLog('[UsageMonitor:TRACE] Active auth type: OAuth Profile', {
-      profileId: activeOAuthProfile.id,
-      profileName: activeOAuthProfile.name,
-      profileEmail
-    });
-
-    const result = {
-      profileId: activeOAuthProfile.id,
-      profileName: activeOAuthProfile.name,
-      profileEmail,
-      isAPIProfile: false,
-      baseUrl: 'https://api.anthropic.com'
-    };
-
-    return result;
+    this.debugLog('[UsageMonitor] No active profile (neither OAuth nor API)');
+    return null;
   }
 
   /**
@@ -1914,6 +1916,14 @@ export class UsageMonitor extends EventEmitter {
     if (bestAccount.type === 'oauth') {
       // Switch OAuth profile via profile manager
       profileManager.setActiveProfile(rawProfileId);
+      // Clear API active profile so determineActiveProfile() and getAPIProfileEnv()
+      // correctly detect OAuth mode on subsequent checks
+      try {
+        const { setActiveAPIProfile } = await import('../services/profile/profile-manager');
+        await setActiveAPIProfile(null);
+      } catch (error) {
+        console.error('[UsageMonitor] Failed to clear active API profile:', error);
+      }
     } else {
       // Switch API profile via profile-manager service
       try {
@@ -1925,8 +1935,22 @@ export class UsageMonitor extends EventEmitter {
       }
     }
 
+    // Clear current usage data so UI doesn't show stale info from old profile
+    // The next checkUsageAndSwap() will fetch fresh data for the new profile
+    this.currentUsage = null;
+    this.currentUsageProfileId = null;
+
     // Record swap timestamp for cooldown
     this.lastSwapTimestamp = Date.now();
+
+    // Immediately trigger usage check for new profile so UI updates right away
+    // Don't wait for next 30-second interval
+    this.debugLog('[UsageMonitor] Triggering immediate usage fetch after proactive swap');
+    setImmediate(() => {
+      this.checkUsageAndSwap().catch(error => {
+        console.error('[UsageMonitor] Failed to fetch usage after swap:', error);
+      });
+    });
 
     // Get the "from" profile name
     let fromProfileName: string | undefined;

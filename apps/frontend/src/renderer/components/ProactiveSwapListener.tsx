@@ -9,6 +9,8 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { RefreshCw, X } from 'lucide-react';
 import { Button } from './ui/button';
+import { loadClaudeProfiles } from '@/stores/claude-profile-store';
+import { loadProfiles } from '@/stores/settings-store';
 
 interface SwapNotification {
   fromProfile: string;
@@ -33,6 +35,10 @@ export function ProactiveSwapListener() {
 
       setNotification(notif);
       setIsVisible(true);
+
+      // Refresh both profile stores so the UI reflects the swap
+      loadClaudeProfiles();
+      loadProfiles();
 
       // Auto-hide after 5 seconds
       setTimeout(() => {
