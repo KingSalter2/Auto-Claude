@@ -11,6 +11,7 @@ import {
   useGitHubInvestigation,
   useIssueFiltering,
   useAutoFix,
+  useBulkOperations,
 } from "./github-issues/hooks";
 import { useAnalyzePreview } from "./github-issues/hooks/useAnalyzePreview";
 import {
@@ -21,6 +22,7 @@ import {
   IssueDetail,
   InvestigationDialog,
   BatchReviewWizard,
+  BulkActionBar,
 } from "./github-issues/components";
 import { GitHubSetupModal } from "./GitHubSetupModal";
 import type { GitHubIssue } from "../../shared/types";
@@ -104,6 +106,39 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       return workflowFilter.includes(state);
     });
   }, [filteredIssues, workflowFilter, enrichments]);
+
+  // Bulk operations
+  const { executeBulk, retryFailed, isOperating: isBulkOperating } = useBulkOperations(selectedProject?.id ?? '');
+  const [selectedIssueNumbers, setSelectedIssueNumbers] = useState<Set<number>>(new Set());
+
+  const handleToggleSelect = useCallback((issueNumber: number) => {
+    setSelectedIssueNumbers(prev => {
+      const next = new Set(prev);
+      if (next.has(issueNumber)) next.delete(issueNumber);
+      else next.add(issueNumber);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedIssueNumbers(new Set(workflowFilteredIssues.map(i => i.number)));
+  }, [workflowFilteredIssues]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedIssueNumbers(new Set());
+  }, []);
+
+  const handleBulkAction = useCallback(
+    (action: Parameters<typeof executeBulk>[0], payload?: Parameters<typeof executeBulk>[2]) => {
+      executeBulk(action, [...selectedIssueNumbers], payload);
+    },
+    [executeBulk, selectedIssueNumbers],
+  );
+
+  // Clear selection when filters change
+  useEffect(() => {
+    setSelectedIssueNumbers(new Set());
+  }, [workflowFilter, filterState, searchQuery]);
 
   const [showInvestigateDialog, setShowInvestigateDialog] = useState(false);
   const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] =
@@ -207,6 +242,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         stateCounts={stateCounts}
       />
 
+      {/* Bulk Action Bar */}
+      {selectedIssueNumbers.size > 0 && (
+        <BulkActionBar
+          selectedCount={selectedIssueNumbers.size}
+          onBulkAction={handleBulkAction}
+          isOperating={isBulkOperating}
+        />
+      )}
+
       {/* Content */}
       <div className="flex-1 flex min-h-0">
         {/* Issue List */}
@@ -222,6 +266,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
             onInvestigate={handleInvestigate}
             onLoadMore={!isSearchActive ? handleLoadMore : undefined}
             enrichments={enrichments}
+            selectedIssueNumbers={selectedIssueNumbers}
+            onToggleSelect={handleToggleSelect}
           />
         </div>
 
