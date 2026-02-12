@@ -31,6 +31,9 @@ import {
 } from './utils/subprocess-runner';
 import { MAX_SPLIT_SUB_ISSUES } from '../../../shared/constants/ai-triage';
 import { createDefaultProgressiveTrust } from '../../../shared/types/ai-triage';
+import { readEnrichmentFile, writeEnrichmentFile } from './enrichment-persistence';
+import { createDefaultEnrichment } from '../../../shared/types/enrichment';
+import type { TriageCategory } from '../../../shared/types/enrichment';
 import type {
   AIEnrichmentResult,
   SplitSuggestion,
@@ -141,7 +144,35 @@ export function registerAITriageHandlers(
             return;
           }
 
-          sendComplete(result.data as AIEnrichmentResult);
+          const enrichmentResult = result.data as AIEnrichmentResult;
+          sendComplete(enrichmentResult);
+
+          // Persist enrichment data to local file
+          try {
+            const enrichmentFile = await readEnrichmentFile(project.path);
+            const key = String(issueNumber);
+            const existing = enrichmentFile.issues[key] ?? createDefaultEnrichment(issueNumber);
+            enrichmentFile.issues[key] = {
+              ...existing,
+              enrichment: {
+                problem: enrichmentResult.problem,
+                goal: enrichmentResult.goal,
+                scopeIn: enrichmentResult.scopeIn,
+                scopeOut: enrichmentResult.scopeOut,
+                acceptanceCriteria: enrichmentResult.acceptanceCriteria,
+                technicalContext: enrichmentResult.technicalContext,
+                risksEdgeCases: enrichmentResult.risksEdgeCases,
+              },
+              completenessScore: enrichmentResult.confidence,
+              updatedAt: new Date().toISOString(),
+            };
+            await writeEnrichmentFile(project.path, enrichmentFile);
+          } catch (persistErr) {
+            debugLog('Failed to persist enrichment result', {
+              issueNumber,
+              error: persistErr instanceof Error ? persistErr.message : persistErr,
+            });
+          }
         });
       } catch (error) {
         sendError(error instanceof Error ? error.message : 'Failed to run enrichment');
@@ -309,6 +340,35 @@ export function registerAITriageHandlers(
               }
 
               succeeded++;
+
+              // Persist triage result to enrichment file
+              try {
+                const enrichmentFile = await readEnrichmentFile(project.path);
+                const key = String(item.issueNumber);
+                const existing = enrichmentFile.issues[key] ?? createDefaultEnrichment(item.issueNumber);
+                enrichmentFile.issues[key] = {
+                  ...existing,
+                  triageResult: {
+                    category: item.result.category as TriageCategory,
+                    confidence: item.result.confidence,
+                    labelsToAdd: item.result.labelsToAdd,
+                    labelsToRemove: item.result.labelsToRemove,
+                    isDuplicate: item.result.isDuplicate,
+                    duplicateOf: item.result.duplicateOf,
+                    isSpam: item.result.isSpam,
+                    suggestedBreakdown: item.result.suggestedBreakdown,
+                    comment: item.result.comment,
+                    triagedAt: item.result.triagedAt,
+                  },
+                  updatedAt: new Date().toISOString(),
+                };
+                await writeEnrichmentFile(project.path, enrichmentFile);
+              } catch (persistErr) {
+                debugLog('Failed to persist triage result', {
+                  issueNumber: item.issueNumber,
+                  error: persistErr instanceof Error ? persistErr.message : persistErr,
+                });
+              }
             } catch (error) {
               debugLog('Failed to apply results to issue', {
                 issueNumber: item.issueNumber,

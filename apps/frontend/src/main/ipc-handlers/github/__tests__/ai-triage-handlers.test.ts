@@ -229,6 +229,44 @@ describe('runEnrichment handler', () => {
 
     expect(mockSendError).toHaveBeenCalledWith('GitHub module not installed');
   });
+
+  it('persists enrichment result to enrichment.json', async () => {
+    const { readEnrichmentFile, writeEnrichmentFile } = await import('../enrichment-persistence');
+    mockRunPythonSubprocess.mockReturnValue({
+      promise: Promise.resolve({
+        success: true,
+        data: {
+          issueNumber: 42,
+          problem: 'Test problem',
+          goal: 'Test goal',
+          scopeIn: ['scope-in'],
+          scopeOut: ['scope-out'],
+          acceptanceCriteria: ['AC-1'],
+          technicalContext: 'Some context',
+          risksEdgeCases: ['Risk 1'],
+          confidence: 0.85,
+        },
+      }),
+    });
+
+    await trigger('test-project', 42);
+
+    expect(readEnrichmentFile).toHaveBeenCalledWith('/fake/project');
+    expect(writeEnrichmentFile).toHaveBeenCalledWith(
+      '/fake/project',
+      expect.objectContaining({
+        issues: expect.objectContaining({
+          '42': expect.objectContaining({
+            enrichment: expect.objectContaining({
+              problem: 'Test problem',
+              goal: 'Test goal',
+            }),
+            completenessScore: 0.85,
+          }),
+        }),
+      }),
+    );
+  });
 });
 
 // ============================================
@@ -388,6 +426,30 @@ describe('applyTriageResults handler', () => {
     const result = mockSendComplete.mock.calls[0][0];
     expect(result.failed).toBeGreaterThan(0);
     expect(result.succeeded).toBeGreaterThan(0);
+  });
+
+  it('persists triage result to enrichment.json after applying', async () => {
+    const { readEnrichmentFile, writeEnrichmentFile } = await import('../enrichment-persistence');
+    mockExecFileSync.mockReturnValue(Buffer.from(''));
+
+    const singleItem = [reviewItems[0]]; // accepted item with bug + priority:high
+    await trigger('test-project', singleItem);
+
+    expect(readEnrichmentFile).toHaveBeenCalled();
+    expect(writeEnrichmentFile).toHaveBeenCalledWith(
+      '/fake/project',
+      expect.objectContaining({
+        issues: expect.objectContaining({
+          '1': expect.objectContaining({
+            triageResult: expect.objectContaining({
+              category: 'bug',
+              labelsToAdd: ['bug', 'priority:high'],
+              triagedAt: '2026-01-01T00:00:00Z',
+            }),
+          }),
+        }),
+      }),
+    );
   });
 
   it('skips rejected items', async () => {

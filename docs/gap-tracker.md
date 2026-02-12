@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 19 / 41 complete
+**Status:** 20 / 41 complete
 
 ---
 
@@ -357,16 +357,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** —
 
 ### GAP-29: No enrichment persistence to local files after AI triage
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 3 PRD > US-1 > AC1.11; Phase 3 PRD > US-5 > AC5.9
 - **Files to modify:** `main/ipc-handlers/github/ai-triage-handlers.ts`
-- **Fix:** After sendComplete(), import readEnrichmentFile/writeEnrichmentFile from enrichment-persistence. Persist triageResult and lastTriagedAt to enrichment.json. Same in applyTriageResults.
-- **Tests:** Run enrichment → enrichment.json contains triageResult + lastTriagedAt
-- **Test status:** `PENDING`
+- **Fix:** After sendComplete() in runEnrichment, persist enrichment sections + completenessScore to enrichment.json. After successful label apply in applyTriageResults, persist triageResult. Both use readEnrichmentFile/writeEnrichmentFile with createDefaultEnrichment fallback. Errors caught and logged (non-fatal).
+- **Tests:** 2 new tests: runEnrichment persists to file, applyTriageResults persists triageResult. 15 total.
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** pending
 
 ### GAP-30: No `actor: 'ai-triage'` audit trail
 - **Status:** `PENDING`
