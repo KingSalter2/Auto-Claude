@@ -12,6 +12,7 @@ import type {
   SplitSuggestion,
   SplitProgress,
   ProgressiveTrustConfig,
+  AIEnrichmentResult,
 } from '../../../shared/types/ai-triage';
 
 // Re-use the enrichment progress type for triage progress display
@@ -27,6 +28,7 @@ interface AITriageState {
 
   // Enrichment operation
   enrichmentProgress: EnrichmentProgress | null;
+  enrichmentResult: AIEnrichmentResult | null;
 
   // Split operation
   splitSuggestion: SplitSuggestion | null;
@@ -47,6 +49,8 @@ interface AITriageState {
   getUnreviewedCount: () => number;
   setEnrichmentProgress: (progress: EnrichmentProgress) => void;
   clearEnrichmentProgress: () => void;
+  setEnrichmentResult: (result: AIEnrichmentResult) => void;
+  clearEnrichmentResult: () => void;
   setSplitSuggestion: (suggestion: SplitSuggestion) => void;
   clearSplitSuggestion: () => void;
   setSplitProgress: (progress: SplitProgress) => void;
@@ -62,6 +66,7 @@ export const useAITriageStore = create<AITriageState>((set, get) => ({
   triageProgress: null,
   reviewItems: [],
   enrichmentProgress: null,
+  enrichmentResult: null,
   splitSuggestion: null,
   splitProgress: null,
   lastError: null,
@@ -104,6 +109,8 @@ export const useAITriageStore = create<AITriageState>((set, get) => ({
   // Enrichment
   setEnrichmentProgress: (progress) => set({ enrichmentProgress: progress }),
   clearEnrichmentProgress: () => set({ enrichmentProgress: null }),
+  setEnrichmentResult: (result) => set({ enrichmentResult: result }),
+  clearEnrichmentResult: () => set({ enrichmentResult: null }),
 
   // Split
   setSplitSuggestion: (suggestion) => set({ splitSuggestion: suggestion }),

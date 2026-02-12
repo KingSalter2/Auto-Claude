@@ -47,6 +47,7 @@ describe('useAITriageStore', () => {
       triageProgress: null,
       reviewItems: [],
       enrichmentProgress: null,
+      enrichmentResult: null,
       splitSuggestion: null,
       splitProgress: null,
       lastError: null,
@@ -265,6 +266,40 @@ describe('useAITriageStore', () => {
 
       // Should remain pending since no labels to add
       expect(useAITriageStore.getState().reviewItems[0].status).toBe('pending');
+    });
+  });
+
+  describe('enrichmentResult', () => {
+    it('setEnrichmentResult stores the result', () => {
+      const result = {
+        issueNumber: 42,
+        problem: 'Login fails',
+        goal: 'Fix login',
+        scopeIn: ['auth'],
+        scopeOut: ['signup'],
+        acceptanceCriteria: ['User can log in'],
+        technicalContext: 'React app',
+        risksEdgeCases: ['Token expiry'],
+        confidence: 0.9,
+      };
+      useAITriageStore.getState().setEnrichmentResult(result);
+      expect(useAITriageStore.getState().enrichmentResult).toEqual(result);
+    });
+
+    it('clearEnrichmentResult resets to null', () => {
+      useAITriageStore.getState().setEnrichmentResult({
+        issueNumber: 1,
+        problem: 'test',
+        goal: 'test',
+        scopeIn: [],
+        scopeOut: [],
+        acceptanceCriteria: [],
+        technicalContext: '',
+        risksEdgeCases: [],
+        confidence: 0.5,
+      });
+      useAITriageStore.getState().clearEnrichmentResult();
+      expect(useAITriageStore.getState().enrichmentResult).toBeNull();
     });
   });
 

@@ -18,6 +18,7 @@ import {
   useMetrics,
   useMutations,
   useDependencies,
+  useLabelSync,
 } from "./github-issues/hooks";
 import { useAnalyzePreview } from "./github-issues/hooks/useAnalyzePreview";
 import {
@@ -29,11 +30,17 @@ import {
   InvestigationDialog,
   BatchReviewWizard,
   BulkActionBar,
+  BulkResultsPanel,
   TriageProgressOverlay,
   IssueSplitDialog,
   TriageSidebar,
+  EnrichmentCommentPreview,
+  BatchTriageReview,
 } from "./github-issues/components";
 import { GitHubSetupModal } from "./GitHubSetupModal";
+import { useMutationStore } from "../stores/github/mutation-store";
+import { useAITriageStore } from "../stores/github/ai-triage-store";
+import { formatEnrichmentComment } from "../../shared/constants/ai-triage";
 import type { GitHubIssue } from "../../shared/types";
 import type { GitHubIssuesProps } from "./github-issues/types";
 import type { WorkflowState, Resolution } from "../../shared/types/enrichment";
@@ -164,6 +171,13 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     }
     wasBulkOperating.current = isBulkOperating;
   }, [isBulkOperating]);
+
+  // Bulk operation results (GAP-09)
+  const bulkResult = useMutationStore((s) => s.bulkResult);
+  const clearBulkResult = useMutationStore((s) => s.clearBulkResult);
+
+  // Label sync (Phase 4)
+  const labelSync = useLabelSync();
 
   // AI Triage
   const aiTriage = useAITriage(selectedProject?.id ?? '');
@@ -312,10 +326,12 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const handleTransition = useCallback(
     (to: WorkflowState, resolution?: Resolution) => {
       if (selectedIssue && selectedProject?.id) {
+        const oldState = enrichments[String(selectedIssue.number)]?.triageState ?? 'new';
         transitionWorkflowState(selectedProject.id, selectedIssue.number, to, resolution);
+        labelSync.syncIssueLabel(selectedIssue.number, to, oldState);
       }
     },
-    [selectedIssue, selectedProject?.id],
+    [selectedIssue, selectedProject?.id, enrichments, labelSync],
   );
 
   const handleCloseDialog = useCallback(() => {
@@ -362,6 +378,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
           isOperating={isBulkOperating}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
+        />
+      )}
+
+      {/* Bulk Results Panel (GAP-09) */}
+      {bulkResult && (
+        <BulkResultsPanel
+          result={bulkResult}
+          onRetry={() => { /* retry logic handled externally */ }}
+          onDismiss={clearBulkResult}
         />
       )}
 
@@ -483,6 +508,30 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         <TriageProgressOverlay
           progress={aiTriage.enrichmentProgress ?? aiTriage.triageProgress ?? { progress: 0, message: '' }}
           onCancel={() => { /* cancel handled by store */ }}
+        />
+      )}
+
+      {/* Batch Triage Review (GAP-16) */}
+      {aiTriage.reviewItems.length > 0 && (
+        <BatchTriageReview
+          items={aiTriage.reviewItems}
+          onAccept={aiTriage.acceptResult}
+          onReject={aiTriage.rejectResult}
+          onAcceptAll={() => { useAITriageStore.getState().acceptAllRemaining(); }}
+          onDismiss={() => { useAITriageStore.getState().dismissReview(); }}
+          onApply={aiTriage.applyTriageResults}
+        />
+      )}
+
+      {/* Enrichment Comment Preview (GAP-10) */}
+      {aiTriage.enrichmentResult && selectedIssue && (
+        <EnrichmentCommentPreview
+          content={formatEnrichmentComment(aiTriage.enrichmentResult)}
+          onPost={(content) => {
+            mutations.addComment(selectedIssue.number, content);
+            aiTriage.clearEnrichmentResult();
+          }}
+          onCancel={aiTriage.clearEnrichmentResult}
         />
       )}
 

@@ -27,8 +27,9 @@ export function useAITriage(projectId: string) {
         store.endTriage();
         console.error('Enrichment error:', error.error);
       }),
-      api.onEnrichmentComplete((_projId, _result) => {
+      api.onEnrichmentComplete((_projId, result) => {
         store.clearEnrichmentProgress();
+        store.setEnrichmentResult(result);
         store.endTriage();
       }),
       api.onSplitProgress((_projId, progress) => {
@@ -221,6 +222,8 @@ export function useAITriage(projectId: string) {
     enrichmentProgress: store.enrichmentProgress,
     splitSuggestion: store.splitSuggestion,
     splitProgress: store.splitProgress,
+    enrichmentResult: store.enrichmentResult,
+    clearEnrichmentResult: store.clearEnrichmentResult,
     lastError: store.lastError,
     clearLastError: store.clearLastError,
   };

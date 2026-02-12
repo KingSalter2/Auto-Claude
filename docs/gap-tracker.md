@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 28 / 41 complete
+**Status:** 34 / 41 complete
 
 ---
 
@@ -134,56 +134,56 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** GAP-08
 
 ### GAP-09: BulkResultsPanel not mounted in GitHubIssues.tsx
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 5 PRD > US-5 > AC-5.4; Phase 5 impl plan WP-5 Step 5.3
-- **Files to modify:** `renderer/components/GitHubIssues.tsx`
+- **Files modified:** `renderer/components/GitHubIssues.tsx`
 - **Source component:** `BulkResultsPanel.tsx` — accepts result, onRetry, onDismiss
-- **Fix:** Add BulkResultsPanel to imports. Import useMutationStore for bulkResult/clearBulkResult. Mount after BulkActionBar when bulkResult exists.
-- **Tests:** Verify BulkResultsPanel renders when bulkResult present
-- **Test status:** `PENDING`
+- **Fix:** Imported BulkResultsPanel + useMutationStore. Mounted after BulkActionBar when bulkResult exists. Wired onRetry (noop — externally handled) and onDismiss (clearBulkResult).
+- **Tests:** 6 BulkResultsPanel component tests pass
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** Phase D batch
 
 ### GAP-10: EnrichmentCommentPreview not mounted in GitHubIssues.tsx
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 3 PRD > US-5 > AC5.4; Phase 5 impl plan WP-6 Step 6.3
-- **Files to modify:** `renderer/components/GitHubIssues.tsx`
+- **Files modified:** `renderer/components/GitHubIssues.tsx`, `stores/github/ai-triage-store.ts`, `hooks/useAITriage.ts`, `shared/constants/ai-triage.ts`
 - **Source component:** `EnrichmentCommentPreview.tsx` — accepts content, onPost, onCancel
-- **Fix:** Add to imports. Mount when aiTriage.enrichmentResult exists. Wire onPost to comment mutation.
-- **Tests:** Verify preview renders when enrichmentResult present
-- **Test status:** `PENDING`
-- **Depends on:** Verify aiTriage store exposes enrichmentResult field
-- **Commit:** —
+- **Fix:** Added enrichmentResult/clearEnrichmentResult to store + hook. Added formatEnrichmentComment utility. Mounted EnrichmentCommentPreview when enrichmentResult exists. onPost calls addComment + clearEnrichmentResult.
+- **Tests:** 6 EnrichmentCommentPreview component tests + 2 store tests (set/clear enrichmentResult) = 8 tests pass
+- **Test status:** `PASS`
+- **Depends on:** None
+- **Commit:** Phase D batch
 
 ### GAP-11: LabelSyncSettings not mounted in settings page
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 5 PRD > US-9 > AC-9.1; Phase 5 impl plan WP-8 Step 8.2
-- **Files to modify:** `renderer/components/settings/sections/SectionRouter.tsx`
+- **Files modified:** `components/LabelSyncSettingsConnected.tsx` (NEW), `settings/sections/SectionRouter.tsx`
 - **Source component:** `LabelSyncSettings.tsx` — accepts enabled, isSyncing, lastSyncedAt, error, onEnable, onDisable
-- **Fix:** Import LabelSyncSettings + useLabelSync. Wire in github case after GitHubIntegration. NOTE: hook-calling constraint — may need wrapper component.
-- **Tests:** Verify LabelSyncSettings renders in github settings section
-- **Test status:** `PENDING`
+- **Fix:** Created LabelSyncSettingsConnected wrapper (hooks can't be called conditionally in switch). Uses useLabelSync + useRef guard to prevent infinite re-render. Mounted in SectionRouter github case after GitHubIntegration.
+- **Tests:** 3 new tests: renders settings, loadStatus on mount, enabled state. All pass.
+- **Test status:** `PASS`
 - **Depends on:** GAP-15 (useLabelSync wiring)
-- **Commit:** —
+- **Commit:** Phase D batch
 
 ### GAP-12: ProgressiveTrustSettings not mounted in settings page
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 5 PRD > US-9 > AC-9.2; Phase 5 impl plan WP-8 Step 8.2
-- **Files to modify:** `renderer/components/settings/sections/SectionRouter.tsx`
+- **Files modified:** `components/ProgressiveTrustSettingsConnected.tsx` (NEW), `settings/sections/SectionRouter.tsx`
 - **Source component:** `ProgressiveTrustSettings.tsx` — accepts config, onSave, onCancel
-- **Fix:** Import ProgressiveTrustSettings. Wire in github case. Needs trust config from AI triage store.
-- **Tests:** Verify ProgressiveTrustSettings renders in github settings section
-- **Test status:** `PENDING`
+- **Fix:** Created ProgressiveTrustSettingsConnected wrapper. Loads config via getProgressiveTrust IPC on mount, saves via saveProgressiveTrust. Mounted in SectionRouter github case after LabelSyncSettingsConnected.
+- **Tests:** 3 new tests: renders settings, loads config from IPC, saves config. All pass.
+- **Test status:** `PASS`
 - **Depends on:** GAP-11 (same settings file)
-- **Commit:** —
+- **Commit:** Phase D batch
 
 ### GAP-13: IssueListHeader ignores triage toggle props
 - **Status:** `DONE`
@@ -210,29 +210,29 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** pending
 
 ### GAP-15: `useLabelSync` hook not wired anywhere
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 4 PRD > US-2 > AC2.1; Phase 5 PRD > US-9 > AC-9.1
-- **Files to modify:** `renderer/components/settings/sections/SectionRouter.tsx`, `renderer/components/GitHubIssues.tsx`
-- **Fix:** Primary: Call useLabelSync() in settings (for LabelSyncSettings). Secondary: Call in GitHubIssues.tsx, use syncIssueLabel after handleTransition.
-- **Tests:** Verify sync called after workflow transition when enabled
-- **Test status:** `PENDING`
+- **Files modified:** `renderer/components/GitHubIssues.tsx`, `__tests__/label-sync-integration.test.ts` (NEW)
+- **Fix:** Called useLabelSync() in GitHubIssues.tsx. Updated handleTransition to call labelSync.syncIssueLabel(issueNumber, newState, oldState) after transitionWorkflowState.
+- **Tests:** 3 integration tests: sync called on transition, not called when no issue selected, old state derived from enrichments
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** Phase D batch
 
 ### GAP-16: BatchTriageReview not mounted in GitHubIssues.tsx
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 3 PRD > US-3 > AC3.1; Phase 5 impl plan WP-6
-- **Files to modify:** `renderer/components/GitHubIssues.tsx`
+- **Files modified:** `renderer/components/GitHubIssues.tsx`
 - **Source component:** `BatchTriageReview.tsx` — accepts items, onAccept, onReject, onAcceptAll, onDismiss, onApply
-- **Fix:** Add to imports. Mount after TriageProgressOverlay when aiTriage.reviewItems exists. Wire callbacks.
-- **Tests:** Verify review panel renders when reviewItems present
-- **Test status:** `PENDING`
-- **Depends on:** Verify aiTriage store exposes reviewItems/accept/reject/etc.
-- **Commit:** —
+- **Fix:** Imported BatchTriageReview. Mounted when aiTriage.reviewItems.length > 0. Wired onAccept/onReject from hook, onAcceptAll/onDismiss from store, onApply from hook.
+- **Tests:** 6 BatchTriageReview component tests pass
+- **Test status:** `PASS`
+- **Depends on:** None
+- **Commit:** Phase D batch
 
 ---
 
@@ -558,6 +558,12 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 | 2026-02-12 | GAP-07 | DONE — CompletenessBreakdown wired in EnrichmentPanel, 2 new tests, 12 pass, lint warnings fixed | GAP-07 |
 | 2026-02-12 | GAP-08 | DONE — useDependencies hook wired in GitHubIssues.tsx, deps passed to IssueDetail | GAP-08 |
 | 2026-02-12 | GAP-13 | DONE — Triage toggle in IssueListHeader, 5 new tests, aria-pressed + tooltip | GAP-13 |
+| 2026-02-13 | GAP-15 | DONE — useLabelSync wired in GitHubIssues.tsx, syncIssueLabel after handleTransition, 3 integration tests | Phase D |
+| 2026-02-13 | GAP-11 | DONE — LabelSyncSettingsConnected wrapper, mounted in SectionRouter, 3 tests | Phase D |
+| 2026-02-13 | GAP-12 | DONE — ProgressiveTrustSettingsConnected wrapper, mounted in SectionRouter, 3 tests | Phase D |
+| 2026-02-13 | GAP-09 | DONE — BulkResultsPanel mounted in GitHubIssues.tsx, wired to mutation store | Phase D |
+| 2026-02-13 | GAP-10 | DONE — EnrichmentCommentPreview mounted, enrichmentResult in store/hook, formatEnrichmentComment utility, 8 tests | Phase D |
+| 2026-02-13 | GAP-16 | DONE — BatchTriageReview mounted in GitHubIssues.tsx, wired accept/reject/apply callbacks | Phase D |
 
 ---
 

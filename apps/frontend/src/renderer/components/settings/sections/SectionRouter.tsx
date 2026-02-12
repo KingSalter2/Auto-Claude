@@ -7,6 +7,8 @@ import { LinearIntegration } from '../integrations/LinearIntegration';
 import { GitHubIntegration } from '../integrations/GitHubIntegration';
 import { GitLabIntegration } from '../integrations/GitLabIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
+import { LabelSyncSettingsConnected } from '../../github-issues/components/LabelSyncSettingsConnected';
+import { ProgressiveTrustSettingsConnected } from '../../github-issues/components/ProgressiveTrustSettingsConnected';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
 interface SectionRouterProps {
@@ -139,6 +141,8 @@ export function SectionRouter({
               settings={settings}
               setSettings={setSettings}
             />
+            <LabelSyncSettingsConnected />
+            <ProgressiveTrustSettingsConnected />
           </InitializationGuard>
         </SettingsSection>
       );

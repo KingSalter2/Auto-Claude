@@ -71,3 +71,32 @@ export function estimateBatchCost(issueCount: number, model: string): string {
   const costPerIssue = model.includes('haiku') ? 0.0008 : 0.0035;
   return `~$${(issueCount * costPerIssue).toFixed(2)}`;
 }
+
+/**
+ * Formats an AIEnrichmentResult into a markdown comment for GitHub.
+ */
+export function formatEnrichmentComment(result: {
+  problem: string;
+  goal: string;
+  acceptanceCriteria: string[];
+  risksEdgeCases: string[];
+}): string {
+  const lines: string[] = ['## AI Enrichment Summary', ''];
+  lines.push(`**Problem:** ${result.problem}`, '');
+  lines.push(`**Goal:** ${result.goal}`, '');
+  if (result.acceptanceCriteria.length > 0) {
+    lines.push('### Acceptance Criteria');
+    for (const ac of result.acceptanceCriteria) {
+      lines.push(`- ${ac}`);
+    }
+    lines.push('');
+  }
+  if (result.risksEdgeCases.length > 0) {
+    lines.push('### Risks & Edge Cases');
+    for (const risk of result.risksEdgeCases) {
+      lines.push(`- ${risk}`);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
+}
