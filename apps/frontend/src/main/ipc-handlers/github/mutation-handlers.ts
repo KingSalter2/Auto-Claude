@@ -13,6 +13,7 @@ import { execFileSync } from 'child_process';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
+import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import type { MutationResult } from '../../../shared/types/mutations';
 import {
   validateTitle,
@@ -144,7 +145,7 @@ export function registerMutationHandlers(
 ): void {
   // ---- Edit Title ----
   ipcMain.handle(
-    'github:issue:editTitle',
+    IPC_CHANNELS.GITHUB_ISSUE_EDIT_TITLE,
     async (_, projectId: string, issueNumber: number, title: string): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {
@@ -176,7 +177,7 @@ export function registerMutationHandlers(
 
   // ---- Edit Body ----
   ipcMain.handle(
-    'github:issue:editBody',
+    IPC_CHANNELS.GITHUB_ISSUE_EDIT_BODY,
     async (_, projectId: string, issueNumber: number, body: string | null): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {
@@ -229,7 +230,7 @@ export function registerMutationHandlers(
 
   // ---- Add Labels ----
   ipcMain.handle(
-    'github:issue:addLabels',
+    IPC_CHANNELS.GITHUB_ISSUE_ADD_LABELS,
     async (_, projectId: string, issueNumber: number, labels: string[]): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {
@@ -263,7 +264,7 @@ export function registerMutationHandlers(
 
   // ---- Remove Labels ----
   ipcMain.handle(
-    'github:issue:removeLabels',
+    IPC_CHANNELS.GITHUB_ISSUE_REMOVE_LABELS,
     async (_, projectId: string, issueNumber: number, labels: string[]): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {
@@ -297,7 +298,7 @@ export function registerMutationHandlers(
 
   // ---- Add Assignees ----
   ipcMain.handle(
-    'github:issue:addAssignees',
+    IPC_CHANNELS.GITHUB_ISSUE_ADD_ASSIGNEES,
     async (_, projectId: string, issueNumber: number, assignees: string[]): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {
@@ -331,7 +332,7 @@ export function registerMutationHandlers(
 
   // ---- Remove Assignees ----
   ipcMain.handle(
-    'github:issue:removeAssignees',
+    IPC_CHANNELS.GITHUB_ISSUE_REMOVE_ASSIGNEES,
     async (_, projectId: string, issueNumber: number, assignees: string[]): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {
@@ -365,7 +366,7 @@ export function registerMutationHandlers(
 
   // ---- Close Issue ----
   ipcMain.handle(
-    'github:issue:close',
+    IPC_CHANNELS.GITHUB_ISSUE_CLOSE,
     async (_, projectId: string, issueNumber: number): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {
@@ -396,7 +397,7 @@ export function registerMutationHandlers(
 
   // ---- Reopen Issue ----
   ipcMain.handle(
-    'github:issue:reopen',
+    IPC_CHANNELS.GITHUB_ISSUE_REOPEN,
     async (_, projectId: string, issueNumber: number): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {
@@ -427,7 +428,7 @@ export function registerMutationHandlers(
 
   // ---- Comment on Issue ----
   ipcMain.handle(
-    'github:issue:comment',
+    IPC_CHANNELS.GITHUB_ISSUE_COMMENT,
     async (_, projectId: string, issueNumber: number, body: string): Promise<MutationResult> => {
       const numValidation = validateIssueNumber(issueNumber);
       if (!numValidation.valid) {

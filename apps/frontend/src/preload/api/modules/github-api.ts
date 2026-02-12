@@ -13,6 +13,7 @@ import type {
   PollingMetadata
 } from '../../../shared/types';
 import type { EnrichmentFile, IssueEnrichment, WorkflowState, Resolution } from '../../../shared/types/enrichment';
+import type { MutationResult, BulkExecuteParams, BulkOperationProgress, BulkOperationResult } from '../../../shared/types/mutations';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
 /**
@@ -335,6 +336,29 @@ export interface GitHubAPI {
   bootstrapEnrichment: (projectId: string, issues: GitHubIssue[]) => Promise<EnrichmentFile>;
   reconcileEnrichment: (projectId: string, issues: GitHubIssue[]) => Promise<EnrichmentFile>;
   gcEnrichment: (projectId: string, issueNumbers: number[]) => Promise<{ pruned: number; orphaned: number }>;
+
+  // Issue Mutations
+  editIssueTitle: (projectId: string, issueNumber: number, title: string) => Promise<MutationResult>;
+  editIssueBody: (projectId: string, issueNumber: number, body: string | null) => Promise<MutationResult>;
+  addIssueLabels: (projectId: string, issueNumber: number, labels: string[]) => Promise<MutationResult>;
+  removeIssueLabels: (projectId: string, issueNumber: number, labels: string[]) => Promise<MutationResult>;
+  addIssueAssignees: (projectId: string, issueNumber: number, assignees: string[]) => Promise<MutationResult>;
+  removeIssueAssignees: (projectId: string, issueNumber: number, assignees: string[]) => Promise<MutationResult>;
+  closeIssue: (projectId: string, issueNumber: number) => Promise<MutationResult>;
+  reopenIssue: (projectId: string, issueNumber: number) => Promise<MutationResult>;
+  addIssueComment: (projectId: string, issueNumber: number, body: string) => Promise<MutationResult>;
+
+  // Bulk Operations
+  executeBulk: (params: BulkExecuteParams) => Promise<BulkOperationResult>;
+  onBulkProgress: (callback: (progress: BulkOperationProgress) => void) => IpcListenerCleanup;
+  onBulkComplete: (callback: (result: BulkOperationResult) => void) => IpcListenerCleanup;
+
+  // Repository Data
+  getRepoLabels: (projectId: string) => Promise<{ success: boolean; data?: Array<{ name: string; color: string; description: string }>; error?: string }>;
+  getRepoCollaborators: (projectId: string) => Promise<{ success: boolean; data?: string[]; error?: string }>;
+
+  // Spec from Issue
+  createSpecFromIssue: (projectId: string, issueNumber: number) => Promise<MutationResult>;
 }
 
 /**
@@ -826,4 +850,53 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   gcEnrichment: (projectId: string, issueNumbers: number[]): Promise<{ pruned: number; orphaned: number }> =>
     invokeIpc(IPC_CHANNELS.GITHUB_ENRICHMENT_GC, projectId, issueNumbers),
+
+  // Issue Mutations
+  editIssueTitle: (projectId: string, issueNumber: number, title: string): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_EDIT_TITLE, projectId, issueNumber, title),
+
+  editIssueBody: (projectId: string, issueNumber: number, body: string | null): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_EDIT_BODY, projectId, issueNumber, body),
+
+  addIssueLabels: (projectId: string, issueNumber: number, labels: string[]): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_ADD_LABELS, projectId, issueNumber, labels),
+
+  removeIssueLabels: (projectId: string, issueNumber: number, labels: string[]): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_REMOVE_LABELS, projectId, issueNumber, labels),
+
+  addIssueAssignees: (projectId: string, issueNumber: number, assignees: string[]): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_ADD_ASSIGNEES, projectId, issueNumber, assignees),
+
+  removeIssueAssignees: (projectId: string, issueNumber: number, assignees: string[]): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_REMOVE_ASSIGNEES, projectId, issueNumber, assignees),
+
+  closeIssue: (projectId: string, issueNumber: number): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_CLOSE, projectId, issueNumber),
+
+  reopenIssue: (projectId: string, issueNumber: number): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_REOPEN, projectId, issueNumber),
+
+  addIssueComment: (projectId: string, issueNumber: number, body: string): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_COMMENT, projectId, issueNumber, body),
+
+  // Bulk Operations
+  executeBulk: (params: BulkExecuteParams): Promise<BulkOperationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_BULK_EXECUTE, params),
+
+  onBulkProgress: (callback: (progress: BulkOperationProgress) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_BULK_PROGRESS, callback),
+
+  onBulkComplete: (callback: (result: BulkOperationResult) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_BULK_COMPLETE, callback),
+
+  // Repository Data
+  getRepoLabels: (projectId: string) =>
+    invokeIpc(IPC_CHANNELS.GITHUB_REPO_GET_LABELS, projectId),
+
+  getRepoCollaborators: (projectId: string) =>
+    invokeIpc(IPC_CHANNELS.GITHUB_REPO_GET_COLLABORATORS, projectId),
+
+  // Spec from Issue
+  createSpecFromIssue: (projectId: string, issueNumber: number): Promise<MutationResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_CREATE_SPEC, projectId, issueNumber),
 });

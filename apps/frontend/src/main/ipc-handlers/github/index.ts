@@ -26,6 +26,8 @@ import { registerAutoFixHandlers } from './autofix-handlers';
 import { registerPRHandlers } from './pr-handlers';
 import { registerTriageHandlers } from './triage-handlers';
 import { registerEnrichmentHandlers } from './enrichment-handlers';
+import { registerMutationHandlers } from './mutation-handlers';
+import { registerRepoDataHandlers } from './repo-data-handlers';
 
 /**
  * Register all GitHub-related IPC handlers
@@ -44,6 +46,8 @@ export function registerGithubHandlers(
   registerPRHandlers(getMainWindow);
   registerTriageHandlers(getMainWindow);
   registerEnrichmentHandlers(getMainWindow);
+  registerMutationHandlers(getMainWindow);
+  registerRepoDataHandlers(getMainWindow);
 }
 
 // Re-export utilities for potential external use

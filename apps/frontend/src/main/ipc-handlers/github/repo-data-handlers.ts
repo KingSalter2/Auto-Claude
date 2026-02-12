@@ -6,6 +6,7 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { execFileSync } from 'child_process';
+import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import { withProject } from './utils/project-middleware';
 import { getAugmentedEnv } from '../../env-utils';
 import { createContextLogger } from './utils/logger';
@@ -29,7 +30,7 @@ export function registerRepoDataHandlers(
 ): void {
   // ---- Get Repository Labels ----
   ipcMain.handle(
-    'github:repo:getLabels',
+    IPC_CHANNELS.GITHUB_REPO_GET_LABELS,
     async (_, projectId: string): Promise<RepoDataResult<LabelInfo[]>> => {
       return withProject(projectId, async (project) => {
         try {
@@ -57,7 +58,7 @@ export function registerRepoDataHandlers(
 
   // ---- Get Repository Collaborators ----
   ipcMain.handle(
-    'github:repo:getCollaborators',
+    IPC_CHANNELS.GITHUB_REPO_GET_COLLABORATORS,
     async (_, projectId: string): Promise<RepoDataResult<string[]>> => {
       return withProject(projectId, async (project) => {
         try {

@@ -452,6 +452,29 @@ export const IPC_CHANNELS = {
   GITHUB_ENRICHMENT_RECONCILE: 'github:enrichment:reconcile',
   GITHUB_ENRICHMENT_GC: 'github:enrichment:gc',
 
+  // Issue Mutations
+  GITHUB_ISSUE_EDIT_TITLE: 'github:issue:editTitle',
+  GITHUB_ISSUE_EDIT_BODY: 'github:issue:editBody',
+  GITHUB_ISSUE_ADD_LABELS: 'github:issue:addLabels',
+  GITHUB_ISSUE_REMOVE_LABELS: 'github:issue:removeLabels',
+  GITHUB_ISSUE_ADD_ASSIGNEES: 'github:issue:addAssignees',
+  GITHUB_ISSUE_REMOVE_ASSIGNEES: 'github:issue:removeAssignees',
+  GITHUB_ISSUE_CLOSE: 'github:issue:close',
+  GITHUB_ISSUE_REOPEN: 'github:issue:reopen',
+  GITHUB_ISSUE_COMMENT: 'github:issue:comment',
+
+  // Bulk Operations
+  GITHUB_BULK_EXECUTE: 'github:bulk:execute',
+  GITHUB_BULK_PROGRESS: 'github:bulk:progress',
+  GITHUB_BULK_COMPLETE: 'github:bulk:complete',
+
+  // Repository Data
+  GITHUB_REPO_GET_LABELS: 'github:repo:getLabels',
+  GITHUB_REPO_GET_COLLABORATORS: 'github:repo:getCollaborators',
+
+  // Spec from Issue
+  GITHUB_ISSUE_CREATE_SPEC: 'github:issue:createSpec',
+
   // Memory Infrastructure status (LadybugDB - no Docker required)
   MEMORY_STATUS: 'memory:status',
   MEMORY_LIST_DATABASES: 'memory:listDatabases',
