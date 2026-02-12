@@ -25,6 +25,7 @@ const mockGitHub = {
   getProgressiveTrust: vi.fn(),
   transitionWorkflowState: vi.fn(),
   addIssueComment: vi.fn(),
+  saveEnrichment: vi.fn(),
 };
 
 beforeEach(() => {
@@ -68,6 +69,7 @@ describe('useAITriage', () => {
       .mockResolvedValueOnce({ number: 101, url: 'https://github.com/o/r/issues/101' });
     mockGitHub.closeIssue.mockResolvedValue({ success: true, issueNumber: 42 });
     mockGitHub.addIssueComment.mockResolvedValue({ success: true });
+    mockGitHub.saveEnrichment.mockResolvedValue(true);
     mockGitHub.transitionWorkflowState.mockResolvedValue({});
 
     const { result } = renderHook(() => useAITriage('proj-1'));
@@ -95,6 +97,7 @@ describe('useAITriage', () => {
       .mockResolvedValueOnce({ number: 201, url: 'https://github.com/o/r/issues/201' });
     mockGitHub.closeIssue.mockResolvedValue({ success: true, issueNumber: 10 });
     mockGitHub.addIssueComment.mockResolvedValue({ success: true });
+    mockGitHub.saveEnrichment.mockResolvedValue(true);
     mockGitHub.transitionWorkflowState.mockResolvedValue({});
 
     const { result } = renderHook(() => useAITriage('proj-1'));
@@ -122,6 +125,57 @@ describe('useAITriage', () => {
       'proj-1',
       10,
       expect.stringContaining('Split by Auto-Claude'),
+    );
+  });
+
+  it('confirmSplit creates enrichment entries for sub-issues and updates original', async () => {
+    mockGitHub.createIssue
+      .mockResolvedValueOnce({ number: 300, url: 'https://github.com/o/r/issues/300' })
+      .mockResolvedValueOnce({ number: 301, url: 'https://github.com/o/r/issues/301' });
+    mockGitHub.closeIssue.mockResolvedValue({ success: true, issueNumber: 50 });
+    mockGitHub.addIssueComment.mockResolvedValue({ success: true });
+    mockGitHub.saveEnrichment.mockResolvedValue(true);
+    mockGitHub.transitionWorkflowState.mockResolvedValue({});
+
+    const { result } = renderHook(() => useAITriage('proj-1'));
+
+    const subIssues = [
+      { title: 'Sub X', body: 'Body X', labels: [] },
+      { title: 'Sub Y', body: 'Body Y', labels: [] },
+    ];
+
+    await act(async () => {
+      await result.current.confirmSplit(50, subIssues);
+    });
+
+    // Sub-issue enrichments: 2 sub-issues + 1 original = 3 calls
+    expect(mockGitHub.saveEnrichment).toHaveBeenCalledTimes(3);
+
+    // Sub-issue #300 should have splitFrom: 50
+    expect(mockGitHub.saveEnrichment).toHaveBeenCalledWith(
+      'proj-1',
+      expect.objectContaining({
+        issueNumber: 300,
+        splitFrom: 50,
+      }),
+    );
+
+    // Sub-issue #301 should have splitFrom: 50
+    expect(mockGitHub.saveEnrichment).toHaveBeenCalledWith(
+      'proj-1',
+      expect.objectContaining({
+        issueNumber: 301,
+        splitFrom: 50,
+      }),
+    );
+
+    // Original should have splitInto: [300, 301]
+    expect(mockGitHub.saveEnrichment).toHaveBeenCalledWith(
+      'proj-1',
+      expect.objectContaining({
+        issueNumber: 50,
+        splitInto: [300, 301],
+      }),
     );
   });
 

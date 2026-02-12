@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 22 / 41 complete
+**Status:** 23 / 41 complete
 
 ---
 
@@ -393,16 +393,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** pending
 
 ### GAP-32: No sub-issue enrichment creation on split
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 3 PRD > US-6 > AC6.11
 - **Files to modify:** `renderer/components/github-issues/hooks/useAITriage.ts`
-- **Fix:** After creating each sub-issue, create enrichment with splitFrom: originalNumber, triageState: 'new'. Also update original's enrichment with splitInto array.
-- **Tests:** Split issue → sub-issues have enrichment with splitFrom; original has splitInto
-- **Test status:** `PENDING`
+- **Fix:** After creating sub-issues in confirmSplit, save enrichment for each sub-issue with splitFrom: originalNumber. Also save original's enrichment with splitInto: [subNumbers]. Uses createDefaultEnrichment + saveEnrichment IPC.
+- **Tests:** 1 new test: 3 saveEnrichment calls verified (2 subs with splitFrom, 1 original with splitInto). 10 total.
+- **Test status:** `PASS`
 - **Depends on:** GAP-29 (enrichment write mechanism)
-- **Commit:** —
+- **Commit:** pending
 
 ### GAP-33: Duplicate detection display-only
 - **Status:** `PENDING`

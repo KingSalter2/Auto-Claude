@@ -8,6 +8,7 @@
 import { useCallback, useEffect } from 'react';
 import { useAITriageStore } from '../../../stores/github/ai-triage-store';
 import type { CreateIssueParams } from '../../../../shared/types/ai-triage';
+import { createDefaultEnrichment } from '../../../../shared/types/enrichment';
 
 export function useAITriage(projectId: string) {
   const store = useAITriageStore();
@@ -112,6 +113,18 @@ export function useAITriage(projectId: string) {
             totalCount: subIssues.length,
           });
         }
+
+        // Create enrichment entries for sub-issues
+        for (const subNumber of createdIssues) {
+          const subEnrichment = createDefaultEnrichment(subNumber);
+          subEnrichment.splitFrom = issueNumber;
+          await window.electronAPI.github.saveEnrichment(projectId, subEnrichment);
+        }
+
+        // Update original issue enrichment with splitInto
+        const origEnrichment = createDefaultEnrichment(issueNumber);
+        origEnrichment.splitInto = createdIssues;
+        await window.electronAPI.github.saveEnrichment(projectId, origEnrichment);
 
         // Post linking comment on original issue
         const subIssueLinks = createdIssues.map((num) => `#${num}`).join(', ');
