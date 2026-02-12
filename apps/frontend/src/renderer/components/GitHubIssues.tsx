@@ -16,6 +16,7 @@ import {
   useAITriage,
   useTriageMode,
   useMetrics,
+  useMutations,
 } from "./github-issues/hooks";
 import { useAnalyzePreview } from "./github-issues/hooks/useAnalyzePreview";
 import {
@@ -154,6 +155,51 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
 
   // Metrics
   const { metrics, timeWindow: metricsTimeWindow, isLoading: isMetricsLoading, computeMetrics, setTimeWindow: setMetricsTimeWindow } = useMetrics();
+
+  // Issue mutations (edit, close, reopen, comment, labels, assignees)
+  const mutations = useMutations(selectedProject?.id ?? '');
+
+  // Wrapped mutation callbacks bound to selected issue
+  const handleEditTitle = useCallback(
+    async (title: string) => { if (selectedIssue) await mutations.editTitle(selectedIssue.number, title); },
+    [selectedIssue, mutations],
+  );
+  const handleEditBody = useCallback(
+    async (body: string) => { if (selectedIssue) await mutations.editBody(selectedIssue.number, body); },
+    [selectedIssue, mutations],
+  );
+  const handleCloseIssue = useCallback(
+    async (comment?: string) => {
+      if (!selectedIssue) return;
+      if (comment) await mutations.addComment(selectedIssue.number, comment);
+      await mutations.closeIssue(selectedIssue.number);
+    },
+    [selectedIssue, mutations],
+  );
+  const handleReopenIssue = useCallback(
+    async () => { if (selectedIssue) await mutations.reopenIssue(selectedIssue.number); },
+    [selectedIssue, mutations],
+  );
+  const handleAddComment = useCallback(
+    async (body: string) => { if (selectedIssue) await mutations.addComment(selectedIssue.number, body); },
+    [selectedIssue, mutations],
+  );
+  const handleAddLabels = useCallback(
+    async (labels: string[]) => { if (selectedIssue) await mutations.addLabels(selectedIssue.number, labels); },
+    [selectedIssue, mutations],
+  );
+  const handleRemoveLabels = useCallback(
+    async (labels: string[]) => { if (selectedIssue) await mutations.removeLabels(selectedIssue.number, labels); },
+    [selectedIssue, mutations],
+  );
+  const handleAddAssignees = useCallback(
+    async (logins: string[]) => { if (selectedIssue) await mutations.addAssignees(selectedIssue.number, logins); },
+    [selectedIssue, mutations],
+  );
+  const handleRemoveAssignees = useCallback(
+    async (logins: string[]) => { if (selectedIssue) await mutations.removeAssignees(selectedIssue.number, logins); },
+    [selectedIssue, mutations],
+  );
 
   // Compute metrics on mount when enrichment is loaded
   useEffect(() => {
@@ -324,6 +370,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               onImproveIssue={() => aiTriage.runEnrichment(selectedIssue.number)}
               onSplitIssue={() => aiTriage.runSplitSuggestion(selectedIssue.number)}
               isAIBusy={aiTriage.isTriaging}
+              onEditTitle={handleEditTitle}
+              onEditBody={handleEditBody}
+              onClose={handleCloseIssue}
+              onReopen={handleReopenIssue}
+              onComment={handleAddComment}
+              onAddLabels={handleAddLabels}
+              onRemoveLabels={handleRemoveLabels}
+              onAddAssignees={handleAddAssignees}
+              onRemoveAssignees={handleRemoveAssignees}
             />
           ) : (
             <EmptyState message="Select an issue to view details" />

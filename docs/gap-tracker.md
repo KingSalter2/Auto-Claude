@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 4 / 41 complete
+**Status:** 5 / 41 complete
 
 ---
 
@@ -31,17 +31,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 ## TIER 1 — Critical Wiring (Components built but not connected)
 
 ### GAP-01: `useMutations` hook not called in GitHubIssues.tsx
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 5 PRD > US-4 > AC-4.7; Phase 5 impl plan WP-4 Step 4.3
-- **Files to modify:** `renderer/components/GitHubIssues.tsx`
-- **Source hook:** `hooks/useMutations.ts` — returns editTitle, editBody, closeIssue, reopenIssue, addComment, addLabels, removeLabels, addAssignees, removeAssignees
-- **Fix:** Import useMutations from hooks barrel, call `useMutations(selectedProject?.id ?? '')`, pass all callbacks to `<IssueDetail>` as onEditTitle, onEditBody, onAddLabels, onRemoveLabels, onAddAssignees, onRemoveAssignees, onClose, onReopen, onComment
-- **Tests:** Verify mutation callbacks are passed to IssueDetail
-- **Test status:** `PENDING`
+- **Files modified:** `GitHubIssues.tsx`
+- **Fix:** Imported useMutations from hooks barrel, called with project ID, created 9 wrapped useCallback handlers bound to selectedIssue.number, passed all to IssueDetail (onEditTitle, onEditBody, onClose, onReopen, onComment, onAddLabels, onRemoveLabels, onAddAssignees, onRemoveAssignees)
+- **Tests:** IssueDetail integration tests pass (7 tests), lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** GAP-01
 
 ### GAP-02: InlineEditor not used for title editing in IssueDetail.tsx
 - **Status:** `PENDING`
@@ -551,6 +550,7 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 | 2026-02-12 | GAP-17 | DONE — risksEdgeCases section added to EnrichmentPanel, i18n keys added EN+FR, 10 tests pass | GAP-17 |
 | 2026-02-12 | GAP-24 | DONE — 3 panels changed to `<section>` with i18n aria-label, lint clean | GAP-24 |
 | 2026-02-12 | GAP-38 | DONE — aria-labels on AI buttons (EnrichmentPanel + BulkActionBar), 18 tests pass | GAP-38 |
+| 2026-02-12 | GAP-01 | DONE — useMutations wired in GitHubIssues.tsx, 9 callbacks passed to IssueDetail | GAP-01 |
 
 ---
 
