@@ -37,20 +37,19 @@ export function MetricsDashboard({
   const totalIssues = STATE_ORDER.reduce((sum, s) => sum + (metrics.stateCounts[s] ?? 0), 0);
 
   return (
-    <div className="space-y-4" role="region" aria-label={t('metrics.title')}>
+    <section className="space-y-4" aria-label={t('metrics.title')}>
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">
           {t('metrics.title')}
         </h3>
         <div className="flex items-center gap-2">
-          <div className="flex rounded border border-border overflow-hidden" role="radiogroup" aria-label={t('metrics.timeWindow')}>
+          <div className="flex rounded border border-border overflow-hidden" role="group" aria-label={t('metrics.timeWindow')}>
             {TIME_WINDOWS.map((tw) => (
               <button
                 key={tw.value}
                 type="button"
-                role="radio"
-                aria-checked={timeWindow === tw.value}
+                aria-pressed={timeWindow === tw.value}
                 className={`px-2 py-0.5 text-xs transition-colors ${
                   timeWindow === tw.value
                     ? 'bg-primary text-primary-foreground'
@@ -167,6 +166,6 @@ export function MetricsDashboard({
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

@@ -79,9 +79,9 @@ describe('LabelSyncSettings', () => {
     expect(screen.getByRole('alert').textContent).toBe('Rate limited');
   });
 
-  it('has accessible region role', () => {
-    render(<LabelSyncSettings {...defaultProps} />);
-    expect(screen.getByRole('region')).toBeDefined();
+  it('uses semantic section element', () => {
+    const { container } = render(<LabelSyncSettings {...defaultProps} />);
+    expect(container.querySelector('section')).not.toBeNull();
   });
 
   it('disables buttons while syncing', () => {

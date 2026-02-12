@@ -21,9 +21,9 @@ export function DependencyList({
 
   if (isLoading) {
     return (
-      <div className="text-xs text-muted-foreground italic" role="status">
+      <output className="text-xs text-muted-foreground italic block">
         {t('dependencies.loading')}
-      </div>
+      </output>
     );
   }
 
@@ -53,7 +53,7 @@ export function DependencyList({
   }
 
   return (
-    <div className="space-y-2" role="region" aria-label={t('dependencies.title')}>
+    <section className="space-y-2" aria-label={t('dependencies.title')}>
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-foreground">
           {t('dependencies.title')}
@@ -114,6 +114,6 @@ export function DependencyList({
           </ul>
         </div>
       )}
-    </div>
+    </section>
   );
 }

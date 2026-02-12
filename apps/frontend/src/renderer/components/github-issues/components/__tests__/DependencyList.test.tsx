@@ -16,7 +16,7 @@ describe('DependencyList', () => {
 
   it('shows loading state', () => {
     render(<DependencyList dependencies={emptyDeps} isLoading error={null} />);
-    expect(screen.getByRole('status').textContent).toBe('dependencies.loading');
+    expect(screen.getByText('dependencies.loading')).toBeDefined();
   });
 
   it('shows error with retry button', () => {
@@ -91,8 +91,10 @@ describe('DependencyList', () => {
       tracks: [{ issueNumber: 1, title: 'A', state: 'open' as const }],
       trackedBy: [],
     };
-    render(<DependencyList dependencies={deps} isLoading={false} error={null} />);
-    expect(screen.getByRole('region')).toBeDefined();
+    const { container } = render(
+      <DependencyList dependencies={deps} isLoading={false} error={null} />,
+    );
+    expect(container.querySelector('section')).not.toBeNull();
   });
 
   it('shows state indicator dot with correct color', () => {

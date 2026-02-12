@@ -20,7 +20,7 @@ export function LabelSyncSettings({
   const { t } = useTranslation('common');
 
   return (
-    <div className="space-y-3" role="region" aria-label={t('labelSync.settings')}>
+    <section className="space-y-3" aria-label={t('labelSync.settings')}>
       <div className="flex items-center justify-between">
         <div>
           <h4 className="text-sm font-medium text-foreground">
@@ -71,6 +71,6 @@ export function LabelSyncSettings({
           {error}
         </p>
       )}
-    </div>
+    </section>
   );
 }

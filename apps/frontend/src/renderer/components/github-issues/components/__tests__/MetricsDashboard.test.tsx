@@ -32,16 +32,17 @@ describe('MetricsDashboard', () => {
     expect(screen.getByText('metrics.title')).toBeDefined();
   });
 
-  it('renders time window radio buttons', () => {
+  it('renders time window toggle buttons', () => {
     render(<MetricsDashboard {...defaultProps} />);
-    const radios = screen.getAllByRole('radio');
-    expect(radios).toHaveLength(3);
+    expect(screen.getByText('7 days')).toBeDefined();
+    expect(screen.getByText('30 days')).toBeDefined();
+    expect(screen.getByText('All time')).toBeDefined();
   });
 
   it('highlights current time window', () => {
     render(<MetricsDashboard {...defaultProps} timeWindow="7d" />);
-    const radio7d = screen.getAllByRole('radio').find((el) => el.textContent === '7 days');
-    expect(radio7d?.getAttribute('aria-checked')).toBe('true');
+    const btn7d = screen.getByText('7 days');
+    expect(btn7d.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('calls onTimeWindowChange', () => {
@@ -116,8 +117,8 @@ describe('MetricsDashboard', () => {
     expect(screen.getByText('8')).toBeDefined(); // latest week
   });
 
-  it('has accessible region role', () => {
-    render(<MetricsDashboard {...defaultProps} />);
-    expect(screen.getByRole('region')).toBeDefined();
+  it('uses semantic section element', () => {
+    const { container } = render(<MetricsDashboard {...defaultProps} />);
+    expect(container.querySelector('section')).not.toBeNull();
   });
 });
