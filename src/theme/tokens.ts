@@ -11,31 +11,70 @@ export type ThemeTokens = {
   accent: string;
   destructive: string;
   destructiveForeground: string;
+  radius: {
+    sm: number;
+    md: number;
+    lg: number;
+    xl: number;
+    full: number;
+  };
+  shadow: {
+    sm: any;
+    md: any;
+  };
+};
+
+const commonTokens = {
+  radius: {
+    sm: 8,
+    md: 16,
+    lg: 24,
+    xl: 32,
+    full: 9999,
+  },
+  shadow: {
+    sm: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    md: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 6,
+    },
+  },
 };
 
 export const lightTokens: ThemeTokens = {
-  background: "#F8FAFC",
+  ...commonTokens,
+  background: "#F2F4F7",
   card: "#FFFFFF",
-  border: "#E2E8F0",
-  primary: "#0EA5E9",
-  primaryForeground: "#0B1220",
-  muted: "#F1F5F9",
-  mutedForeground: "#64748B",
-  accent: "#111827",
+  border: "#E4E7EC",
+  primary: "#000000",
+  primaryForeground: "#FFFFFF",
+  muted: "#F2F4F7",
+  mutedForeground: "#667085",
+  accent: "#101828",
   destructive: "#EF4444",
   destructiveForeground: "#FFFFFF",
 };
 
 export const darkTokens: ThemeTokens = {
-  background: "#070A12",
-  card: "#0B1220",
-  border: "rgba(255,255,255,0.08)",
-  primary: "#38BDF8",
-  primaryForeground: "#0B1220",
-  muted: "rgba(255,255,255,0.06)",
-  mutedForeground: "rgba(255,255,255,0.7)",
+  ...commonTokens,
+  background: "#000000",
+  card: "#121212",
+  border: "#27272a",
+  primary: "#00E0FF", // Neon Cyan
+  primaryForeground: "#000000",
+  muted: "#1E1E1E",
+  mutedForeground: "#A1A1AA",
   accent: "#FFFFFF",
-  destructive: "#EF4444",
+  destructive: "#FF453A",
   destructiveForeground: "#FFFFFF",
 };
 
