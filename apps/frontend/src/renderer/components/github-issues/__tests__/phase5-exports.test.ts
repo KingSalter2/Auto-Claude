@@ -1,0 +1,83 @@
+import { describe, it, expect } from 'vitest';
+
+describe('Phase 5 Barrel Exports', () => {
+  describe('hooks/index', () => {
+    it('exports all 13 hooks', async () => {
+      const hooks = await import('../hooks/index');
+      const exportNames = Object.keys(hooks);
+      expect(exportNames).toContain('useGitHubIssues');
+      expect(exportNames).toContain('useGitHubInvestigation');
+      expect(exportNames).toContain('useIssueFiltering');
+      expect(exportNames).toContain('useAutoFix');
+      expect(exportNames).toContain('useEnrichedIssue');
+      expect(exportNames).toContain('useEnrichedIssueFiltering');
+      expect(exportNames).toContain('useMutations');
+      expect(exportNames).toContain('useBulkOperations');
+      expect(exportNames).toContain('useAITriage');
+      expect(exportNames).toContain('useLabelSync');
+      expect(exportNames).toContain('useDependencies');
+      expect(exportNames).toContain('useMetrics');
+      expect(exportNames).toContain('useAnalyzePreview');
+      expect(exportNames.length).toBeGreaterThanOrEqual(13);
+    });
+  });
+
+  describe('components/index', () => {
+    it('exports all Phase 1-4 components', async () => {
+      const components = await import('../components/index');
+      const exportNames = Object.keys(components);
+
+      // Phase 1
+      expect(exportNames).toContain('WorkflowStateBadge');
+      expect(exportNames).toContain('CompletenessIndicator');
+      expect(exportNames).toContain('WorkflowFilter');
+      expect(exportNames).toContain('WorkflowStateDropdown');
+      expect(exportNames).toContain('EnrichmentPanel');
+
+      // Phase 2
+      expect(exportNames).toContain('InlineEditor');
+      expect(exportNames).toContain('LabelManager');
+      expect(exportNames).toContain('AssigneeManager');
+      expect(exportNames).toContain('CommentForm');
+      expect(exportNames).toContain('BulkActionBar');
+      expect(exportNames).toContain('BulkResultsPanel');
+      expect(exportNames).toContain('CreateSpecButton');
+
+      // Phase 3
+      expect(exportNames).toContain('TriageResultCard');
+      expect(exportNames).toContain('BatchTriageReview');
+      expect(exportNames).toContain('EnrichmentCommentPreview');
+      expect(exportNames).toContain('IssueSplitDialog');
+      expect(exportNames).toContain('TriageProgressOverlay');
+      expect(exportNames).toContain('ProgressiveTrustSettings');
+
+      // Phase 4
+      expect(exportNames).toContain('LabelSyncSettings');
+      expect(exportNames).toContain('DependencyList');
+      expect(exportNames).toContain('MetricsDashboard');
+      expect(exportNames).toContain('CompletenessBreakdown');
+
+      // Core
+      expect(exportNames).toContain('IssueListItem');
+      expect(exportNames).toContain('IssueDetail');
+      expect(exportNames).toContain('IssueList');
+      expect(exportNames).toContain('IssueListHeader');
+      expect(exportNames).toContain('InvestigationDialog');
+      expect(exportNames).toContain('BatchReviewWizard');
+      expect(exportNames).toContain('AutoFixButton');
+      expect(exportNames).toContain('EmptyState');
+      expect(exportNames).toContain('NotConnectedState');
+
+      expect(exportNames.length).toBeGreaterThanOrEqual(30);
+    });
+  });
+
+  describe('types/index', () => {
+    it('exports extended type interfaces', async () => {
+      const types = await import('../types/index');
+      // Type-level check — these are interfaces, not runtime values
+      // Verify the module loads without error and exports FilterState
+      expect(types).toBeDefined();
+    });
+  });
+});

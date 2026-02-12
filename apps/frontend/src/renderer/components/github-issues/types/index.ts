@@ -1,6 +1,8 @@
 import type { GitHubIssue, GitHubInvestigationResult } from '../../../../shared/types';
 import type { AutoFixConfig, AutoFixQueueItem } from '../../../../preload/api/modules/github-api';
 import type { WorkflowState, Resolution, IssueEnrichment } from '../../../../shared/types/enrichment';
+import type { IssueDependencies } from '../../../../shared/types/dependencies';
+import type { TriageMetrics, MetricsTimeWindow } from '../../../../shared/types/metrics';
 
 export type FilterState = 'open' | 'closed' | 'all';
 
@@ -17,6 +19,9 @@ export interface IssueListItemProps {
   onInvestigate: () => void;
   triageState?: WorkflowState;
   completenessScore?: number;
+  isSelectable?: boolean;
+  isChecked?: boolean;
+  onToggleSelect?: () => void;
 }
 
 export interface IssueDetailProps {
@@ -35,6 +40,22 @@ export interface IssueDetailProps {
   autoFixQueueItem?: AutoFixQueueItem | null;
   enrichment?: IssueEnrichment | null;
   onTransition?: (to: WorkflowState, resolution?: Resolution) => void;
+  onAITriage?: () => void;
+  onImproveIssue?: () => void;
+  onSplitIssue?: () => void;
+  isAIBusy?: boolean;
+  onEditTitle?: (title: string) => Promise<void>;
+  onEditBody?: (body: string) => Promise<void>;
+  onAddLabels?: (labels: string[]) => Promise<void>;
+  onRemoveLabels?: (labels: string[]) => Promise<void>;
+  onAddAssignees?: (logins: string[]) => Promise<void>;
+  onRemoveAssignees?: (logins: string[]) => Promise<void>;
+  onClose?: (comment?: string) => Promise<void>;
+  onReopen?: () => Promise<void>;
+  onComment?: (body: string) => Promise<void>;
+  dependencies?: IssueDependencies;
+  isDepsLoading?: boolean;
+  depsError?: string | null;
 }
 
 export interface InvestigationDialogProps {
@@ -72,6 +93,9 @@ export interface IssueListHeaderProps {
   workflowFilter?: WorkflowState[];
   onWorkflowFilterChange?: (states: WorkflowState[]) => void;
   stateCounts?: Record<WorkflowState, number>;
+  onToggleTriageMode?: () => void;
+  isTriageModeEnabled?: boolean;
+  isTriageModeAvailable?: boolean;
 }
 
 export interface IssueListProps {
@@ -84,6 +108,9 @@ export interface IssueListProps {
   onSelectIssue: (issueNumber: number) => void;
   onInvestigate: (issue: GitHubIssue) => void;
   onLoadMore?: () => void;
+  enrichments?: Record<string, IssueEnrichment>;
+  selectedIssueNumbers?: Set<number>;
+  onToggleSelect?: (issueNumber: number) => void;
 }
 
 export interface EmptyStateProps {
@@ -95,4 +122,25 @@ export interface EmptyStateProps {
 export interface NotConnectedStateProps {
   error: string | null;
   onOpenSettings?: () => void;
+}
+
+export interface TriageSidebarProps {
+  enrichment: IssueEnrichment | null;
+  currentState: WorkflowState;
+  previousState?: WorkflowState | null;
+  isAgentLocked?: boolean;
+  onTransition: (to: WorkflowState, resolution?: Resolution) => void;
+  completenessScore: number;
+  onAITriage?: () => void;
+  onImproveIssue?: () => void;
+  onSplitIssue?: () => void;
+  isAIBusy?: boolean;
+  dependencies?: IssueDependencies;
+  isDepsLoading?: boolean;
+  depsError?: string | null;
+  metrics?: TriageMetrics;
+  metricsTimeWindow?: MetricsTimeWindow;
+  isMetricsLoading?: boolean;
+  onTimeWindowChange?: (tw: MetricsTimeWindow) => void;
+  onRefreshMetrics?: () => void;
 }
