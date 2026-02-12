@@ -96,6 +96,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const stateCounts = useEnrichmentStore((s) => s.getStateCounts());
   const [workflowFilter, setWorkflowFilter] = useState<WorkflowState[]>([]);
 
+  // Apply workflow filter to issues
+  const workflowFilteredIssues = useMemo(() => {
+    if (workflowFilter.length === 0) return filteredIssues;
+    return filteredIssues.filter((issue) => {
+      const state = enrichments[String(issue.number)]?.triageState ?? 'new';
+      return workflowFilter.includes(state);
+    });
+  }, [filteredIssues, workflowFilter, enrichments]);
+
   const [showInvestigateDialog, setShowInvestigateDialog] = useState(false);
   const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] =
     useState<GitHubIssue | null>(null);
@@ -203,7 +212,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         {/* Issue List */}
         <div className="w-1/2 border-r border-border flex flex-col">
           <IssueList
-            issues={filteredIssues}
+            issues={workflowFilteredIssues}
             selectedIssueNumber={selectedIssueNumber}
             isLoading={isLoading}
             isLoadingMore={isLoadingMore}
@@ -212,6 +221,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
             onSelectIssue={selectIssue}
             onInvestigate={handleInvestigate}
             onLoadMore={!isSearchActive ? handleLoadMore : undefined}
+            enrichments={enrichments}
           />
         </div>
 
