@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { User, MessageCircle, Tag, Sparkles } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
@@ -9,7 +10,17 @@ import { WorkflowStateBadge } from './WorkflowStateBadge';
 import { CompletenessIndicator } from './CompletenessIndicator';
 import type { IssueListItemProps } from '../types';
 
-export function IssueListItem({ issue, isSelected, onClick, onInvestigate, triageState, completenessScore }: IssueListItemProps) {
+export const IssueListItem = memo(function IssueListItem({
+  issue,
+  isSelected,
+  onClick,
+  onInvestigate,
+  triageState,
+  completenessScore,
+  isSelectable,
+  isChecked,
+  onToggleSelect,
+}: IssueListItemProps) {
   return (
     <div
       className={`group p-3 rounded-lg cursor-pointer transition-colors ${
@@ -20,6 +31,19 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate, triag
       onClick={onClick}
     >
       <div className="flex items-start gap-3">
+        {isSelectable && (
+          <input
+            type="checkbox"
+            checked={isChecked ?? false}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+            aria-label={`Select issue #${issue.number}`}
+          />
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <Badge
@@ -70,4 +94,11 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate, triag
       </div>
     </div>
   );
-}
+}, (prev, next) => {
+  return prev.issue.id === next.issue.id
+    && prev.isSelected === next.isSelected
+    && prev.triageState === next.triageState
+    && prev.completenessScore === next.completenessScore
+    && prev.isChecked === next.isChecked
+    && prev.isSelectable === next.isSelectable;
+});

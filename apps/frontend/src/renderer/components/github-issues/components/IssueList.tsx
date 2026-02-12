@@ -15,7 +15,10 @@ export function IssueList({
   error,
   onSelectIssue,
   onInvestigate,
-  onLoadMore
+  onLoadMore,
+  enrichments,
+  selectedIssueNumbers,
+  onToggleSelect,
 }: IssueListProps) {
   const { t } = useTranslation('common');
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -74,15 +77,23 @@ export function IssueList({
   return (
     <ScrollArea className="flex-1" onViewportRef={setViewportElement}>
       <div className="p-2 space-y-1">
-        {issues.map((issue) => (
-          <IssueListItem
-            key={issue.id}
-            issue={issue}
-            isSelected={selectedIssueNumber === issue.number}
-            onClick={() => onSelectIssue(issue.number)}
-            onInvestigate={() => onInvestigate(issue)}
-          />
-        ))}
+        {issues.map((issue) => {
+          const enrichment = enrichments?.[String(issue.number)];
+          return (
+            <IssueListItem
+              key={issue.id}
+              issue={issue}
+              isSelected={selectedIssueNumber === issue.number}
+              onClick={() => onSelectIssue(issue.number)}
+              onInvestigate={() => onInvestigate(issue)}
+              triageState={enrichment?.triageState ?? 'new'}
+              completenessScore={enrichment?.completenessScore ?? 0}
+              isSelectable={!!onToggleSelect}
+              isChecked={selectedIssueNumbers?.has(issue.number) ?? false}
+              onToggleSelect={onToggleSelect ? () => onToggleSelect(issue.number) : undefined}
+            />
+          );
+        })}
 
         {/* Load more trigger / Loading indicator */}
         {onLoadMore && (
