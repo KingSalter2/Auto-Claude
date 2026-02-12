@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 5 / 41 complete
+**Status:** 6 / 41 complete
 
 ---
 
@@ -293,16 +293,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** —
 
 ### GAP-21: useMutations doesn't update issues-store after success
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 2 PRD > US-1 AC1.6, US-2 AC2.7, US-3 AC3.9, US-4 AC4.8, US-5 AC5.6
-- **Files to modify:** `renderer/components/github-issues/hooks/useMutations.ts`
-- **Fix:** Import useIssuesStore. After each successful IPC mutation call, call updateIssue(issueNumber, { field: newValue }). For editTitle → {title}, editBody → {body}, closeIssue → {state:'closed'}, reopenIssue → {state:'open'}, labels/assignees → update arrays.
-- **Tests:** Call mutation → verify issues-store updated with new data
-- **Test status:** `PENDING`
+- **Files modified:** `hooks/useMutations.ts`, `hooks/__tests__/useMutations.test.ts`
+- **Fix:** Imported useIssuesStore, added optimistic store updates after each successful mutation (title, body, state, commentsCount, labels merge/remove, assignees merge/remove). No store update on failure.
+- **Tests:** 21 tests pass (12 existing + 9 new store update tests)
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** GAP-21
 
 ### GAP-22: Selection doesn't clear after bulk op success
 - **Status:** `PENDING`
@@ -551,6 +551,7 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 | 2026-02-12 | GAP-24 | DONE — 3 panels changed to `<section>` with i18n aria-label, lint clean | GAP-24 |
 | 2026-02-12 | GAP-38 | DONE — aria-labels on AI buttons (EnrichmentPanel + BulkActionBar), 18 tests pass | GAP-38 |
 | 2026-02-12 | GAP-01 | DONE — useMutations wired in GitHubIssues.tsx, 9 callbacks passed to IssueDetail | GAP-01 |
+| 2026-02-12 | GAP-21 | DONE — optimistic store updates in useMutations, 21 tests pass | GAP-21 |
 
 ---
 
