@@ -10,14 +10,14 @@ export function CompletenessIndicator({ score, compact }: CompletenessIndicatorP
 
   if (compact) {
     return (
-      <span className="text-xs text-muted-foreground" aria-label={ariaLabel}>
+      <span className="text-xs text-muted-foreground" role="status" aria-label={ariaLabel}>
         {displayText}
       </span>
     );
   }
 
   return (
-    <div className="flex items-center gap-2" aria-label={ariaLabel}>
+    <div className="flex items-center gap-2" role="status" aria-label={ariaLabel}>
       <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
         {hasScore && (
           <div

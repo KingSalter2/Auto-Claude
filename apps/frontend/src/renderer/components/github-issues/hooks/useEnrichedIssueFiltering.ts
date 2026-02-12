@@ -51,7 +51,7 @@ export function useEnrichedIssueFiltering(
     }
 
     // Filter by search query
-    if (searchQuery && searchQuery.trim()) {
+    if (searchQuery?.trim()) {
       const query = searchQuery.toLowerCase();
       items = items.filter(
         (item) =>
