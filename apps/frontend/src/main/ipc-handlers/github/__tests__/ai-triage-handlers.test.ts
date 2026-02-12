@@ -428,6 +428,24 @@ describe('applyTriageResults handler', () => {
     expect(result.succeeded).toBeGreaterThan(0);
   });
 
+  it('appends ai-triage transition after applying results', async () => {
+    const { appendTransition } = await import('../enrichment-persistence');
+    mockExecFileSync.mockReturnValue(Buffer.from(''));
+
+    const singleItem = [reviewItems[0]];
+    await trigger('test-project', singleItem);
+
+    expect(appendTransition).toHaveBeenCalledWith(
+      '/fake/project',
+      expect.objectContaining({
+        issueNumber: 1,
+        actor: 'ai-triage',
+        to: 'triage',
+        reason: expect.stringContaining('bug'),
+      }),
+    );
+  });
+
   it('persists triage result to enrichment.json after applying', async () => {
     const { readEnrichmentFile, writeEnrichmentFile } = await import('../enrichment-persistence');
     mockExecFileSync.mockReturnValue(Buffer.from(''));

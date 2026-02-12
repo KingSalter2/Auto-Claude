@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 20 / 41 complete
+**Status:** 21 / 41 complete
 
 ---
 
@@ -369,16 +369,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** pending
 
 ### GAP-30: No `actor: 'ai-triage'` audit trail
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 3 PRD > US-4 > AC4.7; NFR 3.3
 - **Files to modify:** `shared/types/enrichment.ts`, `main/ipc-handlers/github/ai-triage-handlers.ts`
-- **Fix:** Add 'ai-triage' to TransitionActor union. In applyTriageResults, call appendTransition with actor: 'ai-triage' after each label application.
-- **Tests:** Apply triage results → transitions.json has entry with actor='ai-triage'
-- **Test status:** `PENDING`
+- **Fix:** Added 'ai-triage' to TransitionActor union. After successful label apply in applyTriageResults, call appendTransition with actor: 'ai-triage', from: existing state, to: 'triage', reason with category + confidence.
+- **Tests:** 1 new test: verify appendTransition called with ai-triage actor. 16 total.
+- **Test status:** `PASS`
 - **Depends on:** GAP-29
-- **Commit:** —
+- **Commit:** pending
 
 ### GAP-31: No linking comment when splitting issues
 - **Status:** `PENDING`

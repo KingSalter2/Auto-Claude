@@ -37,6 +37,7 @@ export type TriageCategory =
 export type TransitionActor =
   | 'user'
   | 'agent'
+  | 'ai-triage'
   | 'auto-reconcile'
   | 'bootstrap';
 

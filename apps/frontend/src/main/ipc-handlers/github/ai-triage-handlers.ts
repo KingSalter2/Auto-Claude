@@ -31,7 +31,7 @@ import {
 } from './utils/subprocess-runner';
 import { MAX_SPLIT_SUB_ISSUES } from '../../../shared/constants/ai-triage';
 import { createDefaultProgressiveTrust } from '../../../shared/types/ai-triage';
-import { readEnrichmentFile, writeEnrichmentFile } from './enrichment-persistence';
+import { readEnrichmentFile, writeEnrichmentFile, appendTransition } from './enrichment-persistence';
 import { createDefaultEnrichment } from '../../../shared/types/enrichment';
 import type { TriageCategory } from '../../../shared/types/enrichment';
 import type {
@@ -363,6 +363,16 @@ export function registerAITriageHandlers(
                   updatedAt: new Date().toISOString(),
                 };
                 await writeEnrichmentFile(project.path, enrichmentFile);
+
+                // Append audit trail transition
+                await appendTransition(project.path, {
+                  issueNumber: item.issueNumber,
+                  from: existing.triageState,
+                  to: 'triage',
+                  actor: 'ai-triage',
+                  reason: `AI triage applied: ${item.result.category} (confidence: ${item.result.confidence})`,
+                  timestamp: new Date().toISOString(),
+                });
               } catch (persistErr) {
                 debugLog('Failed to persist triage result', {
                   issueNumber: item.issueNumber,
