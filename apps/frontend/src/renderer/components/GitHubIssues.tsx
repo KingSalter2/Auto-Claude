@@ -12,6 +12,7 @@ import {
   useIssueFiltering,
   useAutoFix,
   useBulkOperations,
+  useAITriage,
 } from "./github-issues/hooks";
 import { useAnalyzePreview } from "./github-issues/hooks/useAnalyzePreview";
 import {
@@ -23,6 +24,9 @@ import {
   InvestigationDialog,
   BatchReviewWizard,
   BulkActionBar,
+  TriageProgressOverlay,
+  IssueSplitDialog,
+  EnrichmentCommentPreview,
 } from "./github-issues/components";
 import { GitHubSetupModal } from "./GitHubSetupModal";
 import type { GitHubIssue } from "../../shared/types";
@@ -134,6 +138,9 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     },
     [executeBulk, selectedIssueNumbers],
   );
+
+  // AI Triage
+  const aiTriage = useAITriage(selectedProject?.id ?? '');
 
   // Clear selection when filters change
   useEffect(() => {
@@ -289,6 +296,10 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
               enrichment={enrichments[String(selectedIssue.number)] ?? null}
               onTransition={handleTransition}
+              onAITriage={() => aiTriage.runEnrichment(selectedIssue.number)}
+              onImproveIssue={() => aiTriage.runEnrichment(selectedIssue.number)}
+              onSplitIssue={() => aiTriage.runSplitSuggestion(selectedIssue.number)}
+              isAIBusy={aiTriage.isTriaging}
             />
           ) : (
             <EmptyState message="Select an issue to view details" />
@@ -320,6 +331,24 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         isAnalyzing={isAnalyzing}
         isApproving={isApproving}
       />
+
+      {/* AI Triage Progress */}
+      {(aiTriage.enrichmentProgress || aiTriage.triageProgress) && (
+        <TriageProgressOverlay
+          progress={aiTriage.enrichmentProgress ?? aiTriage.triageProgress ?? { progress: 0, message: '' }}
+          onCancel={() => { /* cancel handled by store */ }}
+        />
+      )}
+
+      {/* Split Dialog */}
+      {aiTriage.splitSuggestion && (
+        <IssueSplitDialog
+          suggestion={aiTriage.splitSuggestion}
+          progress={aiTriage.splitProgress}
+          onConfirm={aiTriage.confirmSplit}
+          onCancel={() => { /* reset split state */ }}
+        />
+      )}
 
       {/* GitHub Setup Modal - shown when GitHub module is not configured */}
       {selectedProject && (
