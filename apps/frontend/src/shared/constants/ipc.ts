@@ -443,6 +443,15 @@ export const IPC_CHANNELS = {
   GITHUB_TRIAGE_COMPLETE: 'github:triage:complete',
   GITHUB_TRIAGE_ERROR: 'github:triage:error',
 
+  // GitHub Enrichment operations
+  GITHUB_ENRICHMENT_GET_ALL: 'github:enrichment:getAll',
+  GITHUB_ENRICHMENT_GET: 'github:enrichment:get',
+  GITHUB_ENRICHMENT_SAVE: 'github:enrichment:save',
+  GITHUB_ENRICHMENT_TRANSITION: 'github:enrichment:transition',
+  GITHUB_ENRICHMENT_BOOTSTRAP: 'github:enrichment:bootstrap',
+  GITHUB_ENRICHMENT_RECONCILE: 'github:enrichment:reconcile',
+  GITHUB_ENRICHMENT_GC: 'github:enrichment:gc',
+
   // Memory Infrastructure status (LadybugDB - no Docker required)
   MEMORY_STATUS: 'memory:status',
   MEMORY_LIST_DATABASES: 'memory:listDatabases',

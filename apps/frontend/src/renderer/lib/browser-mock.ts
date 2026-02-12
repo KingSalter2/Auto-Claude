@@ -241,7 +241,16 @@ const browserMockAPI: ElectronAPI = {
     startStatusPolling: async () => true,
     stopStatusPolling: async () => true,
     getPollingMetadata: async () => null,
-    onPRStatusUpdate: () => () => {}
+    onPRStatusUpdate: () => () => {},
+
+    // Enrichment operations
+    getAllEnrichment: async () => ({ schemaVersion: 1, issues: {} }),
+    getEnrichment: async () => null,
+    saveEnrichment: async () => true,
+    transitionWorkflowState: async () => null as any,
+    bootstrapEnrichment: async () => ({ schemaVersion: 1, issues: {} }),
+    reconcileEnrichment: async () => ({ schemaVersion: 1, issues: {} }),
+    gcEnrichment: async () => ({ pruned: 0, orphaned: 0 }),
   },
 
   // Queue Routing API (rate limit recovery)

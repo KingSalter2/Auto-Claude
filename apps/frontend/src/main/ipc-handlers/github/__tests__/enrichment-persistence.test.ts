@@ -80,7 +80,7 @@ describe('readEnrichmentFile / writeEnrichmentFile', () => {
 
   it('preserves unknown fields in enrichment entries', async () => {
     const enrichment = createDefaultEnrichment(42);
-    (enrichment as Record<string, unknown>).customField = 'preserved';
+    (enrichment as unknown as Record<string, unknown>).customField = 'preserved';
 
     const data: EnrichmentFile = {
       schemaVersion: ENRICHMENT_SCHEMA_VERSION,
@@ -90,7 +90,7 @@ describe('readEnrichmentFile / writeEnrichmentFile', () => {
     await writeEnrichmentFile(tmpDir, data);
     const result = await readEnrichmentFile(tmpDir);
 
-    expect((result.issues['42'] as Record<string, unknown>).customField).toBe('preserved');
+    expect((result.issues['42'] as unknown as Record<string, unknown>).customField).toBe('preserved');
   });
 
   it('creates parent directory if it does not exist', async () => {

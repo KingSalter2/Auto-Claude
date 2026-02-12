@@ -22,10 +22,11 @@ afterEach(() => {
 });
 
 function createMockIssue(overrides: Partial<GitHubIssue> & { number: number }): GitHubIssue {
+  const { number: num, ...rest } = overrides;
   return {
-    id: overrides.number,
-    number: overrides.number,
-    title: `Issue #${overrides.number}`,
+    id: num,
+    number: num,
+    title: `Issue #${num}`,
     state: 'open',
     labels: [],
     assignees: [],
@@ -33,10 +34,10 @@ function createMockIssue(overrides: Partial<GitHubIssue> & { number: number }): 
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
     commentsCount: 0,
-    url: `https://api.github.com/repos/test/repo/issues/${overrides.number}`,
-    htmlUrl: `https://github.com/test/repo/issues/${overrides.number}`,
+    url: `https://api.github.com/repos/test/repo/issues/${num}`,
+    htmlUrl: `https://github.com/test/repo/issues/${num}`,
     repoFullName: 'test/repo',
-    ...overrides,
+    ...rest,
   };
 }
 

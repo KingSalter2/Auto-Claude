@@ -12,6 +12,7 @@ import type {
   PRStatusUpdate,
   PollingMetadata
 } from '../../../shared/types';
+import type { EnrichmentFile, IssueEnrichment, WorkflowState, Resolution } from '../../../shared/types/enrichment';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
 /**
@@ -325,6 +326,15 @@ export interface GitHubAPI {
   onPRStatusUpdate: (
     callback: (update: PRStatusUpdate) => void
   ) => IpcListenerCleanup;
+
+  // Enrichment operations
+  getAllEnrichment: (projectId: string) => Promise<EnrichmentFile>;
+  getEnrichment: (projectId: string, issueNumber: number) => Promise<IssueEnrichment | null>;
+  saveEnrichment: (projectId: string, enrichment: IssueEnrichment) => Promise<boolean>;
+  transitionWorkflowState: (projectId: string, issueNumber: number, to: WorkflowState, resolution?: Resolution) => Promise<IssueEnrichment>;
+  bootstrapEnrichment: (projectId: string, issues: GitHubIssue[]) => Promise<EnrichmentFile>;
+  reconcileEnrichment: (projectId: string, issues: GitHubIssue[]) => Promise<EnrichmentFile>;
+  gcEnrichment: (projectId: string, issueNumbers: number[]) => Promise<{ pruned: number; orphaned: number }>;
 }
 
 /**
@@ -793,5 +803,27 @@ export const createGitHubAPI = (): GitHubAPI => ({
   onPRStatusUpdate: (
     callback: (update: PRStatusUpdate) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, callback)
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, callback),
+
+  // Enrichment operations
+  getAllEnrichment: (projectId: string): Promise<EnrichmentFile> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ENRICHMENT_GET_ALL, projectId),
+
+  getEnrichment: (projectId: string, issueNumber: number): Promise<IssueEnrichment | null> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ENRICHMENT_GET, projectId, issueNumber),
+
+  saveEnrichment: (projectId: string, enrichment: IssueEnrichment): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ENRICHMENT_SAVE, projectId, enrichment),
+
+  transitionWorkflowState: (projectId: string, issueNumber: number, to: WorkflowState, resolution?: Resolution): Promise<IssueEnrichment> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ENRICHMENT_TRANSITION, projectId, issueNumber, to, resolution),
+
+  bootstrapEnrichment: (projectId: string, issues: GitHubIssue[]): Promise<EnrichmentFile> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ENRICHMENT_BOOTSTRAP, projectId, issues),
+
+  reconcileEnrichment: (projectId: string, issues: GitHubIssue[]): Promise<EnrichmentFile> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ENRICHMENT_RECONCILE, projectId, issues),
+
+  gcEnrichment: (projectId: string, issueNumbers: number[]): Promise<{ pruned: number; orphaned: number }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_ENRICHMENT_GC, projectId, issueNumbers),
 });
