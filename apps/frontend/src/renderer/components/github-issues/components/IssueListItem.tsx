@@ -5,9 +5,11 @@ import {
   GITHUB_ISSUE_STATE_COLORS,
   GITHUB_ISSUE_STATE_LABELS
 } from '../../../../shared/constants';
+import { WorkflowStateBadge } from './WorkflowStateBadge';
+import { CompletenessIndicator } from './CompletenessIndicator';
 import type { IssueListItemProps } from '../types';
 
-export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: IssueListItemProps) {
+export function IssueListItem({ issue, isSelected, onClick, onInvestigate, triageState, completenessScore }: IssueListItemProps) {
   return (
     <div
       className={`group p-3 rounded-lg cursor-pointer transition-colors ${
@@ -26,6 +28,7 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: Iss
             >
               {GITHUB_ISSUE_STATE_LABELS[issue.state]}
             </Badge>
+            <WorkflowStateBadge state={triageState ?? 'new'} />
             <span className="text-xs text-muted-foreground">#{issue.number}</span>
           </div>
           <h4 className="text-sm font-medium text-foreground truncate">
@@ -47,6 +50,9 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: Iss
                 <Tag className="h-3 w-3" />
                 {issue.labels.length}
               </div>
+            )}
+            {completenessScore !== undefined && (
+              <CompletenessIndicator score={completenessScore} compact />
             )}
           </div>
         </div>

@@ -6,3 +6,8 @@ export { IssueListHeader } from './IssueListHeader';
 export { IssueList } from './IssueList';
 export { AutoFixButton } from './AutoFixButton';
 export { BatchReviewWizard } from './BatchReviewWizard';
+export { WorkflowStateBadge } from './WorkflowStateBadge';
+export { CompletenessIndicator } from './CompletenessIndicator';
+export { WorkflowFilter } from './WorkflowFilter';
+export { WorkflowStateDropdown } from './WorkflowStateDropdown';
+export { EnrichmentPanel } from './EnrichmentPanel';

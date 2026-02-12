@@ -56,11 +56,11 @@ describe('EnrichmentPanel', () => {
       enrichment: {
         problem: 'Users cannot log in',
         goal: 'Fix login flow',
-        scopeIn: 'Authentication module',
-        scopeOut: 'Registration',
+        scopeIn: ['Authentication module'],
+        scopeOut: ['Registration'],
         acceptanceCriteria: ['Login works', 'Tests pass'],
         technicalContext: 'OAuth2 based',
-        risksEdgeCases: '',
+        risksEdgeCases: [],
       },
     });
 
@@ -91,7 +91,7 @@ describe('EnrichmentPanel', () => {
   });
 
   it('renders priority when set', () => {
-    const enrichment = makeEnrichment({ priority: 1 });
+    const enrichment = makeEnrichment({ priority: 'high' });
     render(
       <EnrichmentPanel
         enrichment={enrichment}
@@ -101,7 +101,7 @@ describe('EnrichmentPanel', () => {
       />,
     );
 
-    expect(screen.getByText('P1')).toBeDefined();
+    expect(screen.getByText('high')).toBeDefined();
   });
 
   it('renders "No priority" when not set', () => {
@@ -150,11 +150,11 @@ describe('EnrichmentPanel', () => {
       enrichment: {
         problem: '',
         goal: '',
-        scopeIn: '',
-        scopeOut: '',
+        scopeIn: [],
+        scopeOut: [],
         acceptanceCriteria: ['Login works', 'Tests pass'],
         technicalContext: '',
-        risksEdgeCases: '',
+        risksEdgeCases: [],
       },
     });
 

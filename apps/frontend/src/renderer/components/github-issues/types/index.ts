@@ -1,5 +1,6 @@
 import type { GitHubIssue, GitHubInvestigationResult } from '../../../../shared/types';
 import type { AutoFixConfig, AutoFixQueueItem } from '../../../../preload/api/modules/github-api';
+import type { WorkflowState, Resolution, IssueEnrichment } from '../../../../shared/types/enrichment';
 
 export type FilterState = 'open' | 'closed' | 'all';
 
@@ -14,6 +15,8 @@ export interface IssueListItemProps {
   isSelected: boolean;
   onClick: () => void;
   onInvestigate: () => void;
+  triageState?: WorkflowState;
+  completenessScore?: number;
 }
 
 export interface IssueDetailProps {
@@ -30,6 +33,8 @@ export interface IssueDetailProps {
   autoFixConfig?: AutoFixConfig | null;
   /** Auto-fix queue item for this issue */
   autoFixQueueItem?: AutoFixQueueItem | null;
+  enrichment?: IssueEnrichment | null;
+  onTransition?: (to: WorkflowState, resolution?: Resolution) => void;
 }
 
 export interface InvestigationDialogProps {
@@ -64,6 +69,9 @@ export interface IssueListHeaderProps {
   // Analyze & Group (proactive - for existing issues)
   onAnalyzeAndGroup?: () => void;
   isAnalyzing?: boolean;
+  workflowFilter?: WorkflowState[];
+  onWorkflowFilterChange?: (states: WorkflowState[]) => void;
+  stateCounts?: Record<WorkflowState, number>;
 }
 
 export interface IssueListProps {

@@ -43,8 +43,8 @@ export function EnrichmentPanel({
           onTransition={onTransition}
         />
         {priority ? (
-          <Badge variant="outline" className="text-xs">
-            P{priority}
+          <Badge variant="outline" className="text-xs capitalize">
+            {priority}
           </Badge>
         ) : (
           <span className="text-xs text-muted-foreground">No priority</span>

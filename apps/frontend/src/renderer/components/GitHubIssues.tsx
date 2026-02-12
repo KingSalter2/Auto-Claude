@@ -2,6 +2,11 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { useProjectStore } from "../stores/project-store";
 import { useTaskStore } from "../stores/task-store";
 import {
+  useEnrichmentStore,
+  loadEnrichment,
+  transitionWorkflowState,
+} from "../stores/github/enrichment-store";
+import {
   useGitHubIssues,
   useGitHubInvestigation,
   useIssueFiltering,
@@ -20,6 +25,7 @@ import {
 import { GitHubSetupModal } from "./GitHubSetupModal";
 import type { GitHubIssue } from "../../shared/types";
 import type { GitHubIssuesProps } from "./github-issues/types";
+import type { WorkflowState, Resolution } from "../../shared/types/enrichment";
 
 export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesProps) {
   const projects = useProjectStore((state) => state.projects);
@@ -84,6 +90,12 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     approveBatches,
   } = useAnalyzePreview({ projectId: selectedProject?.id || "" });
 
+  // Enrichment state
+  const enrichments = useEnrichmentStore((s) => s.enrichments);
+  const enrichmentLoaded = useEnrichmentStore((s) => s.isLoaded);
+  const stateCounts = useEnrichmentStore((s) => s.getStateCounts());
+  const [workflowFilter, setWorkflowFilter] = useState<WorkflowState[]>([]);
+
   const [showInvestigateDialog, setShowInvestigateDialog] = useState(false);
   const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] =
     useState<GitHubIssue | null>(null);
@@ -107,6 +119,16 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     return map;
   }, [tasks]);
 
+  // Load enrichment data when project is available
+  useEffect(() => {
+    if (selectedProject?.id && syncStatus?.connected) {
+      loadEnrichment(selectedProject.id);
+    }
+    return () => {
+      useEnrichmentStore.getState().clearEnrichment();
+    };
+  }, [selectedProject?.id, syncStatus?.connected]);
+
   // Enhanced refresh that also checks for new auto-fix issues
   const handleRefreshWithAutoFix = useCallback(() => {
     handleRefresh();
@@ -114,7 +136,11 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     if (autoFixConfig?.enabled) {
       checkForNewIssues();
     }
-  }, [handleRefresh, autoFixConfig?.enabled, checkForNewIssues]);
+    // Refresh enrichment data
+    if (selectedProject?.id) {
+      loadEnrichment(selectedProject.id);
+    }
+  }, [handleRefresh, autoFixConfig?.enabled, checkForNewIssues, selectedProject?.id]);
 
   const handleInvestigate = useCallback((issue: GitHubIssue) => {
     setSelectedIssueForInvestigation(issue);
@@ -128,6 +154,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       }
     },
     [selectedIssueForInvestigation, startInvestigation]
+  );
+
+  const handleTransition = useCallback(
+    (to: WorkflowState, resolution?: Resolution) => {
+      if (selectedIssue && selectedProject?.id) {
+        transitionWorkflowState(selectedProject.id, selectedIssue.number, to, resolution);
+      }
+    },
+    [selectedIssue, selectedProject?.id],
   );
 
   const handleCloseDialog = useCallback(() => {
@@ -158,6 +193,9 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         onAutoFixToggle={toggleAutoFix}
         onAnalyzeAndGroup={openWizard}
         isAnalyzing={isAnalyzing}
+        workflowFilter={workflowFilter}
+        onWorkflowFilterChange={setWorkflowFilter}
+        stateCounts={stateCounts}
       />
 
       {/* Content */}
@@ -193,6 +231,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               projectId={selectedProject?.id}
               autoFixConfig={autoFixConfig}
               autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
+              enrichment={enrichments[String(selectedIssue.number)] ?? null}
+              onTransition={handleTransition}
             />
           ) : (
             <EmptyState message="Select an issue to view details" />

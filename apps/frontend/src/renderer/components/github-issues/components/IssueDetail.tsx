@@ -13,6 +13,7 @@ import {
 } from '../../../../shared/constants';
 import { formatDate } from '../utils';
 import { AutoFixButton } from './AutoFixButton';
+import { EnrichmentPanel } from './EnrichmentPanel';
 import type { IssueDetailProps } from '../types';
 
 export function IssueDetail({
@@ -24,6 +25,8 @@ export function IssueDetail({
   projectId,
   autoFixConfig,
   autoFixQueueItem,
+  enrichment,
+  onTransition,
 }: IssueDetailProps) {
   const { t } = useTranslation('common');
   // Determine which task ID to use - either already linked or just created
@@ -174,6 +177,25 @@ export function IssueDetail({
             )}
           </CardContent>
         </Card>
+
+        {/* Enrichment Panel */}
+        {enrichment !== undefined && onTransition && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Enrichment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EnrichmentPanel
+                enrichment={enrichment ?? null}
+                currentState={enrichment?.triageState ?? 'new'}
+                previousState={enrichment?.previousState}
+                isAgentLocked={enrichment?.agentLinks?.some(l => l.status === 'active')}
+                onTransition={onTransition}
+                completenessScore={enrichment?.completenessScore ?? 0}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Assignees */}
         {issue.assignees.length > 0 && (

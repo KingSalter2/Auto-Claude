@@ -442,6 +442,52 @@
     "scrollForMore": "Défiler pour plus",
     "allLoaded": "Toutes les issues chargées"
   },
+  "enrichment": {
+    "states": {
+      "new": "Nouveau",
+      "triage": "Triage",
+      "ready": "Prêt",
+      "in_progress": "En cours",
+      "review": "Revue",
+      "done": "Terminé",
+      "blocked": "Bloqué"
+    },
+    "filter": {
+      "allStates": "Tous les états",
+      "selectedCount": "{{count}} sélectionné(s)",
+      "workflowState": "État du workflow",
+      "filterByState": "Filtrer par état du workflow"
+    },
+    "dropdown": {
+      "moveTo": "Déplacer vers",
+      "unblock": "Débloquer",
+      "changeState": "Changer l'état du workflow",
+      "agentLocked": "L'agent travaille actuellement sur cette issue",
+      "resolution": "Résolution"
+    },
+    "resolutions": {
+      "completed": "Terminé",
+      "split": "Divisé",
+      "duplicate": "Doublon",
+      "wontfix": "Ne sera pas corrigé",
+      "stale": "Obsolète"
+    },
+    "panel": {
+      "completeness": "Complétude",
+      "noPriority": "Pas de priorité",
+      "notYetEnriched": "Pas encore enrichi",
+      "problemStatement": "Énoncé du problème",
+      "goal": "Objectif",
+      "inScope": "Dans le périmètre",
+      "outOfScope": "Hors périmètre",
+      "acceptanceCriteria": "Critères d'acceptation",
+      "technicalContext": "Contexte technique"
+    },
+    "completeness": {
+      "notAssessed": "Non évalué",
+      "label": "Complétude : {{score}} pour cent"
+    }
+  },
   "usage": {
     "dataUnavailable": "Données d'utilisation non disponibles",
     "dataUnavailableDescription": "Le point de terminaison de surveillance d'utilisation pour ce fournisseur n'est pas disponible ou n'est pas pris en charge.",

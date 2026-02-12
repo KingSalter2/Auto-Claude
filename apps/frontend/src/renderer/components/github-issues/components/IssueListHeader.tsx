@@ -18,6 +18,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../ui/tooltip';
+import { WorkflowFilter } from './WorkflowFilter';
 import type { IssueListHeaderProps } from '../types';
 
 export function IssueListHeader({
@@ -35,6 +36,9 @@ export function IssueListHeader({
   onAutoFixToggle,
   onAnalyzeAndGroup,
   isAnalyzing,
+  workflowFilter,
+  onWorkflowFilterChange,
+  stateCounts,
 }: IssueListHeaderProps) {
   const { t } = useTranslation('common');
 
@@ -156,6 +160,13 @@ export function IssueListHeader({
             <SelectItem value="all">All</SelectItem>
           </SelectContent>
         </Select>
+        {onWorkflowFilterChange && (
+          <WorkflowFilter
+            selectedStates={workflowFilter ?? []}
+            onChange={onWorkflowFilterChange}
+            stateCounts={stateCounts}
+          />
+        )}
       </div>
     </div>
   );

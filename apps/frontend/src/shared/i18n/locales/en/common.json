@@ -442,6 +442,52 @@
     "scrollForMore": "Scroll for more",
     "allLoaded": "All issues loaded"
   },
+  "enrichment": {
+    "states": {
+      "new": "New",
+      "triage": "Triage",
+      "ready": "Ready",
+      "in_progress": "In Progress",
+      "review": "Review",
+      "done": "Done",
+      "blocked": "Blocked"
+    },
+    "filter": {
+      "allStates": "All states",
+      "selectedCount": "{{count}} selected",
+      "workflowState": "Workflow state",
+      "filterByState": "Filter by workflow state"
+    },
+    "dropdown": {
+      "moveTo": "Move to",
+      "unblock": "Unblock",
+      "changeState": "Change workflow state",
+      "agentLocked": "Agent is currently working on this issue",
+      "resolution": "Resolution"
+    },
+    "resolutions": {
+      "completed": "Completed",
+      "split": "Split",
+      "duplicate": "Duplicate",
+      "wontfix": "Won't fix",
+      "stale": "Stale"
+    },
+    "panel": {
+      "completeness": "Completeness",
+      "noPriority": "No priority",
+      "notYetEnriched": "Not yet enriched",
+      "problemStatement": "Problem Statement",
+      "goal": "Goal",
+      "inScope": "In Scope",
+      "outOfScope": "Out of Scope",
+      "acceptanceCriteria": "Acceptance Criteria",
+      "technicalContext": "Technical Context"
+    },
+    "completeness": {
+      "notAssessed": "Not assessed",
+      "label": "Completeness: {{score}} percent"
+    }
+  },
   "usage": {
     "dataUnavailable": "Usage data unavailable",
     "dataUnavailableDescription": "The usage monitoring endpoint for this provider is not available or not supported.",
