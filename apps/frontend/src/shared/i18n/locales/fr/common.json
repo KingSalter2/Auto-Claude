@@ -481,7 +481,8 @@
       "inScope": "Dans le périmètre",
       "outOfScope": "Hors périmètre",
       "acceptanceCriteria": "Critères d'acceptation",
-      "technicalContext": "Contexte technique"
+      "technicalContext": "Contexte technique",
+      "risksEdgeCases": "Risques / Cas limites"
     },
     "completeness": {
       "notAssessed": "Non évalué",

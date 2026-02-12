@@ -23,6 +23,7 @@ const ENRICHMENT_SECTION_KEYS = [
   { key: 'scopeOut', i18nKey: 'enrichment.panel.outOfScope' },
   { key: 'acceptanceCriteria', i18nKey: 'enrichment.panel.acceptanceCriteria' },
   { key: 'technicalContext', i18nKey: 'enrichment.panel.technicalContext' },
+  { key: 'risksEdgeCases', i18nKey: 'enrichment.panel.risksEdgeCases' },
 ] as const;
 
 export function EnrichmentPanel({

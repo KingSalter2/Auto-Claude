@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 1 / 41 complete
+**Status:** 2 / 41 complete
 
 ---
 
@@ -240,16 +240,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 ## TIER 2 — Missing Implementation
 
 ### GAP-17: `risksEdgeCases` missing from EnrichmentPanel ENRICHMENT_SECTIONS
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Small
 - **Doc ref:** Phase 1 PRD > US-4 > AC4.2; PRD Section 4.3 (7 enrichment sections); PRD Section 4.12 i18n
-- **Files to modify:** `renderer/components/github-issues/components/EnrichmentPanel.tsx`
-- **Fix:** Add `{ key: 'risksEdgeCases', label: t('enrichment.panel.risksEdgeCases') }` to ENRICHMENT_SECTIONS array at line 26
-- **Tests:** Render EnrichmentPanel with risksEdgeCases data → section visible
-- **Test status:** `PENDING`
-- **Depends on:** GAP-18 (use i18n for label)
-- **Commit:** —
+- **Files modified:** `EnrichmentPanel.tsx`, `en/common.json`, `fr/common.json`
+- **Fix:** Added `{ key: 'risksEdgeCases', i18nKey: 'enrichment.panel.risksEdgeCases' }` to ENRICHMENT_SECTION_KEYS; added i18n keys to EN ("Risks / Edge Cases") and FR ("Risques / Cas limites")
+- **Tests:** 10 tests pass — section count updated from 6→7, new test for risksEdgeCases content rendering
+- **Test status:** `PASS`
+- **Depends on:** GAP-18 (done)
+- **Commit:** GAP-17
 
 ### GAP-18: Hardcoded English in 5 components instead of i18n
 - **Status:** `DONE`
@@ -548,6 +548,7 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 | Date | Gap ID | Action | Commit |
 |------|--------|--------|--------|
 | 2026-02-12 | GAP-18 | DONE — i18n in 6 components (5 + MetricsDashboard), 7 test files updated, 75 tests pass | GAP-18 |
+| 2026-02-12 | GAP-17 | DONE — risksEdgeCases section added to EnrichmentPanel, i18n keys added EN+FR, 10 tests pass | GAP-17 |
 
 ---
 

@@ -481,7 +481,8 @@
       "inScope": "In Scope",
       "outOfScope": "Out of Scope",
       "acceptanceCriteria": "Acceptance Criteria",
-      "technicalContext": "Technical Context"
+      "technicalContext": "Technical Context",
+      "risksEdgeCases": "Risks / Edge Cases"
     },
     "completeness": {
       "notAssessed": "Not assessed",

@@ -21,7 +21,7 @@ function makeEnrichment(overrides?: Partial<IssueEnrichment>): IssueEnrichment {
 }
 
 describe('EnrichmentPanel', () => {
-  it('renders all 6 enrichment section headers via i18n keys', () => {
+  it('renders all 7 enrichment section headers via i18n keys', () => {
     render(
       <EnrichmentPanel
         enrichment={null}
@@ -38,6 +38,7 @@ describe('EnrichmentPanel', () => {
       'enrichment.panel.outOfScope',
       'enrichment.panel.acceptanceCriteria',
       'enrichment.panel.technicalContext',
+      'enrichment.panel.risksEdgeCases',
     ]) {
       expect(screen.getByText(key)).toBeDefined();
     }
@@ -54,7 +55,7 @@ describe('EnrichmentPanel', () => {
     );
 
     const placeholders = screen.getAllByText('enrichment.panel.notYetEnriched');
-    expect(placeholders.length).toBe(6);
+    expect(placeholders.length).toBe(7);
   });
 
   it('renders enrichment content when provided', () => {
@@ -175,5 +176,32 @@ describe('EnrichmentPanel', () => {
 
     expect(screen.getByText(/Login works/)).toBeDefined();
     expect(screen.getByText(/Tests pass/)).toBeDefined();
+  });
+
+  it('renders risksEdgeCases section when data is provided', () => {
+    const enrichment = makeEnrichment({
+      enrichment: {
+        problem: '',
+        goal: '',
+        scopeIn: [],
+        scopeOut: [],
+        acceptanceCriteria: [],
+        technicalContext: '',
+        risksEdgeCases: ['Race condition in auth', 'Token expiry edge case'],
+      },
+    });
+
+    render(
+      <EnrichmentPanel
+        enrichment={enrichment}
+        currentState="triage"
+        completenessScore={50}
+        onTransition={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('enrichment.panel.risksEdgeCases')).toBeDefined();
+    expect(screen.getByText(/Race condition in auth/)).toBeDefined();
+    expect(screen.getByText(/Token expiry edge case/)).toBeDefined();
   });
 });
