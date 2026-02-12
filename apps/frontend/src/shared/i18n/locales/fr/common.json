@@ -563,7 +563,8 @@
     "enrichButton": "Triage IA",
     "improveButton": "Améliorer l'issue",
     "splitButton": "Diviser l'issue",
-    "triageAllButton": "Trier tous les non triés"
+    "triageAllButton": "Trier tous les non triés",
+    "retry": "Réessayer"
   },
   "batchReview": {
     "title": "Revue de triage par lots",

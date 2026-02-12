@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 24 / 41 complete
+**Status:** 25 / 41 complete
 
 ---
 
@@ -453,16 +453,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** —
 
 ### GAP-37: No error/retry UI for failed AI triage
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Doc ref:** Phase 3 PRD > US-1 > AC1.12
-- **Files to modify:** `renderer/stores/github/ai-triage-store.ts`, `renderer/components/github-issues/hooks/useAITriage.ts`, `renderer/components/github-issues/components/EnrichmentPanel.tsx`
-- **Fix:** Add lastError state to store. On error, set it. In EnrichmentPanel, show inline error with Retry button when error present.
-- **Tests:** AI triage fails → error shown in panel; click Retry → re-runs
-- **Test status:** `PENDING`
+- **Files modified:** `stores/github/ai-triage-store.ts`, `hooks/useAITriage.ts`, `components/EnrichmentPanel.tsx`, `en/common.json`, `fr/common.json`
+- **Fix:** Added `lastError` state + `setLastError`/`clearLastError` to store. `startTriage` clears lastError. Error IPC listeners set lastError. EnrichmentPanel shows role=alert with error text + Retry button (i18n: aiTriage.retry EN+FR). Hook exposes lastError + clearLastError.
+- **Tests:** 3 store tests (set/clear/startTriage clears), 2 hook tests (error callback, expose state), 2 panel tests (shows alert + retry, no alert when null). 36 total across 3 files.
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** pending
 
 ### GAP-38: Missing aria-labels on AI action buttons
 - **Status:** `DONE`

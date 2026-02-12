@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { EnrichmentPanel } from '../EnrichmentPanel';
 import { createDefaultEnrichment } from '../../../../../shared/types/enrichment';
 import type { IssueEnrichment } from '../../../../../shared/types/enrichment';
@@ -215,6 +215,43 @@ describe('EnrichmentPanel', () => {
     );
 
     expect(screen.queryByLabelText('Completeness score breakdown')).toBeNull();
+  });
+
+  it('shows error alert with retry button when lastError is set', () => {
+    const onRetry = vi.fn();
+    render(
+      <EnrichmentPanel
+        enrichment={null}
+        currentState="new"
+        completenessScore={0}
+        onTransition={vi.fn()}
+        lastError="Enrichment failed: API timeout"
+        onRetry={onRetry}
+      />,
+    );
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toBeDefined();
+    expect(screen.getByText('Enrichment failed: API timeout')).toBeDefined();
+
+    const retryButton = screen.getByRole('button', { name: 'aiTriage.retry' });
+    expect(retryButton).toBeDefined();
+    fireEvent.click(retryButton);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not show error alert when lastError is null', () => {
+    render(
+      <EnrichmentPanel
+        enrichment={null}
+        currentState="new"
+        completenessScore={0}
+        onTransition={vi.fn()}
+        lastError={null}
+      />,
+    );
+
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('renders risksEdgeCases section when data is provided', () => {

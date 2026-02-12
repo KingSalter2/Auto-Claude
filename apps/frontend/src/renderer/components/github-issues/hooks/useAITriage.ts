@@ -23,6 +23,7 @@ export function useAITriage(projectId: string) {
       }),
       api.onEnrichmentError((_projId, error) => {
         store.clearEnrichmentProgress();
+        store.setLastError(error.error);
         store.endTriage();
         console.error('Enrichment error:', error.error);
       }),
@@ -35,6 +36,7 @@ export function useAITriage(projectId: string) {
       }),
       api.onSplitError((_projId, error) => {
         store.clearSplitProgress();
+        store.setLastError(error.error);
         store.endTriage();
         console.error('Split error:', error.error);
       }),
@@ -219,5 +221,7 @@ export function useAITriage(projectId: string) {
     enrichmentProgress: store.enrichmentProgress,
     splitSuggestion: store.splitSuggestion,
     splitProgress: store.splitProgress,
+    lastError: store.lastError,
+    clearLastError: store.clearLastError,
   };
 }

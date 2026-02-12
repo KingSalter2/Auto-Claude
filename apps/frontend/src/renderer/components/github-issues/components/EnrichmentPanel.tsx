@@ -15,6 +15,8 @@ interface EnrichmentPanelProps {
   onAITriage?: () => void;
   onImproveIssue?: () => void;
   onSplitIssue?: () => void;
+  lastError?: string | null;
+  onRetry?: () => void;
 }
 
 const ENRICHMENT_SECTION_KEYS = [
@@ -37,6 +39,8 @@ export function EnrichmentPanel({
   onAITriage,
   onImproveIssue,
   onSplitIssue,
+  lastError,
+  onRetry,
 }: EnrichmentPanelProps) {
   const { t } = useTranslation('common');
   const enrichmentData = enrichment?.enrichment;
@@ -75,6 +79,23 @@ export function EnrichmentPanel({
           enrichment={enrichmentData}
           score={completenessScore}
         />
+      )}
+
+      {/* Error display with retry */}
+      {lastError && (
+        <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <span className="flex-1">{lastError}</span>
+          {onRetry && (
+            <button
+              type="button"
+              className="shrink-0 rounded-md border border-destructive/30 px-2 py-0.5 text-xs hover:bg-destructive/20"
+              onClick={onRetry}
+              aria-label={t('aiTriage.retry')}
+            >
+              {t('aiTriage.retry')}
+            </button>
+          )}
+        </div>
       )}
 
       {/* AI action buttons */}

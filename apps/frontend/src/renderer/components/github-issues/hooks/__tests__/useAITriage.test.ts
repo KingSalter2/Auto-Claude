@@ -38,6 +38,7 @@ beforeEach(() => {
     enrichmentProgress: null,
     splitSuggestion: null,
     splitProgress: null,
+    lastError: null,
   });
 });
 
@@ -299,6 +300,29 @@ describe('useAITriage', () => {
     useAITriageStore.getState().startTriage();
     const { result } = renderHook(() => useAITriage('proj-1'));
     expect(result.current.isTriaging).toBe(true);
+  });
+
+  it('enrichment error sets lastError in store', () => {
+    // biome-ignore lint/suspicious/noEmptyBlockStatements: placeholder until mock captures callback
+    let errorCallback: (projId: string, error: { error: string }) => void = () => {};
+    mockGitHub.onEnrichmentError.mockImplementation((cb: typeof errorCallback) => {
+      errorCallback = cb;
+      return vi.fn();
+    });
+
+    renderHook(() => useAITriage('proj-1'));
+
+    act(() => {
+      errorCallback('proj-1', { error: 'API rate limit exceeded' });
+    });
+
+    expect(useAITriageStore.getState().lastError).toBe('API rate limit exceeded');
+  });
+
+  it('exposes lastError from store', () => {
+    useAITriageStore.getState().setLastError('Test error');
+    const { result } = renderHook(() => useAITriage('proj-1'));
+    expect(result.current.lastError).toBe('Test error');
   });
 
   it('applyProgressiveTrust fetches config and auto-applies high-confidence items', async () => {

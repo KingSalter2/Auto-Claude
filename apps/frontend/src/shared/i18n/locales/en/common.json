@@ -563,7 +563,8 @@
     "enrichButton": "AI Triage",
     "improveButton": "Improve Issue",
     "splitButton": "Split Issue",
-    "triageAllButton": "Triage All Untriaged"
+    "triageAllButton": "Triage All Untriaged",
+    "retry": "Retry"
   },
   "batchReview": {
     "title": "Batch Triage Review",

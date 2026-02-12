@@ -32,6 +32,9 @@ interface AITriageState {
   splitSuggestion: SplitSuggestion | null;
   splitProgress: SplitProgress | null;
 
+  // Error state
+  lastError: string | null;
+
   // Actions
   startTriage: () => void;
   endTriage: () => void;
@@ -49,6 +52,8 @@ interface AITriageState {
   setSplitProgress: (progress: SplitProgress) => void;
   clearSplitProgress: () => void;
   autoApplyByTrust: (config: ProgressiveTrustConfig) => void;
+  setLastError: (error: string) => void;
+  clearLastError: () => void;
 }
 
 export const useAITriageStore = create<AITriageState>((set, get) => ({
@@ -59,9 +64,10 @@ export const useAITriageStore = create<AITriageState>((set, get) => ({
   enrichmentProgress: null,
   splitSuggestion: null,
   splitProgress: null,
+  lastError: null,
 
   // Triage operation
-  startTriage: () => set({ isTriaging: true }),
+  startTriage: () => set({ isTriaging: true, lastError: null }),
   endTriage: () => set({ isTriaging: false, triageProgress: null }),
   setTriageProgress: (progress) => set({ triageProgress: progress }),
 
@@ -104,6 +110,9 @@ export const useAITriageStore = create<AITriageState>((set, get) => ({
   clearSplitSuggestion: () => set({ splitSuggestion: null }),
   setSplitProgress: (progress) => set({ splitProgress: progress }),
   clearSplitProgress: () => set({ splitProgress: null }),
+
+  setLastError: (error) => set({ lastError: error }),
+  clearLastError: () => set({ lastError: null }),
 
   autoApplyByTrust: (config) =>
     set((state) => ({

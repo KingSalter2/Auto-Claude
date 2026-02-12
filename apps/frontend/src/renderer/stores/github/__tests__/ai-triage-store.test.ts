@@ -49,6 +49,7 @@ describe('useAITriageStore', () => {
       enrichmentProgress: null,
       splitSuggestion: null,
       splitProgress: null,
+      lastError: null,
     });
   });
 
@@ -264,6 +265,25 @@ describe('useAITriageStore', () => {
 
       // Should remain pending since no labels to add
       expect(useAITriageStore.getState().reviewItems[0].status).toBe('pending');
+    });
+  });
+
+  describe('lastError', () => {
+    it('setLastError stores error message', () => {
+      useAITriageStore.getState().setLastError('API timeout');
+      expect(useAITriageStore.getState().lastError).toBe('API timeout');
+    });
+
+    it('clearLastError resets error to null', () => {
+      useAITriageStore.getState().setLastError('Some error');
+      useAITriageStore.getState().clearLastError();
+      expect(useAITriageStore.getState().lastError).toBeNull();
+    });
+
+    it('startTriage clears lastError', () => {
+      useAITriageStore.getState().setLastError('Previous error');
+      useAITriageStore.getState().startTriage();
+      expect(useAITriageStore.getState().lastError).toBeNull();
     });
   });
 });
