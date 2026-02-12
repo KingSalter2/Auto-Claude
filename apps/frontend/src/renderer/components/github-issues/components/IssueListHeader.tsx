@@ -39,6 +39,9 @@ export function IssueListHeader({
   workflowFilter,
   onWorkflowFilterChange,
   stateCounts,
+  onToggleTriageMode,
+  isTriageModeEnabled,
+  isTriageModeAvailable,
 }: IssueListHeaderProps) {
   const { t } = useTranslation('common');
 
@@ -62,6 +65,27 @@ export function IssueListHeader({
           <Badge variant="outline" className="text-xs">
             {openIssuesCount} open
           </Badge>
+          {onToggleTriageMode && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={isTriageModeEnabled ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={onToggleTriageMode}
+                    disabled={!isTriageModeAvailable}
+                    aria-label={t('phase5.triageMode')}
+                    aria-pressed={isTriageModeEnabled}
+                  >
+                    <Layers className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{t('phase5.triageModeTooltip')}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           <Button
             variant="ghost"
             size="icon"

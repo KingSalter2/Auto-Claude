@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 13 / 41 complete
+**Status:** 14 / 41 complete
 
 ---
 
@@ -186,16 +186,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** —
 
 ### GAP-13: IssueListHeader ignores triage toggle props
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Small
 - **Doc ref:** Phase 5 PRD > US-8 > AC-8.1; Phase 5 impl plan WP-7 Step 7.4
 - **Files to modify:** `renderer/components/github-issues/components/IssueListHeader.tsx`
-- **Fix:** Destructure onToggleTriageMode, isTriageModeEnabled, isTriageModeAvailable from props. Add toggle button with Layers icon in header actions area. Use i18n keys phase5.triageMode/triageModeTooltip. aria-pressed state.
-- **Tests:** Render header with triage props → toggle button visible; click fires callback; disabled when !isAvailable
-- **Test status:** `PENDING`
+- **Fix:** Destructured onToggleTriageMode, isTriageModeEnabled, isTriageModeAvailable. Added Layers toggle button with i18n aria-label (phase5.triageMode), tooltip (phase5.triageModeTooltip), aria-pressed state, disabled when !isAvailable, variant secondary when enabled.
+- **Tests:** 5 new tests: toggle visible/hidden, click callback, disabled state, aria-pressed state
+- **Test status:** `PASS` (5/5)
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** GAP-13
 
 ### GAP-14: Select All / Deselect All missing from UI
 - **Status:** `PENDING`
@@ -557,6 +557,7 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 | 2026-02-12 | GAP-06 | DONE — CreateSpecButton wired in IssueDetail with onCreateSpec prop, 3 new tests, 23 pass | GAP-06 |
 | 2026-02-12 | GAP-07 | DONE — CompletenessBreakdown wired in EnrichmentPanel, 2 new tests, 12 pass, lint warnings fixed | GAP-07 |
 | 2026-02-12 | GAP-08 | DONE — useDependencies hook wired in GitHubIssues.tsx, deps passed to IssueDetail | GAP-08 |
+| 2026-02-12 | GAP-13 | DONE — Triage toggle in IssueListHeader, 5 new tests, aria-pressed + tooltip | GAP-13 |
 
 ---
 
