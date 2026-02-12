@@ -14,6 +14,7 @@ import {
   useBulkOperations,
   useAITriage,
   useTriageMode,
+  useMetrics,
 } from "./github-issues/hooks";
 import { useAnalyzePreview } from "./github-issues/hooks/useAnalyzePreview";
 import {
@@ -146,6 +147,16 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
 
   // Triage mode (3-panel layout)
   const { isEnabled: triageModeEnabled, isAvailable: triageModeAvailable, toggle: toggleTriageMode } = useTriageMode();
+
+  // Metrics
+  const { metrics, timeWindow: metricsTimeWindow, isLoading: isMetricsLoading, computeMetrics, setTimeWindow: setMetricsTimeWindow } = useMetrics();
+
+  // Compute metrics on mount when enrichment is loaded
+  useEffect(() => {
+    if (selectedProject?.id && enrichmentLoaded) {
+      computeMetrics();
+    }
+  }, [selectedProject?.id, enrichmentLoaded, computeMetrics]);
 
   // Clear selection when filters change
   useEffect(() => {
@@ -328,6 +339,11 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               onImproveIssue={() => aiTriage.runEnrichment(selectedIssue.number)}
               onSplitIssue={() => aiTriage.runSplitSuggestion(selectedIssue.number)}
               isAIBusy={aiTriage.isTriaging}
+              metrics={metrics}
+              metricsTimeWindow={metricsTimeWindow}
+              isMetricsLoading={isMetricsLoading}
+              onTimeWindowChange={setMetricsTimeWindow}
+              onRefreshMetrics={computeMetrics}
             />
           </div>
         )}

@@ -908,5 +908,21 @@
       "blockedTooltip": "Cette PR ne peut pas être fusionnée en raison de conditions bloquantes",
       "conflictTooltip": "Cette PR a des conflits de fusion qui doivent être résolus"
     }
+  },
+  "phase5": {
+    "triageMode": "Mode triage",
+    "triageModeTooltip": "Basculer la disposition à 3 panneaux",
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "selectedCount": "{{count}} sélectionné(s)",
+    "selectIssue": "Sélectionner l'issue #{{number}}",
+    "metricsToggle": "Afficher les métriques",
+    "editTitle": "Modifier le titre",
+    "editBody": "Modifier le corps",
+    "addComment": "Ajouter un commentaire",
+    "closeIssue": "Fermer l'issue",
+    "reopenIssue": "Rouvrir l'issue",
+    "bulkInProgress": "Opération en masse en cours...",
+    "narrowScreen": "Le mode triage nécessite un écran plus large"
   }
 }

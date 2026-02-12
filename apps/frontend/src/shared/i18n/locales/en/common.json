@@ -908,5 +908,21 @@
       "blockedTooltip": "This PR cannot be merged due to blocking conditions",
       "conflictTooltip": "This PR has merge conflicts that need to be resolved"
     }
+  },
+  "phase5": {
+    "triageMode": "Triage Mode",
+    "triageModeTooltip": "Toggle 3-panel triage layout",
+    "selectAll": "Select All",
+    "deselectAll": "Deselect All",
+    "selectedCount": "{{count}} selected",
+    "selectIssue": "Select issue #{{number}}",
+    "metricsToggle": "Show Metrics",
+    "editTitle": "Edit Title",
+    "editBody": "Edit Body",
+    "addComment": "Add Comment",
+    "closeIssue": "Close Issue",
+    "reopenIssue": "Reopen Issue",
+    "bulkInProgress": "Bulk operation in progress...",
+    "narrowScreen": "Triage mode requires a wider screen"
   }
 }
