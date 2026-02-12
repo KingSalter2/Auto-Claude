@@ -7,6 +7,7 @@ interface DependencyListProps {
   isLoading: boolean;
   error: string | null;
   onRefresh?: () => void;
+  onNavigate?: (issueNumber: number) => void;
 }
 
 export function DependencyList({
@@ -14,6 +15,7 @@ export function DependencyList({
   isLoading,
   error,
   onRefresh,
+  onNavigate,
 }: DependencyListProps) {
   const { t } = useTranslation('common');
   const hasData = hasDependencies(dependencies);
@@ -79,9 +81,19 @@ export function DependencyList({
                     dep.state === 'open' ? 'bg-green-500' : 'bg-purple-500'
                   }`}
                 />
-                <span className="text-foreground">
-                  {dep.repo ? `${dep.repo}#${dep.issueNumber}` : `#${dep.issueNumber}`}
-                </span>
+                {onNavigate && !dep.repo ? (
+                  <button
+                    type="button"
+                    className="text-primary hover:underline cursor-pointer"
+                    onClick={() => onNavigate(dep.issueNumber)}
+                  >
+                    #{dep.issueNumber}
+                  </button>
+                ) : (
+                  <span className="text-foreground">
+                    {dep.repo ? `${dep.repo}#${dep.issueNumber}` : `#${dep.issueNumber}`}
+                  </span>
+                )}
                 <span className="text-muted-foreground truncate">{dep.title}</span>
               </li>
             ))}
@@ -105,9 +117,19 @@ export function DependencyList({
                     dep.state === 'open' ? 'bg-green-500' : 'bg-purple-500'
                   }`}
                 />
-                <span className="text-foreground">
-                  {dep.repo ? `${dep.repo}#${dep.issueNumber}` : `#${dep.issueNumber}`}
-                </span>
+                {onNavigate && !dep.repo ? (
+                  <button
+                    type="button"
+                    className="text-primary hover:underline cursor-pointer"
+                    onClick={() => onNavigate(dep.issueNumber)}
+                  >
+                    #{dep.issueNumber}
+                  </button>
+                ) : (
+                  <span className="text-foreground">
+                    {dep.repo ? `${dep.repo}#${dep.issueNumber}` : `#${dep.issueNumber}`}
+                  </span>
+                )}
                 <span className="text-muted-foreground truncate">{dep.title}</span>
               </li>
             ))}

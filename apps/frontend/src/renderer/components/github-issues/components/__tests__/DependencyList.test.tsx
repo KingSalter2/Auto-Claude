@@ -97,6 +97,85 @@ describe('DependencyList', () => {
     expect(container.querySelector('section')).not.toBeNull();
   });
 
+  it('clicking local dependency calls onNavigate', () => {
+    const onNavigate = vi.fn();
+    const deps = {
+      tracks: [
+        { issueNumber: 10, title: 'Sub-task A', state: 'open' as const },
+      ],
+      trackedBy: [],
+    };
+    render(
+      <DependencyList
+        dependencies={deps}
+        isLoading={false}
+        error={null}
+        onNavigate={onNavigate}
+      />,
+    );
+    fireEvent.click(screen.getByText('#10'));
+    expect(onNavigate).toHaveBeenCalledWith(10);
+  });
+
+  it('clicking trackedBy item calls onNavigate', () => {
+    const onNavigate = vi.fn();
+    const deps = {
+      tracks: [],
+      trackedBy: [
+        { issueNumber: 5, title: 'Parent', state: 'open' as const },
+      ],
+    };
+    render(
+      <DependencyList
+        dependencies={deps}
+        isLoading={false}
+        error={null}
+        onNavigate={onNavigate}
+      />,
+    );
+    fireEvent.click(screen.getByText('#5'));
+    expect(onNavigate).toHaveBeenCalledWith(5);
+  });
+
+  it('cross-repo dependency is not clickable', () => {
+    const onNavigate = vi.fn();
+    const deps = {
+      tracks: [
+        { issueNumber: 10, title: 'Cross-repo', state: 'open' as const, repo: 'org/other' },
+      ],
+      trackedBy: [],
+    };
+    render(
+      <DependencyList
+        dependencies={deps}
+        isLoading={false}
+        error={null}
+        onNavigate={onNavigate}
+      />,
+    );
+    // Cross-repo text should exist but not be a button
+    expect(screen.getByText('org/other#10')).toBeDefined();
+    fireEvent.click(screen.getByText('org/other#10'));
+    expect(onNavigate).not.toHaveBeenCalled();
+  });
+
+  it('dependency items are not clickable when onNavigate is not provided', () => {
+    const deps = {
+      tracks: [
+        { issueNumber: 10, title: 'Sub-task A', state: 'open' as const },
+      ],
+      trackedBy: [],
+    };
+    const { container } = render(
+      <DependencyList dependencies={deps} isLoading={false} error={null} />,
+    );
+    // No button elements in the list items (only the #10 span)
+    const listItems = container.querySelectorAll('li');
+    for (const li of listItems) {
+      expect(li.querySelector('button')).toBeNull();
+    }
+  });
+
   it('shows state indicator dot with correct color', () => {
     const deps = {
       tracks: [

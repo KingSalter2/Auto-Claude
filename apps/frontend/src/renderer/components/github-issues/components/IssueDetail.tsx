@@ -53,6 +53,7 @@ export function IssueDetail({
   dependencies,
   isDepsLoading,
   depsError,
+  onNavigateDependency,
 }: IssueDetailProps) {
   const { t } = useTranslation('common');
   const [isClosing, setIsClosing] = useState(false);
@@ -315,6 +316,7 @@ export function IssueDetail({
                 dependencies={dependencies}
                 isLoading={isDepsLoading ?? false}
                 error={depsError ?? null}
+                onNavigate={onNavigateDependency}
               />
             </CardContent>
           </Card>

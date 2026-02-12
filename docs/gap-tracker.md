@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 15 / 41 complete
+**Status:** 16 / 41 complete
 
 ---
 
@@ -281,16 +281,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** —
 
 ### GAP-20: DependencyList items not clickable
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Small
 - **Doc ref:** Phase 4 PRD > US-6 > AC6.5
 - **Files to modify:** `renderer/components/github-issues/components/DependencyList.tsx`
-- **Fix:** Add onNavigate prop. Wrap dependency items in button or add onClick. Add cursor-pointer. Wire from IssueDetail/GitHubIssues to selectIssue.
-- **Tests:** Click dependency item → onNavigate called with issue number
-- **Test status:** `PENDING`
+- **Fix:** Added onNavigate prop. Local deps rendered as clickable buttons with text-primary + hover:underline. Cross-repo deps remain static text. Wired through IssueDetail → GitHubIssues selectIssue.
+- **Tests:** 4 new tests: click local track, click trackedBy, cross-repo not clickable, no buttons when onNavigate absent
+- **Test status:** `PASS` (4 new, 13 total)
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** pending
 
 ### GAP-21: useMutations doesn't update issues-store after success
 - **Status:** `DONE`

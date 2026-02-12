@@ -59,6 +59,7 @@ export interface IssueDetailProps {
   dependencies?: IssueDependencies;
   isDepsLoading?: boolean;
   depsError?: string | null;
+  onNavigateDependency?: (issueNumber: number) => void;
 }
 
 export interface InvestigationDialogProps {

@@ -412,6 +412,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               dependencies={dependencies}
               isDepsLoading={isDepsLoading}
               depsError={depsError}
+              onNavigateDependency={selectIssue}
             />
           ) : (
             <EmptyState message="Select an issue to view details" />
