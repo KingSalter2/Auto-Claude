@@ -13,6 +13,9 @@ import type {
   PollingMetadata
 } from '../../../shared/types';
 import type { EnrichmentFile, IssueEnrichment, WorkflowState, Resolution } from '../../../shared/types/enrichment';
+import type { LabelSyncConfig, LabelSyncResult } from '../../../shared/types/label-sync';
+import type { IssueDependencies } from '../../../shared/types/dependencies';
+import type { TriageMetrics, MetricsTimeWindow } from '../../../shared/types/metrics';
 import type { MutationResult, BulkExecuteParams, BulkOperationProgress, BulkOperationResult } from '../../../shared/types/mutations';
 import type {
   CreateIssueParams,
@@ -390,6 +393,20 @@ export interface GitHubAPI {
 
   saveProgressiveTrust: (projectId: string, config: ProgressiveTrustConfig) => Promise<boolean>;
   getProgressiveTrust: (projectId: string) => Promise<ProgressiveTrustConfig>;
+
+  // Label Sync (Phase 4)
+  enableLabelSync: (projectId: string) => Promise<LabelSyncResult>;
+  disableLabelSync: (projectId: string, cleanup: boolean) => Promise<{ success: boolean }>;
+  syncIssueLabel: (projectId: string, issueNumber: number, newState: string, oldState: string | null) => Promise<{ synced?: boolean; skipped?: boolean; error?: string }>;
+  getLabelSyncStatus: (projectId: string) => Promise<LabelSyncConfig>;
+  saveLabelSyncConfig: (projectId: string, config: LabelSyncConfig) => Promise<{ success: boolean }>;
+
+  // Dependencies (Phase 4)
+  fetchDependencies: (projectId: string, issueNumber: number) => Promise<IssueDependencies & { error?: string; unavailable?: boolean }>;
+
+  // Metrics (Phase 4)
+  computeMetrics: (projectId: string, timeWindow: MetricsTimeWindow) => Promise<TriageMetrics>;
+  getStateCounts: (projectId: string) => Promise<Record<WorkflowState, number>>;
 }
 
 /**
@@ -973,4 +990,31 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   getProgressiveTrust: (projectId: string): Promise<ProgressiveTrustConfig> =>
     invokeIpc(IPC_CHANNELS.GITHUB_TRIAGE_GET_TRUST, projectId),
+
+  // Label Sync (Phase 4)
+  enableLabelSync: (projectId: string): Promise<LabelSyncResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_LABEL_SYNC_ENABLE, projectId),
+
+  disableLabelSync: (projectId: string, cleanup: boolean): Promise<{ success: boolean }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_LABEL_SYNC_DISABLE, projectId, cleanup),
+
+  syncIssueLabel: (projectId: string, issueNumber: number, newState: string, oldState: string | null) =>
+    invokeIpc(IPC_CHANNELS.GITHUB_LABEL_SYNC_ISSUE, projectId, issueNumber, newState, oldState),
+
+  getLabelSyncStatus: (projectId: string): Promise<LabelSyncConfig> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_LABEL_SYNC_STATUS, projectId),
+
+  saveLabelSyncConfig: (projectId: string, config: LabelSyncConfig): Promise<{ success: boolean }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_LABEL_SYNC_SAVE, projectId, config),
+
+  // Dependencies (Phase 4)
+  fetchDependencies: (projectId: string, issueNumber: number) =>
+    invokeIpc(IPC_CHANNELS.GITHUB_DEPS_FETCH, projectId, issueNumber),
+
+  // Metrics (Phase 4)
+  computeMetrics: (projectId: string, timeWindow: MetricsTimeWindow): Promise<TriageMetrics> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_METRICS_COMPUTE, projectId, timeWindow),
+
+  getStateCounts: (projectId: string): Promise<Record<WorkflowState, number>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_METRICS_STATE_COUNTS, projectId),
 });

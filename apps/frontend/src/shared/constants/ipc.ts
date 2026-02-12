@@ -491,6 +491,20 @@ export const IPC_CHANNELS = {
   // Spec from Issue
   GITHUB_ISSUE_CREATE_SPEC: 'github:issue:createSpec',
 
+  // Label Sync (Phase 4)
+  GITHUB_LABEL_SYNC_ENABLE: 'github:label-sync:enable',
+  GITHUB_LABEL_SYNC_DISABLE: 'github:label-sync:disable',
+  GITHUB_LABEL_SYNC_ISSUE: 'github:label-sync:issue',
+  GITHUB_LABEL_SYNC_STATUS: 'github:label-sync:status',
+  GITHUB_LABEL_SYNC_SAVE: 'github:label-sync:save',
+
+  // Dependencies (Phase 4)
+  GITHUB_DEPS_FETCH: 'github:deps:fetch',
+
+  // Metrics (Phase 4)
+  GITHUB_METRICS_COMPUTE: 'github:metrics:compute',
+  GITHUB_METRICS_STATE_COUNTS: 'github:metrics:state-counts',
+
   // Memory Infrastructure status (LadybugDB - no Docker required)
   MEMORY_STATUS: 'memory:status',
   MEMORY_LIST_DATABASES: 'memory:listDatabases',
