@@ -28,6 +28,7 @@ import { registerTriageHandlers } from './triage-handlers';
 import { registerEnrichmentHandlers } from './enrichment-handlers';
 import { registerMutationHandlers } from './mutation-handlers';
 import { registerRepoDataHandlers } from './repo-data-handlers';
+import { registerBulkHandlers } from './bulk-handlers';
 
 /**
  * Register all GitHub-related IPC handlers
@@ -48,6 +49,7 @@ export function registerGithubHandlers(
   registerEnrichmentHandlers(getMainWindow);
   registerMutationHandlers(getMainWindow);
   registerRepoDataHandlers(getMainWindow);
+  registerBulkHandlers(getMainWindow);
 }
 
 // Re-export utilities for potential external use
