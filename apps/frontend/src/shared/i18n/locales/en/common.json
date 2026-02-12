@@ -544,6 +544,59 @@
     "title": "Label Synchronization",
     "comingSoon": "Label synchronization will be available in a future update. Workflow states are currently stored locally only."
   },
+  "aiTriage": {
+    "resultCard": "Triage result for issue #{{issueNumber}}",
+    "accept": "Accept",
+    "reject": "Reject",
+    "acceptResult": "Accept triage result",
+    "rejectResult": "Reject triage result",
+    "accepted": "Accepted",
+    "rejected": "Rejected",
+    "autoApplied": "Auto-applied",
+    "duplicateOf": "Duplicate of",
+    "progressOverlay": "Triage progress",
+    "cancel": "Cancel",
+    "enrichButton": "AI Triage",
+    "improveButton": "Improve Issue",
+    "splitButton": "Split Issue",
+    "triageAllButton": "Triage All Untriaged"
+  },
+  "batchReview": {
+    "title": "Batch Triage Review",
+    "reviewed": "Reviewed {{reviewed}} of {{total}}",
+    "acceptAll": "Accept All Remaining",
+    "acceptAllRemaining": "Accept all remaining items",
+    "apply": "Apply",
+    "dismiss": "Dismiss",
+    "auto": "Auto-applied",
+    "noResults": "No triage results to review"
+  },
+  "issueSplit": {
+    "title": "Split Issue",
+    "subIssueTitle": "Sub-issue {{index}} title",
+    "subIssueBody": "Sub-issue {{index}} body",
+    "confirm": "Confirm Split",
+    "cancel": "Cancel"
+  },
+  "enrichmentComment": {
+    "title": "Enrichment Comment Preview",
+    "content": "Comment content",
+    "characters": "characters",
+    "post": "Post Comment",
+    "cancel": "Cancel"
+  },
+  "progressiveTrust": {
+    "title": "Progressive Trust Settings",
+    "type": "Type",
+    "priority": "Priority",
+    "labels": "Labels",
+    "duplicate": "Duplicate",
+    "threshold": "{{category}} threshold",
+    "batchSize": "Batch size",
+    "confirmAbove": "Confirm above",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
   "usage": {
     "dataUnavailable": "Usage data unavailable",
     "dataUnavailableDescription": "The usage monitoring endpoint for this provider is not available or not supported.",

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { WorkflowStateDropdown } from './WorkflowStateDropdown';
 import { CompletenessIndicator } from './CompletenessIndicator';
 import { Badge } from '../../ui/badge';
@@ -10,6 +11,9 @@ interface EnrichmentPanelProps {
   isAgentLocked?: boolean;
   onTransition: (to: WorkflowState, resolution?: Resolution) => void;
   completenessScore: number;
+  onAITriage?: () => void;
+  onImproveIssue?: () => void;
+  onSplitIssue?: () => void;
 }
 
 const ENRICHMENT_SECTIONS = [
@@ -28,9 +32,15 @@ export function EnrichmentPanel({
   isAgentLocked,
   onTransition,
   completenessScore,
+  onAITriage,
+  onImproveIssue,
+  onSplitIssue,
 }: EnrichmentPanelProps) {
+  const { t } = useTranslation('common');
   const enrichmentData = enrichment?.enrichment;
   const priority = enrichment?.priority;
+  const showTriageButton = currentState === 'new' || currentState === 'triage';
+  const showActionButtons = currentState !== 'done';
 
   return (
     <div className="space-y-4">
@@ -56,6 +66,39 @@ export function EnrichmentPanel({
         <h4 className="text-xs font-medium text-muted-foreground mb-1">Completeness</h4>
         <CompletenessIndicator score={completenessScore} />
       </div>
+
+      {/* AI action buttons */}
+      {showActionButtons && (
+        <div className="flex items-center gap-2">
+          {showTriageButton && onAITriage && (
+            <button
+              type="button"
+              className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent"
+              onClick={onAITriage}
+            >
+              {t('aiTriage.enrichButton')}
+            </button>
+          )}
+          {onImproveIssue && (
+            <button
+              type="button"
+              className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent"
+              onClick={onImproveIssue}
+            >
+              {t('aiTriage.improveButton')}
+            </button>
+          )}
+          {onSplitIssue && (
+            <button
+              type="button"
+              className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent"
+              onClick={onSplitIssue}
+            >
+              {t('aiTriage.splitButton')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Enrichment sections */}
       <div className="space-y-3">

@@ -544,6 +544,59 @@
     "title": "Synchronisation des labels",
     "comingSoon": "La synchronisation des labels sera disponible dans une future mise à jour. Les états du workflow sont actuellement stockés localement uniquement."
   },
+  "aiTriage": {
+    "resultCard": "Résultat de triage pour l'issue #{{issueNumber}}",
+    "accept": "Accepter",
+    "reject": "Rejeter",
+    "acceptResult": "Accepter le résultat de triage",
+    "rejectResult": "Rejeter le résultat de triage",
+    "accepted": "Accepté",
+    "rejected": "Rejeté",
+    "autoApplied": "Appliqué automatiquement",
+    "duplicateOf": "Doublon de",
+    "progressOverlay": "Progression du triage",
+    "cancel": "Annuler",
+    "enrichButton": "Triage IA",
+    "improveButton": "Améliorer l'issue",
+    "splitButton": "Diviser l'issue",
+    "triageAllButton": "Trier tous les non triés"
+  },
+  "batchReview": {
+    "title": "Revue de triage par lots",
+    "reviewed": "{{reviewed}} sur {{total}} revus",
+    "acceptAll": "Accepter tous les restants",
+    "acceptAllRemaining": "Accepter tous les éléments restants",
+    "apply": "Appliquer",
+    "dismiss": "Fermer",
+    "auto": "Auto-appliqué",
+    "noResults": "Aucun résultat de triage à revoir"
+  },
+  "issueSplit": {
+    "title": "Diviser l'issue",
+    "subIssueTitle": "Titre de la sous-issue {{index}}",
+    "subIssueBody": "Corps de la sous-issue {{index}}",
+    "confirm": "Confirmer la division",
+    "cancel": "Annuler"
+  },
+  "enrichmentComment": {
+    "title": "Aperçu du commentaire d'enrichissement",
+    "content": "Contenu du commentaire",
+    "characters": "caractères",
+    "post": "Publier le commentaire",
+    "cancel": "Annuler"
+  },
+  "progressiveTrust": {
+    "title": "Paramètres de confiance progressive",
+    "type": "Type",
+    "priority": "Priorité",
+    "labels": "Labels",
+    "duplicate": "Doublon",
+    "threshold": "Seuil de {{category}}",
+    "batchSize": "Taille du lot",
+    "confirmAbove": "Confirmer au-dessus de",
+    "save": "Enregistrer",
+    "cancel": "Annuler"
+  },
   "usage": {
     "dataUnavailable": "Données d'utilisation non disponibles",
     "dataUnavailableDescription": "Le point de terminaison de surveillance d'utilisation pour ce fournisseur n'est pas disponible ou n'est pas pris en charge.",

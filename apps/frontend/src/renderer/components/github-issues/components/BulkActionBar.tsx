@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import type { BulkActionType, BulkOperationProgress } from '../../../../shared/types/mutations';
 
 interface BulkActionBarProps {
@@ -5,6 +6,8 @@ interface BulkActionBarProps {
   onBulkAction: (action: BulkActionType, payload?: Record<string, unknown>) => void;
   isOperating: boolean;
   progress?: BulkOperationProgress | null;
+  untriagedCount?: number;
+  onTriageAll?: () => void;
 }
 
 const BULK_ACTIONS: Array<{ action: BulkActionType; label: string }> = [
@@ -22,7 +25,10 @@ export function BulkActionBar({
   onBulkAction,
   isOperating,
   progress,
+  untriagedCount,
+  onTriageAll,
 }: BulkActionBarProps) {
+  const { t } = useTranslation('common');
   if (selectedCount === 0) {
     return null;
   }
@@ -50,6 +56,20 @@ export function BulkActionBar({
           </button>
         ))}
       </div>
+
+      {onTriageAll && untriagedCount != null && untriagedCount > 0 && (
+        <button
+          type="button"
+          className="ml-2 px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isOperating}
+          onClick={onTriageAll}
+        >
+          {t('aiTriage.triageAllButton')}
+          <span className="ml-1 inline-flex items-center justify-center rounded-full bg-primary/10 px-1.5 text-[10px] font-medium text-primary">
+            {untriagedCount}
+          </span>
+        </button>
+      )}
 
       {isOperating && progress && (
         <span className="ml-auto text-xs text-muted-foreground">
