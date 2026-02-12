@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useProjectStore } from "../stores/project-store";
 import { useTaskStore } from "../stores/task-store";
@@ -155,6 +155,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const handleDeselectAll = useCallback(() => {
     setSelectedIssueNumbers(new Set());
   }, []);
+
+  // Clear selection when bulk operation completes
+  const wasBulkOperating = useRef(false);
+  useEffect(() => {
+    if (wasBulkOperating.current && !isBulkOperating) {
+      setSelectedIssueNumbers(new Set());
+    }
+    wasBulkOperating.current = isBulkOperating;
+  }, [isBulkOperating]);
 
   // AI Triage
   const aiTriage = useAITriage(selectedProject?.id ?? '');
