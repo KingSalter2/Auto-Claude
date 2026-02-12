@@ -24,6 +24,7 @@ const mockGitHub = {
   saveProgressiveTrust: vi.fn(),
   getProgressiveTrust: vi.fn(),
   transitionWorkflowState: vi.fn(),
+  addIssueComment: vi.fn(),
 };
 
 beforeEach(() => {
@@ -66,6 +67,7 @@ describe('useAITriage', () => {
       .mockResolvedValueOnce({ number: 100, url: 'https://github.com/o/r/issues/100' })
       .mockResolvedValueOnce({ number: 101, url: 'https://github.com/o/r/issues/101' });
     mockGitHub.closeIssue.mockResolvedValue({ success: true, issueNumber: 42 });
+    mockGitHub.addIssueComment.mockResolvedValue({ success: true });
     mockGitHub.transitionWorkflowState.mockResolvedValue({});
 
     const { result } = renderHook(() => useAITriage('proj-1'));
@@ -84,6 +86,42 @@ describe('useAITriage', () => {
     expect(mockGitHub.closeIssue).toHaveBeenCalledWith('proj-1', 42);
     expect(splitResult).toEqual(
       expect.objectContaining({ createdIssues: [100, 101] }),
+    );
+  });
+
+  it('confirmSplit posts linking comment on original issue', async () => {
+    mockGitHub.createIssue
+      .mockResolvedValueOnce({ number: 200, url: 'https://github.com/o/r/issues/200' })
+      .mockResolvedValueOnce({ number: 201, url: 'https://github.com/o/r/issues/201' });
+    mockGitHub.closeIssue.mockResolvedValue({ success: true, issueNumber: 10 });
+    mockGitHub.addIssueComment.mockResolvedValue({ success: true });
+    mockGitHub.transitionWorkflowState.mockResolvedValue({});
+
+    const { result } = renderHook(() => useAITriage('proj-1'));
+
+    const subIssues = [
+      { title: 'Sub A', body: 'Body A', labels: [] },
+      { title: 'Sub B', body: 'Body B', labels: [] },
+    ];
+
+    await act(async () => {
+      await result.current.confirmSplit(10, subIssues);
+    });
+
+    expect(mockGitHub.addIssueComment).toHaveBeenCalledWith(
+      'proj-1',
+      10,
+      expect.stringContaining('#200'),
+    );
+    expect(mockGitHub.addIssueComment).toHaveBeenCalledWith(
+      'proj-1',
+      10,
+      expect.stringContaining('#201'),
+    );
+    expect(mockGitHub.addIssueComment).toHaveBeenCalledWith(
+      'proj-1',
+      10,
+      expect.stringContaining('Split by Auto-Claude'),
     );
   });
 

@@ -113,6 +113,11 @@ export function useAITriage(projectId: string) {
           });
         }
 
+        // Post linking comment on original issue
+        const subIssueLinks = createdIssues.map((num) => `#${num}`).join(', ');
+        const linkingComment = `Split into: ${subIssueLinks}\n\n---\n*Split by Auto-Claude*`;
+        await window.electronAPI.github.addIssueComment(projectId, issueNumber, linkingComment);
+
         // Close original issue
         store.setSplitProgress({
           phase: 'closing',

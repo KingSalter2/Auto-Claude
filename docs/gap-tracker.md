@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-12
 **Total Gaps:** 41 confirmed (from triple-verified audit)
-**Status:** 21 / 41 complete
+**Status:** 22 / 41 complete
 
 ---
 
@@ -381,16 +381,16 @@ Each gap has: ID, description, status, files to modify, doc reference, test stat
 - **Commit:** pending
 
 ### GAP-31: No linking comment when splitting issues
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** MUST-FIX
 - **Scope:** Small
 - **Doc ref:** Phase 3 PRD > US-6 > AC6.8, AC6.12
 - **Files to modify:** `renderer/components/github-issues/hooks/useAITriage.ts`
-- **Fix:** In confirmSplit(), after creating all sub-issues and before closing original (~line 117-123), post comment: "Split into: #101, #102...\n\n---\n*Split by Auto-Claude*"
-- **Tests:** Split issue → original gets linking comment with sub-issue numbers
-- **Test status:** `PENDING`
+- **Fix:** In confirmSplit(), after creating sub-issues and before closing original, post comment via addIssueComment: "Split into: #N1, #N2...\n\n---\n*Split by Auto-Claude*"
+- **Tests:** 1 new test verifying linking comment contains sub-issue numbers and signature. 9 total.
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** pending
 
 ### GAP-32: No sub-issue enrichment creation on split
 - **Status:** `PENDING`
