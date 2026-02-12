@@ -488,6 +488,62 @@
       "label": "Complétude : {{score}} pour cent"
     }
   },
+  "mutations": {
+    "editTitle": "Modifier le titre",
+    "editBody": "Modifier le contenu",
+    "saveChanges": "Enregistrer",
+    "cancelEdit": "Annuler",
+    "close": "Fermer l'issue",
+    "reopen": "Rouvrir l'issue",
+    "addComment": "Ajouter un commentaire",
+    "commentPlaceholder": "Écrire un commentaire...",
+    "commentEmpty": "Le commentaire ne peut pas être vide",
+    "titleEmpty": "Le titre ne peut pas être vide",
+    "saving": "Enregistrement...",
+    "error": "Erreur : {{message}}"
+  },
+  "labels": {
+    "manage": "Gérer les labels",
+    "add": "Ajouter un label",
+    "remove": "Supprimer le label",
+    "search": "Rechercher des labels...",
+    "limit": "Maximum de {{limit}} labels atteint"
+  },
+  "assignees": {
+    "manage": "Gérer les assignés",
+    "assign": "Assigner",
+    "unassign": "Désassigner",
+    "search": "Rechercher des collaborateurs..."
+  },
+  "bulk": {
+    "selectAll": "Tout sélectionner",
+    "deselectAll": "Tout désélectionner",
+    "selected": "{{count}} sélectionnés",
+    "processing": "Traitement {{current}}/{{total}}...",
+    "complete": "{{succeeded}} réussis, {{failed}} échoués",
+    "retryFailed": "Réessayer {{count}} échoués",
+    "dismiss": "Fermer",
+    "actions": "Actions groupées"
+  },
+  "spec": {
+    "createFromIssue": "Créer une spec",
+    "confirm": "Créer une spec à partir de cette issue ?",
+    "closedWarning": "Cette issue est fermée. La spec sera quand même créée.",
+    "noEnrichmentTip": "Les données d'enrichissement amélioreront la qualité de la spec.",
+    "agentActive": "Un agent travaille déjà sur cette issue",
+    "created": "Spec {{specNumber}} créée",
+    "createFailed": "Échec de la création de la spec : {{error}}"
+  },
+  "completenessBreakdown": {
+    "title": "Détail de la complétude",
+    "filled": "Rempli",
+    "empty": "Vide",
+    "weight": "Poids : {{weight}}"
+  },
+  "settingsLabelSync": {
+    "title": "Synchronisation des labels",
+    "comingSoon": "La synchronisation des labels sera disponible dans une future mise à jour. Les états du workflow sont actuellement stockés localement uniquement."
+  },
   "usage": {
     "dataUnavailable": "Données d'utilisation non disponibles",
     "dataUnavailableDescription": "Le point de terminaison de surveillance d'utilisation pour ce fournisseur n'est pas disponible ou n'est pas pris en charge.",

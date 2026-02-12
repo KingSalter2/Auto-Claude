@@ -488,6 +488,62 @@
       "label": "Completeness: {{score}} percent"
     }
   },
+  "mutations": {
+    "editTitle": "Edit title",
+    "editBody": "Edit body",
+    "saveChanges": "Save",
+    "cancelEdit": "Cancel",
+    "close": "Close issue",
+    "reopen": "Reopen issue",
+    "addComment": "Add comment",
+    "commentPlaceholder": "Write a comment...",
+    "commentEmpty": "Comment cannot be empty",
+    "titleEmpty": "Title cannot be empty",
+    "saving": "Saving...",
+    "error": "Error: {{message}}"
+  },
+  "labels": {
+    "manage": "Manage labels",
+    "add": "Add label",
+    "remove": "Remove label",
+    "search": "Search labels...",
+    "limit": "Maximum of {{limit}} labels reached"
+  },
+  "assignees": {
+    "manage": "Manage assignees",
+    "assign": "Assign",
+    "unassign": "Unassign",
+    "search": "Search collaborators..."
+  },
+  "bulk": {
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "selected": "{{count}} selected",
+    "processing": "Processing {{current}}/{{total}}...",
+    "complete": "{{succeeded}} succeeded, {{failed}} failed",
+    "retryFailed": "Retry {{count}} failed",
+    "dismiss": "Dismiss",
+    "actions": "Bulk actions"
+  },
+  "spec": {
+    "createFromIssue": "Create Spec",
+    "confirm": "Create a spec from this issue?",
+    "closedWarning": "This issue is closed. The spec will still be created.",
+    "noEnrichmentTip": "Enrichment data will improve spec quality.",
+    "agentActive": "An agent is already working on this issue",
+    "created": "Spec {{specNumber}} created",
+    "createFailed": "Failed to create spec: {{error}}"
+  },
+  "completenessBreakdown": {
+    "title": "Completeness Breakdown",
+    "filled": "Filled",
+    "empty": "Empty",
+    "weight": "Weight: {{weight}}"
+  },
+  "settingsLabelSync": {
+    "title": "Label Synchronization",
+    "comingSoon": "Label synchronization will be available in a future update. Workflow states are currently stored locally only."
+  },
   "usage": {
     "dataUnavailable": "Usage data unavailable",
     "dataUnavailableDescription": "The usage monitoring endpoint for this provider is not available or not supported.",
