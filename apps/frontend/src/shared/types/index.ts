@@ -18,6 +18,7 @@ export * from './changelog';
 export * from './insights';
 export * from './roadmap';
 export * from './integrations';
+export * from './investigation';
 export * from './app-update';
 export * from './cli';
 export * from './pr-status';

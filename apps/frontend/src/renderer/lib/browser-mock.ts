@@ -190,6 +190,18 @@ const browserMockAPI: ElectronAPI = {
     listGitHubOrgs: async () => ({ success: true, data: { orgs: [] } }),
     onGitHubAuthDeviceCode: () => () => {},
     onGitHubAuthChanged: () => () => {},
+    // Investigation operations (new system)
+    startInvestigation: () => {},
+    cancelInvestigation: () => {},
+    createTaskFromInvestigation: async () => ({ success: true, data: { specId: '' } }),
+    dismissIssue: async () => ({ success: true }),
+    postInvestigationToGitHub: async () => ({ success: true, data: { commentId: 0 } }),
+    getInvestigationSettings: async () => ({ success: true, data: { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [], labelExcludeFilter: [] } }),
+    saveInvestigationSettings: async () => ({ success: true }),
+    onInvestigationProgress: () => () => {},
+    onInvestigationComplete: () => () => {},
+    onInvestigationError: () => () => {},
+    // Legacy investigation listeners
     onGitHubInvestigationProgress: () => () => {},
     onGitHubInvestigationComplete: () => () => {},
     onGitHubInvestigationError: () => () => {},

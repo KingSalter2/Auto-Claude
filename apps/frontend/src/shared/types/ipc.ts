@@ -138,6 +138,12 @@ import type {
   GitLabMRReviewProgress,
   GitLabNewCommitsCheck
 } from './integrations';
+import type {
+  InvestigationProgress,
+  InvestigationResult,
+  InvestigationDismissReason,
+  InvestigationSettings
+} from './investigation';
 import type { APIProfile, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from './profile';
 
 // ============================================
@@ -533,7 +539,16 @@ export interface ElectronAPI {
     callback: (data: { deviceCode: string; authUrl: string; browserOpened: boolean }) => void
   ) => () => void;
 
-  // GitHub event listeners
+  // GitHub Investigation operations (new system)
+  startInvestigation: (projectId: string, issueNumber: number) => void;
+  cancelInvestigation: (projectId: string, issueNumber: number) => void;
+  createTaskFromInvestigation: (projectId: string, issueNumber: number) => Promise<IPCResult<{ specId: string }>>;
+  dismissIssue: (projectId: string, issueNumber: number, reason: InvestigationDismissReason) => Promise<IPCResult>;
+  postInvestigationToGitHub: (projectId: string, issueNumber: number) => Promise<IPCResult<{ commentId: number }>>;
+  getInvestigationSettings: (projectId: string) => Promise<IPCResult<InvestigationSettings>>;
+  saveInvestigationSettings: (projectId: string, settings: Partial<InvestigationSettings>) => Promise<IPCResult>;
+
+  // GitHub event listeners (legacy signatures kept for backwards compatibility)
   onGitHubInvestigationProgress: (
     callback: (projectId: string, status: GitHubInvestigationStatus) => void
   ) => () => void;

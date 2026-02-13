@@ -266,7 +266,16 @@ export const IPC_CHANNELS = {
   GITHUB_AUTH_DEVICE_CODE: 'github:authDeviceCode',
   GITHUB_AUTH_CHANGED: 'github:authChanged',  // Event: GitHub auth state changed (account swap)
 
-  // GitHub events (main -> renderer)
+  // GitHub Investigation operations (renderer -> main)
+  GITHUB_INVESTIGATION_START: 'github:investigation:start',
+  GITHUB_INVESTIGATION_CANCEL: 'github:investigation:cancel',
+  GITHUB_INVESTIGATION_CREATE_TASK: 'github:investigation:createTask',
+  GITHUB_INVESTIGATION_DISMISS: 'github:investigation:dismiss',
+  GITHUB_INVESTIGATION_POST_GITHUB: 'github:investigation:postGitHub',
+  GITHUB_INVESTIGATION_GET_SETTINGS: 'github:investigation:getSettings',
+  GITHUB_INVESTIGATION_SAVE_SETTINGS: 'github:investigation:saveSettings',
+
+  // GitHub Investigation events (main -> renderer)
   GITHUB_INVESTIGATION_PROGRESS: 'github:investigationProgress',
   GITHUB_INVESTIGATION_COMPLETE: 'github:investigationComplete',
   GITHUB_INVESTIGATION_ERROR: 'github:investigationError',

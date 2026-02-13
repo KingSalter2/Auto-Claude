@@ -10,7 +10,11 @@ import type {
   VersionSuggestion,
   PaginatedIssuesResult,
   PRStatusUpdate,
-  PollingMetadata
+  PollingMetadata,
+  InvestigationProgress,
+  InvestigationResult,
+  InvestigationDismissReason,
+  InvestigationSettings
 } from '../../../shared/types';
 import type { EnrichmentFile, IssueEnrichment, WorkflowState, Resolution } from '../../../shared/types/enrichment';
 import type { LabelSyncConfig, LabelSyncResult } from '../../../shared/types/label-sync';
@@ -225,7 +229,27 @@ export interface GitHubAPI {
   ) => Promise<IPCResult<{ remoteUrl: string }>>;
   listGitHubOrgs: () => Promise<IPCResult<{ orgs: Array<{ login: string; avatarUrl?: string }> }>>;
 
-  // Event Listeners
+  // Investigation operations (new system)
+  startInvestigation: (projectId: string, issueNumber: number) => void;
+  cancelInvestigation: (projectId: string, issueNumber: number) => void;
+  createTaskFromInvestigation: (projectId: string, issueNumber: number) => Promise<IPCResult<{ specId: string }>>;
+  dismissIssue: (projectId: string, issueNumber: number, reason: InvestigationDismissReason) => Promise<IPCResult>;
+  postInvestigationToGitHub: (projectId: string, issueNumber: number) => Promise<IPCResult<{ commentId: number }>>;
+  getInvestigationSettings: (projectId: string) => Promise<IPCResult<InvestigationSettings>>;
+  saveInvestigationSettings: (projectId: string, settings: Partial<InvestigationSettings>) => Promise<IPCResult>;
+
+  // Investigation event listeners (new system)
+  onInvestigationProgress: (
+    callback: (projectId: string, progress: InvestigationProgress) => void
+  ) => IpcListenerCleanup;
+  onInvestigationComplete: (
+    callback: (projectId: string, result: InvestigationResult) => void
+  ) => IpcListenerCleanup;
+  onInvestigationError: (
+    callback: (projectId: string, error: string) => void
+  ) => IpcListenerCleanup;
+
+  // Legacy Event Listeners (deprecated — use investigation methods above)
   onGitHubInvestigationProgress: (
     callback: (projectId: string, status: GitHubInvestigationStatus) => void
   ) => IpcListenerCleanup;
@@ -682,7 +706,45 @@ export const createGitHubAPI = (): GitHubAPI => ({
   listGitHubOrgs: (): Promise<IPCResult<{ orgs: Array<{ login: string; avatarUrl?: string }> }>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_LIST_ORGS),
 
-  // Event Listeners
+  // Investigation operations (new system)
+  startInvestigation: (projectId: string, issueNumber: number): void =>
+    sendIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_START, projectId, issueNumber),
+
+  cancelInvestigation: (projectId: string, issueNumber: number): void =>
+    sendIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_CANCEL, projectId, issueNumber),
+
+  createTaskFromInvestigation: (projectId: string, issueNumber: number): Promise<IPCResult<{ specId: string }>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_CREATE_TASK, projectId, issueNumber),
+
+  dismissIssue: (projectId: string, issueNumber: number, reason: InvestigationDismissReason): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_DISMISS, projectId, issueNumber, reason),
+
+  postInvestigationToGitHub: (projectId: string, issueNumber: number): Promise<IPCResult<{ commentId: number }>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_POST_GITHUB, projectId, issueNumber),
+
+  getInvestigationSettings: (projectId: string): Promise<IPCResult<InvestigationSettings>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_GET_SETTINGS, projectId),
+
+  saveInvestigationSettings: (projectId: string, settings: Partial<InvestigationSettings>): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_SAVE_SETTINGS, projectId, settings),
+
+  // Investigation event listeners (new system)
+  onInvestigationProgress: (
+    callback: (projectId: string, progress: InvestigationProgress) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_INVESTIGATION_PROGRESS, callback),
+
+  onInvestigationComplete: (
+    callback: (projectId: string, result: InvestigationResult) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_INVESTIGATION_COMPLETE, callback),
+
+  onInvestigationError: (
+    callback: (projectId: string, error: string) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR, callback),
+
+  // Legacy Event Listeners (deprecated — use investigation methods above)
   onGitHubInvestigationProgress: (
     callback: (projectId: string, status: GitHubInvestigationStatus) => void
   ): IpcListenerCleanup =>

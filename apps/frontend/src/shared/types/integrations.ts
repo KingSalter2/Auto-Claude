@@ -130,6 +130,10 @@ export interface GitHubImportResult {
   tasks?: import('./task').Task[];
 }
 
+/**
+ * @deprecated Use `InvestigationResult` from `./investigation` instead.
+ * Kept for backwards compatibility with existing code that references this type.
+ */
 export interface GitHubInvestigationResult {
   success: boolean;
   issueNumber: number;
@@ -144,6 +148,10 @@ export interface GitHubInvestigationResult {
   error?: string;
 }
 
+/**
+ * @deprecated Use `InvestigationProgress` from `./investigation` instead.
+ * Kept for backwards compatibility with existing code that references this type.
+ */
 export interface GitHubInvestigationStatus {
   phase: 'idle' | 'fetching' | 'analyzing' | 'creating_task' | 'complete' | 'error';
   issueNumber?: number;
