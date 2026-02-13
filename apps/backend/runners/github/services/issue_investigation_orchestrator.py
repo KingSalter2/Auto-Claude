@@ -346,11 +346,12 @@ Use Read, Grep, and Glob tools to explore the codebase.
             retry_tasks=retry_factories,
         )
 
-        # Map results back to specialist names
+        # Map results back to specialist names (position-preserving)
         result_map: dict[str, dict[str, Any]] = {}
         for i, config in enumerate(INVESTIGATION_SPECIALISTS):
-            if i < len(valid_results):
-                result_map[config.name] = valid_results[i]
+            result = valid_results[i] if i < len(valid_results) else None
+            if result is not None:
+                result_map[config.name] = result
             else:
                 result_map[config.name] = {
                     "result_text": "",

@@ -467,18 +467,27 @@ export function initializeInvestigationListeners(): void {
 
   // Listen for investigation error events
   const cleanupError = window.electronAPI.github.onInvestigationError(
-    (projectId: string, error: string) => {
-      // We need the issueNumber from the error; parse from active investigations
-      const active = store.getActiveInvestigations(projectId);
-      // If there's only one active, use that. Otherwise, this error is ambiguous.
-      // The IPC handler should include issueNumber in a future iteration,
-      // but for now we mark all active investigations as errored.
-      for (const inv of active) {
-        store.setError(projectId, inv.issueNumber, error);
+    (projectId: string, errorPayload: string | { error: string; issueNumber?: number }) => {
+      const errorMsg = typeof errorPayload === 'string' ? errorPayload : errorPayload.error;
+      const issueNum = typeof errorPayload === 'object' ? errorPayload.issueNumber : undefined;
+
+      if (issueNum) {
+        // Target the specific investigation that failed
+        store.setError(projectId, issueNum, errorMsg);
         toast({
-          title: `Investigation failed for Issue #${inv.issueNumber}`,
+          title: `Investigation failed for Issue #${issueNum}`,
           variant: 'destructive',
         });
+      } else {
+        // Legacy fallback: no issueNumber, mark all active (shouldn't happen with updated handlers)
+        const active = store.getActiveInvestigations(projectId);
+        for (const inv of active) {
+          store.setError(projectId, inv.issueNumber, errorMsg);
+          toast({
+            title: `Investigation failed for Issue #${inv.issueNumber}`,
+            variant: 'destructive',
+          });
+        }
       }
     }
   );

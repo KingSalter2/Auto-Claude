@@ -249,7 +249,7 @@ export interface GitHubAPI {
     callback: (projectId: string, result: InvestigationResult) => void
   ) => IpcListenerCleanup;
   onInvestigationError: (
-    callback: (projectId: string, error: string) => void
+    callback: (projectId: string, error: string | { error: string; issueNumber?: number }) => void
   ) => IpcListenerCleanup;
 
   // Legacy Event Listeners (deprecated — use investigation methods above)
@@ -749,7 +749,7 @@ export const createGitHubAPI = (): GitHubAPI => ({
     createIpcListener(IPC_CHANNELS.GITHUB_INVESTIGATION_COMPLETE, callback),
 
   onInvestigationError: (
-    callback: (projectId: string, error: string) => void
+    callback: (projectId: string, error: string | { error: string; issueNumber?: number }) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR, callback),
 

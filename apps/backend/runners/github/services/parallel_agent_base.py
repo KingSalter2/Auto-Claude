@@ -239,6 +239,9 @@ class ParallelAgentOrchestrator:
         (0-arg coroutine factories) that can recreate the coroutine
         for a retry attempt.
 
+        Results preserve positional order: result[i] corresponds to tasks[i].
+        Failed specialists (after retry) are represented as None in the list.
+
         Args:
             tasks: List of coroutines/tasks to run in parallel
             orchestrator_name: Name for logging
@@ -247,7 +250,8 @@ class ParallelAgentOrchestrator:
                         If None, failed tasks are not retried.
 
         Returns:
-            List of results (exceptions are logged and filtered out)
+            List of results preserving original task order.
+            Failed tasks are None; successful tasks contain the result dict.
         """
         safe_print(
             f"[{orchestrator_name}] Launching {len(tasks)} specialists in parallel...",
@@ -256,8 +260,8 @@ class ParallelAgentOrchestrator:
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Separate successes from failures
-        valid_results = []
+        # Build position-indexed result map
+        result_map: dict[int, Any] = {}
         failed_indices: list[int] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
@@ -266,7 +270,7 @@ class ParallelAgentOrchestrator:
                 )
                 failed_indices.append(i)
             else:
-                valid_results.append(result)
+                result_map[i] = result
 
         # Retry failed specialists once if retry factories are provided
         if failed_indices and retry_tasks:
@@ -294,12 +298,14 @@ class ParallelAgentOrchestrator:
                             f"[{orchestrator_name}] Retry succeeded for specialist {idx}",
                             flush=True,
                         )
-                        valid_results.append(retry_result)
+                        result_map[idx] = retry_result
 
+        succeeded = len(result_map)
         safe_print(
             f"[{orchestrator_name}] All specialists complete. "
-            f"{len(valid_results)}/{len(tasks)} succeeded.",
+            f"{succeeded}/{len(tasks)} succeeded.",
             flush=True,
         )
 
-        return valid_results
+        # Return ordered list preserving original positions (None for failures)
+        return [result_map.get(i) for i in range(len(tasks))]

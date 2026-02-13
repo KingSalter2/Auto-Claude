@@ -593,7 +593,7 @@ async function runInvestigation(
       }
 
       if (!result.success) {
-        sendError(result.error ?? 'Investigation failed');
+        sendError({ error: result.error ?? 'Investigation failed', issueNumber });
         return;
       }
 
@@ -634,7 +634,7 @@ async function runInvestigation(
       }
     });
   } catch (error) {
-    sendError(error instanceof Error ? error.message : 'Failed to start investigation');
+    sendError({ error: error instanceof Error ? error.message : 'Failed to start investigation', issueNumber });
   } finally {
     // Always try to start the next queued investigation after this one finishes
     processQueue(getMainWindow, agentManager);
@@ -1314,7 +1314,8 @@ export function registerInvestigationHandlers(
             }
           }
 
-          // Schedule auto-resume for interrupted investigations after a delay
+          // Schedule auto-resume for interrupted investigations after a delay.
+          // Route through the queue to respect the parallel limit.
           if (interruptedIssues.length > 0) {
             debugLog('Scheduling auto-resume for interrupted investigations', {
               projectId,
@@ -1322,10 +1323,20 @@ export function registerInvestigationHandlers(
               issues: interruptedIssues,
             });
             setTimeout(() => {
+              const maxParallel = getMaxParallel(projectId);
               for (const issueNum of interruptedIssues) {
                 debugLog('Auto-resuming interrupted investigation', { projectId, issueNumber: issueNum });
-                runInvestigation(projectId, issueNum, getMainWindow, agentManager);
+                if (activeInvestigations.size < maxParallel) {
+                  runInvestigation(projectId, issueNum, getMainWindow, agentManager);
+                } else {
+                  investigationQueue.push({
+                    projectId,
+                    issueNumber: issueNum,
+                    queuedAt: new Date().toISOString(),
+                  });
+                }
               }
+              broadcastQueuePositions(getMainWindow);
             }, 3000);
           }
 

@@ -615,7 +615,10 @@ Report findings with specific file paths, line numbers, and code evidence.
         all_findings: list[PRReviewFinding] = []
         agents_invoked: list[str] = []
 
-        for specialist_name, findings in valid_results:
+        for result in valid_results:
+            if result is None:
+                continue
+            specialist_name, findings = result
             agents_invoked.append(specialist_name)
             all_findings.extend(findings)
 
