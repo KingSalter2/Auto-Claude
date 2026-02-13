@@ -27,6 +27,7 @@ import { isValidTransition } from '../../../shared/constants/enrichment';
 import {
   readEnrichmentFile,
   writeEnrichmentFile,
+  withEnrichmentFileLock,
   appendTransition,
 } from './enrichment-persistence';
 import { withProject } from './utils/project-middleware';
@@ -65,35 +66,37 @@ async function transitionEnrichmentOnClose(
   issueNumber: number,
 ): Promise<void> {
   try {
-    const data = await readEnrichmentFile(projectPath);
-    const key = String(issueNumber);
-    const enrichment = data.issues[key];
+    await withEnrichmentFileLock(projectPath, async () => {
+      const data = await readEnrichmentFile(projectPath);
+      const key = String(issueNumber);
+      const enrichment = data.issues[key];
 
-    if (!enrichment) return;
+      if (!enrichment) return;
 
-    const from = enrichment.triageState;
+      const from = enrichment.triageState;
 
-    // Only transition if closing is valid from current state
-    if (from === 'done') return; // Already done
-    if (!isValidTransition(from, 'done') && from !== 'blocked') return;
+      // Only transition if closing is valid from current state
+      if (from === 'done') return; // Already done
+      if (!isValidTransition(from, 'done') && from !== 'blocked') return;
 
-    enrichment.previousState = undefined;
-    enrichment.triageState = 'done';
-    enrichment.resolution = 'completed';
-    enrichment.updatedAt = new Date().toISOString();
-    data.issues[key] = enrichment;
+      enrichment.previousState = undefined;
+      enrichment.triageState = 'done';
+      enrichment.resolution = 'completed';
+      enrichment.updatedAt = new Date().toISOString();
+      data.issues[key] = enrichment;
 
-    await writeEnrichmentFile(projectPath, data);
-    await appendTransition(projectPath, {
-      issueNumber,
-      from,
-      to: 'done',
-      actor: 'user',
-      resolution: 'completed',
-      timestamp: enrichment.updatedAt,
+      await writeEnrichmentFile(projectPath, data);
+      await appendTransition(projectPath, {
+        issueNumber,
+        from,
+        to: 'done',
+        actor: 'user',
+        resolution: 'completed',
+        timestamp: enrichment.updatedAt,
+      });
+
+      logger.debug(`Auto-transitioned issue #${issueNumber} from ${from} to done`);
     });
-
-    logger.debug(`Auto-transitioned issue #${issueNumber} from ${from} to done`);
   } catch (error) {
     logger.debug(`Failed to auto-transition enrichment on close for #${issueNumber}`, error);
   }
@@ -108,33 +111,35 @@ async function transitionEnrichmentOnReopen(
   issueNumber: number,
 ): Promise<void> {
   try {
-    const data = await readEnrichmentFile(projectPath);
-    const key = String(issueNumber);
-    const enrichment = data.issues[key];
+    await withEnrichmentFileLock(projectPath, async () => {
+      const data = await readEnrichmentFile(projectPath);
+      const key = String(issueNumber);
+      const enrichment = data.issues[key];
 
-    if (!enrichment) return;
+      if (!enrichment) return;
 
-    const from = enrichment.triageState;
+      const from = enrichment.triageState;
 
-    // Only transition if currently done
-    if (from !== 'done') return;
-    if (!isValidTransition('done', 'ready')) return;
+      // Only transition if currently done
+      if (from !== 'done') return;
+      if (!isValidTransition('done', 'ready')) return;
 
-    enrichment.triageState = 'ready';
-    enrichment.resolution = undefined;
-    enrichment.updatedAt = new Date().toISOString();
-    data.issues[key] = enrichment;
+      enrichment.triageState = 'ready';
+      enrichment.resolution = undefined;
+      enrichment.updatedAt = new Date().toISOString();
+      data.issues[key] = enrichment;
 
-    await writeEnrichmentFile(projectPath, data);
-    await appendTransition(projectPath, {
-      issueNumber,
-      from: 'done',
-      to: 'ready',
-      actor: 'user',
-      timestamp: enrichment.updatedAt,
+      await writeEnrichmentFile(projectPath, data);
+      await appendTransition(projectPath, {
+        issueNumber,
+        from: 'done',
+        to: 'ready',
+        actor: 'user',
+        timestamp: enrichment.updatedAt,
+      });
+
+      logger.debug(`Auto-transitioned issue #${issueNumber} from done to ready`);
     });
-
-    logger.debug(`Auto-transitioned issue #${issueNumber} from done to ready`);
   } catch (error) {
     logger.debug(`Failed to auto-transition enrichment on reopen for #${issueNumber}`, error);
   }

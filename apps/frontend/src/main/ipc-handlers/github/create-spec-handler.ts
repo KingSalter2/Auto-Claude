@@ -13,6 +13,7 @@ import { isValidTransition } from '../../../shared/constants/enrichment';
 import {
   readEnrichmentFile,
   writeEnrichmentFile,
+  withEnrichmentFileLock,
   appendTransition,
 } from './enrichment-persistence';
 import { createSpecForIssue, buildInvestigationTask, buildIssueContext } from './spec-utils';
@@ -134,27 +135,29 @@ async function transitionToInProgress(
   issueNumber: number,
 ): Promise<void> {
   try {
-    const data = await readEnrichmentFile(projectPath);
-    const key = String(issueNumber);
-    const enrichment = data.issues[key];
+    await withEnrichmentFileLock(projectPath, async () => {
+      const data = await readEnrichmentFile(projectPath);
+      const key = String(issueNumber);
+      const enrichment = data.issues[key];
 
-    if (!enrichment) return;
+      if (!enrichment) return;
 
-    const from = enrichment.triageState;
-    if (from === 'in_progress') return; // Already there
-    if (!isValidTransition(from, 'in_progress')) return;
+      const from = enrichment.triageState;
+      if (from === 'in_progress') return; // Already there
+      if (!isValidTransition(from, 'in_progress')) return;
 
-    enrichment.triageState = 'in_progress';
-    enrichment.updatedAt = new Date().toISOString();
-    data.issues[key] = enrichment;
+      enrichment.triageState = 'in_progress';
+      enrichment.updatedAt = new Date().toISOString();
+      data.issues[key] = enrichment;
 
-    await writeEnrichmentFile(projectPath, data);
-    await appendTransition(projectPath, {
-      issueNumber,
-      from,
-      to: 'in_progress',
-      actor: 'user',
-      timestamp: enrichment.updatedAt,
+      await writeEnrichmentFile(projectPath, data);
+      await appendTransition(projectPath, {
+        issueNumber,
+        from,
+        to: 'in_progress',
+        actor: 'user',
+        timestamp: enrichment.updatedAt,
+      });
     });
   } catch (error) {
     logger.debug(`Failed to transition enrichment to in_progress for #${issueNumber}`, error);

@@ -99,12 +99,22 @@ export async function writeEnrichmentFile(
 
   await mkdir(dir, { recursive: true });
 
-  await withEnrichmentLock(filePath, async () => {
-    await writeJsonWithRetry(filePath, data, {
-      indent: 2,
-      maxRetries: isWindows() ? 5 : 3,
-    });
+  await writeJsonWithRetry(filePath, data, {
+    indent: 2,
+    maxRetries: isWindows() ? 5 : 3,
   });
+}
+
+/**
+ * Wrap an entire read-modify-write cycle on the enrichment file in a single lock.
+ * Callers MUST use this instead of separate read + write calls to prevent lost updates.
+ */
+export async function withEnrichmentFileLock<T>(
+  projectPath: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const filePath = getEnrichmentFilePath(projectPath);
+  return withEnrichmentLock(filePath, operation);
 }
 
 // ============================================
@@ -216,53 +226,55 @@ export async function bootstrapFromGitHub(
   projectPath: string,
   issues: GitHubIssue[],
 ): Promise<EnrichmentFile> {
-  const enrichmentFile = await readEnrichmentFile(projectPath);
-  const now = new Date().toISOString();
+  return withEnrichmentFileLock(projectPath, async () => {
+    const enrichmentFile = await readEnrichmentFile(projectPath);
+    const now = new Date().toISOString();
 
-  for (const issue of issues) {
-    const key = String(issue.number);
+    for (const issue of issues) {
+      const key = String(issue.number);
 
-    // Skip issues that already have enrichment
-    if (enrichmentFile.issues[key]) continue;
+      // Skip issues that already have enrichment
+      if (enrichmentFile.issues[key]) continue;
 
-    const enrichment = createDefaultEnrichment(issue.number);
+      const enrichment = createDefaultEnrichment(issue.number);
 
-    // Infer state from GitHub issue data
-    if (issue.state === 'closed') {
-      enrichment.triageState = 'done';
-      enrichment.resolution = 'completed';
-    } else if (issue.assignees.length > 0) {
-      enrichment.triageState = 'in_progress';
-    }
-
-    // Extract priority from labels
-    for (const label of issue.labels) {
-      const name = label.name.toLowerCase();
-      if (name === 'priority:critical' || name === 'critical') {
-        enrichment.priority = 'critical';
-      } else if (name === 'priority:high' || name === 'high') {
-        enrichment.priority = 'high';
-      } else if (name === 'priority:medium' || name === 'medium') {
-        enrichment.priority = 'medium';
-      } else if (name === 'priority:low' || name === 'low') {
-        enrichment.priority = 'low';
+      // Infer state from GitHub issue data
+      if (issue.state === 'closed') {
+        enrichment.triageState = 'done';
+        enrichment.resolution = 'completed';
+      } else if (issue.assignees.length > 0) {
+        enrichment.triageState = 'in_progress';
       }
+
+      // Extract priority from labels
+      for (const label of issue.labels) {
+        const name = label.name.toLowerCase();
+        if (name === 'priority:critical' || name === 'critical') {
+          enrichment.priority = 'critical';
+        } else if (name === 'priority:high' || name === 'high') {
+          enrichment.priority = 'high';
+        } else if (name === 'priority:medium' || name === 'medium') {
+          enrichment.priority = 'medium';
+        } else if (name === 'priority:low' || name === 'low') {
+          enrichment.priority = 'low';
+        }
+      }
+
+      enrichmentFile.issues[key] = enrichment;
+
+      // Log bootstrap transition
+      await appendTransition(projectPath, {
+        issueNumber: issue.number,
+        from: 'new',
+        to: enrichment.triageState,
+        actor: 'bootstrap',
+        timestamp: now,
+      });
     }
 
-    enrichmentFile.issues[key] = enrichment;
-
-    // Log bootstrap transition
-    await appendTransition(projectPath, {
-      issueNumber: issue.number,
-      from: 'new',
-      to: enrichment.triageState,
-      actor: 'bootstrap',
-      timestamp: now,
-    });
-  }
-
-  await writeEnrichmentFile(projectPath, enrichmentFile);
-  return enrichmentFile;
+    await writeEnrichmentFile(projectPath, enrichmentFile);
+    return enrichmentFile;
+  });
 }
 
 // ============================================
@@ -277,51 +289,53 @@ export async function reconcileWithGitHub(
   projectPath: string,
   issues: GitHubIssue[],
 ): Promise<EnrichmentFile> {
-  const enrichmentFile = await readEnrichmentFile(projectPath);
-  const now = new Date().toISOString();
+  return withEnrichmentFileLock(projectPath, async () => {
+    const enrichmentFile = await readEnrichmentFile(projectPath);
+    const now = new Date().toISOString();
 
-  for (const issue of issues) {
-    const key = String(issue.number);
-    const enrichment = enrichmentFile.issues[key];
-    if (!enrichment) continue;
+    for (const issue of issues) {
+      const key = String(issue.number);
+      const enrichment = enrichmentFile.issues[key];
+      if (!enrichment) continue;
 
-    // Closed on GitHub but not done in enrichment → mark done
-    if (issue.state === 'closed' && enrichment.triageState !== 'done') {
-      const from = enrichment.triageState;
-      enrichment.triageState = 'done';
-      enrichment.resolution = enrichment.resolution ?? 'completed';
-      enrichment.updatedAt = now;
+      // Closed on GitHub but not done in enrichment → mark done
+      if (issue.state === 'closed' && enrichment.triageState !== 'done') {
+        const from = enrichment.triageState;
+        enrichment.triageState = 'done';
+        enrichment.resolution = enrichment.resolution ?? 'completed';
+        enrichment.updatedAt = now;
 
-      await appendTransition(projectPath, {
-        issueNumber: issue.number,
-        from,
-        to: 'done',
-        actor: 'auto-reconcile',
-        reason: 'GitHub state diverged',
-        resolution: enrichment.resolution,
-        timestamp: now,
-      });
+        await appendTransition(projectPath, {
+          issueNumber: issue.number,
+          from,
+          to: 'done',
+          actor: 'auto-reconcile',
+          reason: 'GitHub state diverged',
+          resolution: enrichment.resolution,
+          timestamp: now,
+        });
+      }
+
+      // Open on GitHub but done in enrichment → reopen to ready (GAP-2)
+      if (issue.state === 'open' && enrichment.triageState === 'done') {
+        enrichment.triageState = 'ready';
+        enrichment.resolution = undefined;
+        enrichment.updatedAt = now;
+
+        await appendTransition(projectPath, {
+          issueNumber: issue.number,
+          from: 'done',
+          to: 'ready',
+          actor: 'auto-reconcile',
+          reason: 'GitHub state diverged',
+          timestamp: now,
+        });
+      }
     }
 
-    // Open on GitHub but done in enrichment → reopen to ready (GAP-2)
-    if (issue.state === 'open' && enrichment.triageState === 'done') {
-      enrichment.triageState = 'ready';
-      enrichment.resolution = undefined;
-      enrichment.updatedAt = now;
-
-      await appendTransition(projectPath, {
-        issueNumber: issue.number,
-        from: 'done',
-        to: 'ready',
-        actor: 'auto-reconcile',
-        reason: 'GitHub state diverged',
-        timestamp: now,
-      });
-    }
-  }
-
-  await writeEnrichmentFile(projectPath, enrichmentFile);
-  return enrichmentFile;
+    await writeEnrichmentFile(projectPath, enrichmentFile);
+    return enrichmentFile;
+  });
 }
 
 // ============================================
@@ -337,37 +351,39 @@ export async function runGarbageCollection(
     return { pruned: 0, orphaned: 0 };
   }
 
-  const enrichmentFile = await readEnrichmentFile(projectPath);
-  const currentSet = new Set(currentIssueNumbers.map(String));
-  const now = new Date();
-  let pruned = 0;
-  let orphaned = 0;
+  return withEnrichmentFileLock(projectPath, async () => {
+    const enrichmentFile = await readEnrichmentFile(projectPath);
+    const currentSet = new Set(currentIssueNumbers.map(String));
+    const now = new Date();
+    let pruned = 0;
+    let orphaned = 0;
 
-  for (const [key, enrichment] of Object.entries(enrichmentFile.issues)) {
-    if (!currentSet.has(key)) {
-      // Mark as orphaned if not already
-      if (!(enrichment as IssueEnrichment & { _orphanedAt?: string })._orphanedAt) {
-        (enrichment as IssueEnrichment & { _orphanedAt?: string })._orphanedAt = now.toISOString();
-        orphaned++;
-      } else {
-        // Check if orphan is old enough to prune
-        const orphanedAt = new Date(
-          (enrichment as IssueEnrichment & { _orphanedAt?: string })._orphanedAt!,
-        );
-        const daysSinceOrphan = (now.getTime() - orphanedAt.getTime()) / (1000 * 60 * 60 * 24);
-        if (daysSinceOrphan > 30) {
-          delete enrichmentFile.issues[key];
-          pruned++;
-        } else {
+    for (const [key, enrichment] of Object.entries(enrichmentFile.issues)) {
+      if (!currentSet.has(key)) {
+        // Mark as orphaned if not already
+        if (!(enrichment as IssueEnrichment & { _orphanedAt?: string })._orphanedAt) {
+          (enrichment as IssueEnrichment & { _orphanedAt?: string })._orphanedAt = now.toISOString();
           orphaned++;
+        } else {
+          // Check if orphan is old enough to prune
+          const orphanedAt = new Date(
+            (enrichment as IssueEnrichment & { _orphanedAt?: string })._orphanedAt!,
+          );
+          const daysSinceOrphan = (now.getTime() - orphanedAt.getTime()) / (1000 * 60 * 60 * 24);
+          if (daysSinceOrphan > 30) {
+            delete enrichmentFile.issues[key];
+            pruned++;
+          } else {
+            orphaned++;
+          }
         }
+      } else {
+        // Not orphaned — clear orphan marker if present
+        delete (enrichment as IssueEnrichment & { _orphanedAt?: string })._orphanedAt;
       }
-    } else {
-      // Not orphaned — clear orphan marker if present
-      delete (enrichment as IssueEnrichment & { _orphanedAt?: string })._orphanedAt;
     }
-  }
 
-  await writeEnrichmentFile(projectPath, enrichmentFile);
-  return { pruned, orphaned };
+    await writeEnrichmentFile(projectPath, enrichmentFile);
+    return { pruned, orphaned };
+  });
 }

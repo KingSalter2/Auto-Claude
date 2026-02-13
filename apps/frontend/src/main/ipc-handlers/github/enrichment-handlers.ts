@@ -12,6 +12,7 @@ import type { GitHubIssue } from '../../../shared/types/integrations';
 import {
   readEnrichmentFile,
   writeEnrichmentFile,
+  withEnrichmentFileLock,
   appendTransition,
   bootstrapFromGitHub,
   reconcileWithGitHub,
@@ -52,13 +53,15 @@ export function registerEnrichmentHandlers(
     IPC_CHANNELS.GITHUB_ENRICHMENT_SAVE,
     async (_, projectId: string, enrichment: IssueEnrichment) => {
       return withProject(projectId, async (project) => {
-        const data = await readEnrichmentFile(project.path);
-        data.issues[String(enrichment.issueNumber)] = {
-          ...enrichment,
-          updatedAt: new Date().toISOString(),
-        };
-        await writeEnrichmentFile(project.path, data);
-        return true;
+        return withEnrichmentFileLock(project.path, async () => {
+          const data = await readEnrichmentFile(project.path);
+          data.issues[String(enrichment.issueNumber)] = {
+            ...enrichment,
+            updatedAt: new Date().toISOString(),
+          };
+          await writeEnrichmentFile(project.path, data);
+          return true;
+        });
       });
     },
   );
@@ -74,61 +77,63 @@ export function registerEnrichmentHandlers(
       resolution?: Resolution,
     ) => {
       return withProject(projectId, async (project) => {
-        const data = await readEnrichmentFile(project.path);
-        const key = String(issueNumber);
-        const enrichment = data.issues[key];
+        return withEnrichmentFileLock(project.path, async () => {
+          const data = await readEnrichmentFile(project.path);
+          const key = String(issueNumber);
+          const enrichment = data.issues[key];
 
-        if (!enrichment) {
-          throw new Error(`No enrichment found for issue #${issueNumber}`);
-        }
-
-        const from = enrichment.triageState;
-
-        // Validate transition (blocked state unblock handled specially)
-        if (from === 'blocked' && enrichment.previousState) {
-          // Unblock: return to previousState
-          enrichment.triageState = enrichment.previousState;
-          enrichment.previousState = undefined;
-        } else if (to === 'blocked') {
-          // Block: save current state as previousState
-          if (!isValidTransition(from, to)) {
-            throw new Error(`Invalid transition: ${from} → ${to}`);
-          }
-          enrichment.previousState = from;
-          enrichment.triageState = 'blocked';
-        } else {
-          if (!isValidTransition(from, to)) {
-            throw new Error(`Invalid transition: ${from} → ${to}`);
+          if (!enrichment) {
+            throw new Error(`No enrichment found for issue #${issueNumber}`);
           }
 
-          // Require resolution when transitioning to done
-          if (to === 'done' && !resolution) {
-            throw new Error('Resolution is required when transitioning to done');
-          }
+          const from = enrichment.triageState;
 
-          enrichment.triageState = to;
-          if (to === 'done') {
-            enrichment.resolution = resolution;
+          // Validate transition (blocked state unblock handled specially)
+          if (from === 'blocked' && enrichment.previousState) {
+            // Unblock: return to previousState
+            enrichment.triageState = enrichment.previousState;
+            enrichment.previousState = undefined;
+          } else if (to === 'blocked') {
+            // Block: save current state as previousState
+            if (!isValidTransition(from, to)) {
+              throw new Error(`Invalid transition: ${from} → ${to}`);
+            }
+            enrichment.previousState = from;
+            enrichment.triageState = 'blocked';
           } else {
-            enrichment.resolution = undefined;
+            if (!isValidTransition(from, to)) {
+              throw new Error(`Invalid transition: ${from} → ${to}`);
+            }
+
+            // Require resolution when transitioning to done
+            if (to === 'done' && !resolution) {
+              throw new Error('Resolution is required when transitioning to done');
+            }
+
+            enrichment.triageState = to;
+            if (to === 'done') {
+              enrichment.resolution = resolution;
+            } else {
+              enrichment.resolution = undefined;
+            }
           }
-        }
 
-        enrichment.updatedAt = new Date().toISOString();
-        data.issues[key] = enrichment;
+          enrichment.updatedAt = new Date().toISOString();
+          data.issues[key] = enrichment;
 
-        await writeEnrichmentFile(project.path, data);
+          await writeEnrichmentFile(project.path, data);
 
-        await appendTransition(project.path, {
-          issueNumber,
-          from,
-          to: enrichment.triageState,
-          actor: 'user',
-          resolution: enrichment.resolution,
-          timestamp: enrichment.updatedAt,
+          await appendTransition(project.path, {
+            issueNumber,
+            from,
+            to: enrichment.triageState,
+            actor: 'user',
+            resolution: enrichment.resolution,
+            timestamp: enrichment.updatedAt,
+          });
+
+          return enrichment;
         });
-
-        return enrichment;
       });
     },
   );

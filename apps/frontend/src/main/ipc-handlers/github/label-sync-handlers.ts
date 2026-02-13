@@ -6,7 +6,8 @@
 
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import path from 'node:path';
 import fs from 'node:fs';
 import { withProject } from './utils/project-middleware';
@@ -22,6 +23,7 @@ import {
 import type { WorkflowState } from '../../../shared/types/enrichment';
 import type { LabelSyncConfig, LabelSyncResult } from '../../../shared/types/label-sync';
 
+const execFileAsync = promisify(execFile);
 const logger = createContextLogger('Label Sync');
 
 function getConfigPath(projectPath: string): string {
@@ -63,7 +65,7 @@ export function registerLabelSyncHandlers(
 
         for (const label of labels) {
           try {
-            execFileSync('gh', [
+            await execFileAsync('gh', [
               'label', 'create', label.name,
               '--color', label.color,
               '--description', label.description,
@@ -104,7 +106,7 @@ export function registerLabelSyncHandlers(
           for (const [issueNumber, enrichment] of Object.entries(data.issues)) {
             const label = getLabelForState(enrichment.triageState as WorkflowState);
             try {
-              execFileSync('gh', [
+              await execFileAsync('gh', [
                 'issue', 'edit', issueNumber,
                 '--remove-label', label,
               ], { env, cwd: project.path, encoding: 'utf-8' });
@@ -117,7 +119,7 @@ export function registerLabelSyncHandlers(
           const labels = getWorkflowLabels();
           for (const label of labels) {
             try {
-              execFileSync('gh', [
+              await execFileAsync('gh', [
                 'label', 'delete', label.name, '--yes',
               ], { env, cwd: project.path, encoding: 'utf-8' });
             } catch {
@@ -142,7 +144,7 @@ export function registerLabelSyncHandlers(
 
         // Check current labels to avoid unnecessary API calls (GAP-1 fix)
         try {
-          const labelsJson = execFileSync('gh', [
+          const { stdout: labelsJson } = await execFileAsync('gh', [
             'issue', 'view', String(issueNumber),
             '--json', 'labels',
             '--jq', '.labels',
@@ -166,7 +168,7 @@ export function registerLabelSyncHandlers(
 
           args.push('--add-label', targetLabel);
 
-          execFileSync('gh', args, { env, cwd: project.path, encoding: 'utf-8' });
+          await execFileAsync('gh', args, { env, cwd: project.path, encoding: 'utf-8' });
           return { synced: true };
         } catch (error) {
           return { error: error instanceof Error ? error.message : 'Sync failed' };
@@ -208,7 +210,7 @@ export function registerLabelSyncHandlers(
 
           try {
             // Get current labels
-            const labelsJson = execFileSync('gh', [
+            const { stdout: labelsJson } = await execFileAsync('gh', [
               'issue', 'view', String(issueNumber),
               '--json', 'labels',
               '--jq', '.labels',
@@ -228,7 +230,7 @@ export function registerLabelSyncHandlers(
             }
             args.push('--add-label', targetLabel);
 
-            execFileSync('gh', args, { env, cwd: project.path, encoding: 'utf-8' });
+            await execFileAsync('gh', args, { env, cwd: project.path, encoding: 'utf-8' });
             synced++;
           } catch (error) {
             logger.debug('Bulk sync error for issue', { issueNumber, error });

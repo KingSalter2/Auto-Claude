@@ -32,7 +32,7 @@ import {
 } from './utils/subprocess-runner';
 import { MAX_SPLIT_SUB_ISSUES } from '../../../shared/constants/ai-triage';
 import { createDefaultProgressiveTrust } from '../../../shared/types/ai-triage';
-import { readEnrichmentFile, writeEnrichmentFile, appendTransition } from './enrichment-persistence';
+import { readEnrichmentFile, writeEnrichmentFile, withEnrichmentFileLock, appendTransition } from './enrichment-persistence';
 import { createDefaultEnrichment } from '../../../shared/types/enrichment';
 import type { TriageCategory } from '../../../shared/types/enrichment';
 import type {
@@ -67,9 +67,9 @@ function getGitHubDir(projectPath: string): string {
   return path.join(projectPath, '.auto-claude', 'github');
 }
 
-// Track active subprocess for cancellation
+// Track active subprocesses for cancellation, keyed by operation type (e.g. 'enrich', 'split')
 import type { ChildProcess } from 'child_process';
-let activeTriageProcess: ChildProcess | null = null;
+const activeTriageProcesses = new Map<string, ChildProcess>();
 
 /**
  * Register AI triage handlers
@@ -79,16 +79,19 @@ export function registerAITriageHandlers(
 ): void {
   debugLog('Registering AI Triage handlers');
 
-  // Cancel active triage subprocess
+  // Cancel active triage subprocesses (kills all tracked operations)
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_TRIAGE_CANCEL,
     async () => {
-      if (activeTriageProcess && !activeTriageProcess.killed) {
-        activeTriageProcess.kill('SIGTERM');
-        activeTriageProcess = null;
-        return { cancelled: true };
+      let cancelled = false;
+      for (const [key, proc] of activeTriageProcesses) {
+        if (!proc.killed) {
+          proc.kill('SIGTERM');
+          cancelled = true;
+        }
+        activeTriageProcesses.delete(key);
       }
-      return { cancelled: false };
+      return { cancelled };
     },
   );
 
@@ -155,10 +158,15 @@ export function registerAITriageHandlers(
               mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
             },
           });
-          activeTriageProcess = childProcess;
+          const processKey = `${projectId}:enrich`;
+          activeTriageProcesses.set(processKey, childProcess);
 
-          const result = await promise;
-          activeTriageProcess = null;
+          let result;
+          try {
+            result = await promise;
+          } finally {
+            activeTriageProcesses.delete(processKey);
+          }
 
           if (!result.success) {
             sendError(result.error ?? 'Enrichment failed');
@@ -170,24 +178,26 @@ export function registerAITriageHandlers(
 
           // Persist enrichment data to local file
           try {
-            const enrichmentFile = await readEnrichmentFile(project.path);
-            const key = String(issueNumber);
-            const existing = enrichmentFile.issues[key] ?? createDefaultEnrichment(issueNumber);
-            enrichmentFile.issues[key] = {
-              ...existing,
-              enrichment: {
-                problem: enrichmentResult.problem,
-                goal: enrichmentResult.goal,
-                scopeIn: enrichmentResult.scopeIn,
-                scopeOut: enrichmentResult.scopeOut,
-                acceptanceCriteria: enrichmentResult.acceptanceCriteria,
-                technicalContext: enrichmentResult.technicalContext,
-                risksEdgeCases: enrichmentResult.risksEdgeCases,
-              },
-              completenessScore: enrichmentResult.confidence,
-              updatedAt: new Date().toISOString(),
-            };
-            await writeEnrichmentFile(project.path, enrichmentFile);
+            await withEnrichmentFileLock(project.path, async () => {
+              const enrichmentFile = await readEnrichmentFile(project.path);
+              const key = String(issueNumber);
+              const existing = enrichmentFile.issues[key] ?? createDefaultEnrichment(issueNumber);
+              enrichmentFile.issues[key] = {
+                ...existing,
+                enrichment: {
+                  problem: enrichmentResult.problem,
+                  goal: enrichmentResult.goal,
+                  scopeIn: enrichmentResult.scopeIn,
+                  scopeOut: enrichmentResult.scopeOut,
+                  acceptanceCriteria: enrichmentResult.acceptanceCriteria,
+                  technicalContext: enrichmentResult.technicalContext,
+                  risksEdgeCases: enrichmentResult.risksEdgeCases,
+                },
+                completenessScore: enrichmentResult.confidence,
+                updatedAt: new Date().toISOString(),
+              };
+              await writeEnrichmentFile(project.path, enrichmentFile);
+            });
           } catch (persistErr) {
             debugLog('Failed to persist enrichment result', {
               issueNumber,
@@ -263,10 +273,15 @@ export function registerAITriageHandlers(
               mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
             },
           });
-          activeTriageProcess = splitProcess;
+          const processKey = `${projectId}:split`;
+          activeTriageProcesses.set(processKey, splitProcess);
 
-          const result = await promise;
-          activeTriageProcess = null;
+          let result;
+          try {
+            result = await promise;
+          } finally {
+            activeTriageProcesses.delete(processKey);
+          }
 
           if (!result.success) {
             sendError(result.error ?? 'Split analysis failed');
@@ -367,35 +382,37 @@ export function registerAITriageHandlers(
 
               // Persist triage result to enrichment file
               try {
-                const enrichmentFile = await readEnrichmentFile(project.path);
-                const key = String(item.issueNumber);
-                const existing = enrichmentFile.issues[key] ?? createDefaultEnrichment(item.issueNumber);
-                enrichmentFile.issues[key] = {
-                  ...existing,
-                  triageResult: {
-                    category: item.result.category as TriageCategory,
-                    confidence: item.result.confidence,
-                    labelsToAdd: item.result.labelsToAdd,
-                    labelsToRemove: item.result.labelsToRemove,
-                    isDuplicate: item.result.isDuplicate,
-                    duplicateOf: item.result.duplicateOf,
-                    isSpam: item.result.isSpam,
-                    suggestedBreakdown: item.result.suggestedBreakdown,
-                    comment: item.result.comment,
-                    triagedAt: item.result.triagedAt,
-                  },
-                  updatedAt: new Date().toISOString(),
-                };
-                await writeEnrichmentFile(project.path, enrichmentFile);
+                await withEnrichmentFileLock(project.path, async () => {
+                  const enrichmentFile = await readEnrichmentFile(project.path);
+                  const key = String(item.issueNumber);
+                  const existing = enrichmentFile.issues[key] ?? createDefaultEnrichment(item.issueNumber);
+                  enrichmentFile.issues[key] = {
+                    ...existing,
+                    triageResult: {
+                      category: item.result.category as TriageCategory,
+                      confidence: item.result.confidence,
+                      labelsToAdd: item.result.labelsToAdd,
+                      labelsToRemove: item.result.labelsToRemove,
+                      isDuplicate: item.result.isDuplicate,
+                      duplicateOf: item.result.duplicateOf,
+                      isSpam: item.result.isSpam,
+                      suggestedBreakdown: item.result.suggestedBreakdown,
+                      comment: item.result.comment,
+                      triagedAt: item.result.triagedAt,
+                    },
+                    updatedAt: new Date().toISOString(),
+                  };
+                  await writeEnrichmentFile(project.path, enrichmentFile);
 
-                // Append audit trail transition
-                await appendTransition(project.path, {
-                  issueNumber: item.issueNumber,
-                  from: existing.triageState,
-                  to: 'triage',
-                  actor: 'ai-triage',
-                  reason: `AI triage applied: ${item.result.category} (confidence: ${item.result.confidence})`,
-                  timestamp: new Date().toISOString(),
+                  // Append audit trail transition
+                  await appendTransition(project.path, {
+                    issueNumber: item.issueNumber,
+                    from: existing.triageState,
+                    to: 'triage',
+                    actor: 'ai-triage',
+                    reason: `AI triage applied: ${item.result.category} (confidence: ${item.result.confidence})`,
+                    timestamp: new Date().toISOString(),
+                  });
                 });
               } catch (persistErr) {
                 debugLog('Failed to persist triage result', {

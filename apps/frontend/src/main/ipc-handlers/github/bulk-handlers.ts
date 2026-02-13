@@ -5,7 +5,8 @@
 
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import { BULK_INTER_ITEM_DELAY } from '../../../shared/constants/mutations';
 import type {
@@ -18,6 +19,7 @@ import { withProject } from './utils/project-middleware';
 import { getAugmentedEnv } from '../../env-utils';
 import { createContextLogger } from './utils/logger';
 
+const execFileAsync = promisify(execFile);
 const logger = createContextLogger('GitHub Bulk Operations');
 
 function sleep(ms: number): Promise<void> {
@@ -108,7 +110,7 @@ export function registerBulkHandlers(
             skipped++;
           } else {
             try {
-              execFileSync('gh', args, {
+              await execFileAsync('gh', args, {
                 cwd: project.path,
                 env: getAugmentedEnv(),
               });

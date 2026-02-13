@@ -30,8 +30,13 @@ import {
   buildRunnerArgs,
 } from './utils/subprocess-runner';
 
+import type { ChildProcess } from 'child_process';
+
 // Debug logging
 const { debug: debugLog } = createContextLogger('GitHub Triage');
+
+// Track active triage runs per project to prevent concurrent subprocess spawns
+const activeTriageRuns = new Map<string, ChildProcess>();
 
 /**
  * Triage categories
@@ -259,7 +264,7 @@ async function runTriage(
 
   const subprocessEnv = await getRunnerEnv();
 
-  const { promise } = runPythonSubprocess<TriageResult[]>({
+  const { process: triageProcess, promise } = runPythonSubprocess<TriageResult[]>({
     pythonPath: getPythonPath(backendPath),
     args,
     cwd: backendPath,
@@ -288,13 +293,19 @@ async function runTriage(
     },
   });
 
-  const result = await promise;
+  activeTriageRuns.set(project.id, triageProcess);
 
-  if (!result.success) {
-    throw new Error(result.error ?? 'Triage failed');
+  try {
+    const result = await promise;
+
+    if (!result.success) {
+      throw new Error(result.error ?? 'Triage failed');
+    }
+
+    return result.data!;
+  } finally {
+    activeTriageRuns.delete(project.id);
   }
-
-  return result.data!;
 }
 
 /**
@@ -354,6 +365,22 @@ export function registerTriageHandlers(
       const mainWindow = getMainWindow();
       if (!mainWindow) {
         debugLog('No main window available');
+        return;
+      }
+
+      // Concurrency guard: reject if triage is already running for this project
+      if (activeTriageRuns.has(projectId)) {
+        debugLog('Triage already running for project, rejecting', { projectId });
+        const { sendError } = createIPCCommunicators<TriageProgress, TriageResult[]>(
+          mainWindow,
+          {
+            progress: IPC_CHANNELS.GITHUB_TRIAGE_PROGRESS,
+            error: IPC_CHANNELS.GITHUB_TRIAGE_ERROR,
+            complete: IPC_CHANNELS.GITHUB_TRIAGE_COMPLETE,
+          },
+          projectId
+        );
+        sendError('Triage is already running for this project');
         return;
       }
 
