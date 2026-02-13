@@ -542,6 +542,7 @@ export interface ElectronAPI {
   // GitHub Investigation operations (new system)
   startInvestigation: (projectId: string, issueNumber: number) => void;
   cancelInvestigation: (projectId: string, issueNumber: number) => void;
+  cancelAllInvestigations: (projectId: string) => void;
   createTaskFromInvestigation: (projectId: string, issueNumber: number) => Promise<IPCResult<{ specId: string }>>;
   dismissIssue: (projectId: string, issueNumber: number, reason: InvestigationDismissReason) => Promise<IPCResult>;
   postInvestigationToGitHub: (projectId: string, issueNumber: number) => Promise<IPCResult<{ commentId: number }>>;

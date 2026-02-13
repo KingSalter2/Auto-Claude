@@ -37,6 +37,7 @@ export {
   cleanupInvestigationListeners,
   startIssueInvestigation,
   cancelIssueInvestigation,
+  cancelAllIssueInvestigations,
   investigateGitHubIssue,
   loadPersistedInvestigations,
   type IssueInvestigationState

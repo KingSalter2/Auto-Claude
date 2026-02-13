@@ -36,7 +36,7 @@ import { readSettingsFile } from '../../settings-utils';
 import { AgentManager } from '../../agent';
 import { getGitHubConfig, githubFetch } from './utils';
 import type { GitHubAPIComment } from './types';
-import { createSpecForIssue, buildIssueContext, buildInvestigationTask } from './spec-utils';
+import { createSpecForIssue, buildIssueContext, buildInvestigationTask, updateImplementationPlanStatus } from './spec-utils';
 import { createContextLogger } from './utils/logger';
 import { withProjectOrNull } from './utils/project-middleware';
 import { createIPCCommunicators } from './utils/ipc-communicator';

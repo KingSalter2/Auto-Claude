@@ -269,6 +269,7 @@ export const IPC_CHANNELS = {
   // GitHub Investigation operations (renderer -> main)
   GITHUB_INVESTIGATION_START: 'github:investigation:start',
   GITHUB_INVESTIGATION_CANCEL: 'github:investigation:cancel',
+  GITHUB_INVESTIGATION_CANCEL_ALL: 'github:investigation:cancelAll',
   GITHUB_INVESTIGATION_CREATE_TASK: 'github:investigation:createTask',
   GITHUB_INVESTIGATION_DISMISS: 'github:investigation:dismiss',
   GITHUB_INVESTIGATION_POST_GITHUB: 'github:investigation:postGitHub',

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Github, RefreshCw, Search, Filter, Wand2, Loader2, Layers, EyeOff, Eye } from 'lucide-react';
+import { Github, RefreshCw, Search, Filter, Wand2, Loader2, Layers, EyeOff, Eye, XCircle } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -85,6 +85,7 @@ export function IssueListHeader({
   showDismissed,
   onToggleShowDismissed,
   activeInvestigationCount,
+  onCancelAllInvestigations,
 }: IssueListHeaderProps) {
   const { t } = useTranslation('common');
 
@@ -119,10 +120,23 @@ export function IssueListHeader({
             {t('issues.openCount', { count: openIssuesCount })}
           </Badge>
           {activeInvestigationCount != null && activeInvestigationCount > 0 && (
-            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-              {t('investigation.stateFilters.activeCount', { count: activeInvestigationCount, defaultValue: '{{count}} investigating' })}
-            </Badge>
+            <>
+              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                {t('investigation.stateFilters.activeCount', { count: activeInvestigationCount, defaultValue: '{{count}} investigating' })}
+              </Badge>
+              {onCancelAllInvestigations && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onCancelAllInvestigations}
+                  className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                >
+                  <XCircle className="h-3 w-3 mr-1" />
+                  {t('investigation.button.cancelAll', 'Cancel All')}
+                </Button>
+              )}
+            </>
           )}
           {/* Legacy triage mode toggle — kept for backwards compat */}
           {onToggleTriageMode && (

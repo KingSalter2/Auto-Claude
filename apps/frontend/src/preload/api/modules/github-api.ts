@@ -233,6 +233,7 @@ export interface GitHubAPI {
   // Investigation operations (new system)
   startInvestigation: (projectId: string, issueNumber: number) => void;
   cancelInvestigation: (projectId: string, issueNumber: number) => void;
+  cancelAllInvestigations: (projectId: string) => void;
   createTaskFromInvestigation: (projectId: string, issueNumber: number) => Promise<IPCResult<{ specId: string }>>;
   dismissIssue: (projectId: string, issueNumber: number, reason: InvestigationDismissReason) => Promise<IPCResult>;
   postInvestigationToGitHub: (projectId: string, issueNumber: number) => Promise<IPCResult<{ commentId: number }>>;
@@ -714,6 +715,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   cancelInvestigation: (projectId: string, issueNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_CANCEL, projectId, issueNumber),
+
+  cancelAllInvestigations: (projectId: string): void =>
+    sendIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_CANCEL_ALL, projectId),
 
   createTaskFromInvestigation: (projectId: string, issueNumber: number): Promise<IPCResult<{ specId: string }>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_CREATE_TASK, projectId, issueNumber),
