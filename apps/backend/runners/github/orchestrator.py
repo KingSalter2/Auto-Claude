@@ -48,6 +48,7 @@ try:
         SplitEngine,
         TriageEngine,
     )
+    from .services.investigation_label_manager import InvestigationLabelManager
     from .services.io_utils import safe_print
 except (ImportError, ValueError, SystemError):
     # When imported directly (runner.py adds github dir to path)
@@ -79,6 +80,7 @@ except (ImportError, ValueError, SystemError):
         SplitEngine,
         TriageEngine,
     )
+    from services.investigation_label_manager import InvestigationLabelManager
     from services.io_utils import safe_print
 
 
@@ -202,6 +204,8 @@ class GitHubOrchestrator:
             config=self.config,
             progress_callback=self.progress_callback,
         )
+
+        self.label_manager = InvestigationLabelManager()
 
     def _report_progress(
         self,
@@ -1570,6 +1574,17 @@ class GitHubOrchestrator:
             },
         )
 
+        # Sync lifecycle label to GitHub
+        try:
+            await self.label_manager.ensure_labels_exist(self.gh_client)
+            await self.label_manager.set_investigation_label(
+                self.gh_client, issue_number, "investigating"
+            )
+        except Exception as e:
+            safe_print(
+                f"[Investigation] Label sync warning: {e}", flush=True
+            )
+
         working_dir = project_root or self.project_dir
 
         try:
@@ -1604,6 +1619,16 @@ class GitHubOrchestrator:
                 },
             )
 
+            # Sync lifecycle label to GitHub
+            try:
+                await self.label_manager.set_investigation_label(
+                    self.gh_client, issue_number, "findings_ready"
+                )
+            except Exception as e:
+                safe_print(
+                    f"[Investigation] Label sync warning: {e}", flush=True
+                )
+
             return report.model_dump(mode="json")
 
         except Exception as e:
@@ -1620,6 +1645,17 @@ class GitHubOrchestrator:
                     "model_used": self.config.model or "sonnet",
                 },
             )
+
+            # Remove lifecycle labels on failure
+            try:
+                await self.label_manager.remove_all_investigation_labels(
+                    self.gh_client, issue_number
+                )
+            except Exception as label_err:
+                safe_print(
+                    f"[Investigation] Label cleanup warning: {label_err}",
+                    flush=True,
+                )
 
             safe_print(
                 f"[Investigation] Investigation failed for issue #{issue_number}: {e}",
@@ -1684,6 +1720,17 @@ class GitHubOrchestrator:
             },
         )
 
+        # Sync lifecycle label to GitHub
+        try:
+            await self.label_manager.ensure_labels_exist(self.gh_client)
+            await self.label_manager.set_investigation_label(
+                self.gh_client, issue_number, "investigating"
+            )
+        except Exception as e:
+            safe_print(
+                f"[Investigation] Label sync warning: {e}", flush=True
+            )
+
         try:
             orchestrator = IssueInvestigationOrchestrator(
                 project_dir=self.project_dir,
@@ -1714,6 +1761,16 @@ class GitHubOrchestrator:
                 },
             )
 
+            # Sync lifecycle label to GitHub
+            try:
+                await self.label_manager.set_investigation_label(
+                    self.gh_client, issue_number, "findings_ready"
+                )
+            except Exception as e:
+                safe_print(
+                    f"[Investigation] Label sync warning: {e}", flush=True
+                )
+
             return report
 
         except Exception as e:
@@ -1730,6 +1787,17 @@ class GitHubOrchestrator:
                     "model_used": self.config.model or "sonnet",
                 },
             )
+
+            # Remove lifecycle labels on failure
+            try:
+                await self.label_manager.remove_all_investigation_labels(
+                    self.gh_client, issue_number
+                )
+            except Exception as label_err:
+                safe_print(
+                    f"[Investigation] Label cleanup warning: {label_err}",
+                    flush=True,
+                )
 
             safe_print(
                 f"[Investigation] start_investigation failed for issue #{issue_number}: {e}",

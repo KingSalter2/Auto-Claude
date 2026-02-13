@@ -18,6 +18,10 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "EnrichmentEngine": (".enrichment_engine", "EnrichmentEngine"),
     "InvestigationReport": (".investigation_models", "InvestigationReport"),
     "InvestigationState": (".investigation_models", "InvestigationState"),
+    "InvestigationLabelManager": (
+        ".investigation_label_manager",
+        "InvestigationLabelManager",
+    ),
     "IssueInvestigationOrchestrator": (
         ".issue_investigation_orchestrator",
         "IssueInvestigationOrchestrator",
@@ -54,6 +58,7 @@ __all__ = [
     "BatchProcessor",
     "ParallelAgentOrchestrator",
     "SpecialistConfig",
+    "InvestigationLabelManager",
     "InvestigationReport",
     "InvestigationState",
     "IssueInvestigationOrchestrator",
