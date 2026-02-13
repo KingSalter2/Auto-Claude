@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle2, ExternalLink } from 'lucide-react';
 import type { InvestigationState } from '@shared/types';
 
@@ -23,6 +24,8 @@ export const InvestigationProgressBar = memo(function InvestigationProgressBar({
   linkedTaskId,
   onViewTask,
 }: InvestigationProgressBarProps) {
+  const { t } = useTranslation('common');
+
   // Nothing to show for new issues
   if (state === 'new') return null;
 
@@ -47,7 +50,7 @@ export const InvestigationProgressBar = memo(function InvestigationProgressBar({
     return (
       <div className="flex items-center gap-1 mt-1.5">
         <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
-        <span className="text-[10px] text-red-500">Failed</span>
+        <span className="text-[10px] text-red-500">{t('investigation.progress.failed', 'Failed')}</span>
       </div>
     );
   }
@@ -66,7 +69,7 @@ export const InvestigationProgressBar = memo(function InvestigationProgressBar({
           className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
         >
           <ExternalLink className="h-2.5 w-2.5" />
-          Task
+          {t('common:task', 'Task')}
         </button>
       )}
     </div>
