@@ -311,12 +311,17 @@ async def test_planner_session_does_not_trigger_post_session_processing_on_retry
         _spec_dir: Path,
         _verbose: bool = False,
         phase: LogPhase = LogPhase.CODING,
+        **kwargs,
     ) -> tuple[str, str, dict]:
         assert phase == LogPhase.PLANNING
         return "error", "planner failed", {}
 
     monkeypatch.setattr("agents.coder.create_client", fake_create_client)
     monkeypatch.setattr("agents.coder.get_graphiti_context", fake_get_graphiti_context)
+    async def _noop(*a, **k): return None
+    monkeypatch.setattr("agents.coder.get_observations_context", _noop)
+    monkeypatch.setattr("agents.coder.start_observer", _noop)
+    monkeypatch.setattr("agents.coder.stop_observer", _noop)
     monkeypatch.setattr("agents.coder.get_next_subtask", fake_get_next_subtask)
     monkeypatch.setattr(
         "agents.coder.post_session_processing", fake_post_session_processing
@@ -374,6 +379,7 @@ async def test_worktree_planning_to_coding_sync_updates_source_phase_status(
         spec_dir: Path,
         _verbose: bool = False,
         phase: LogPhase = LogPhase.CODING,
+        **kwargs,
     ) -> tuple[str, str, dict]:
         if phase == LogPhase.PLANNING:
             plan = {
@@ -408,8 +414,12 @@ async def test_worktree_planning_to_coding_sync_updates_source_phase_status(
         assert logs["phases"]["coding"]["status"] == "active"
         return "complete", "done", {}
 
+    async def _noop2(*a, **k): return None
     monkeypatch.setattr("agents.coder.create_client", fake_create_client)
     monkeypatch.setattr("agents.coder.get_graphiti_context", fake_get_graphiti_context)
+    monkeypatch.setattr("agents.coder.get_observations_context", _noop2)
+    monkeypatch.setattr("agents.coder.start_observer", _noop2)
+    monkeypatch.setattr("agents.coder.stop_observer", _noop2)
     monkeypatch.setattr(
         "agents.coder.post_session_processing", fake_post_session_processing
     )

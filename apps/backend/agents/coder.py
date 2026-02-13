@@ -80,8 +80,17 @@ from .base import (
     RESUME_FILE,
     sanitize_error_message,
 )
-from .memory_manager import debug_memory_system_status, get_graphiti_context
-from .session import post_session_processing, run_agent_session
+from .memory_manager import (
+    debug_memory_system_status,
+    get_graphiti_context,
+    get_observations_context,
+)
+from .session import (
+    post_session_processing,
+    run_agent_session,
+    start_observer,
+    stop_observer,
+)
 from .utils import (
     find_phase_for_subtask,
     get_commit_count,
@@ -624,6 +633,16 @@ async def run_autonomous_agent(
                 prompt += "\n\n" + planner_context
                 print_status("Graphiti memory context loaded for planner", "success")
 
+            # Retrieve observer memory observations for planner
+            observation_context = await get_observations_context(
+                str(project_dir),
+                spec_dir.name,
+                {"description": "Planning implementation", "id": "planner"},
+            )
+            if observation_context:
+                prompt += "\n\n" + observation_context
+                print_status("Observer observations loaded for planner", "success")
+
             first_run = False
             current_log_phase = LogPhase.PLANNING
 
@@ -782,6 +801,14 @@ async def run_autonomous_agent(
                 prompt += "\n\n" + graphiti_context
                 print_status("Graphiti memory context loaded", "success")
 
+            # Retrieve observer memory observations for subtask
+            observation_context = await get_observations_context(
+                str(project_dir), spec_dir.name, next_subtask
+            )
+            if observation_context:
+                prompt += "\n\n" + observation_context
+                print_status("Observer observations loaded", "success")
+
             # Add concurrency error context if recovering from 400 error
             if concurrency_error_context:
                 prompt += "\n\n" + concurrency_error_context
@@ -802,11 +829,28 @@ async def run_autonomous_agent(
             task_logger.set_subtask(subtask_id)
             task_logger.set_session(iteration)
 
+        # Start observer agent for this session (if enabled)
+        observer_info = await start_observer(
+            spec_id=spec_dir.name,
+            project_id=str(project_dir),
+            session_num=iteration,
+            project_dir=str(project_dir),
+        )
+        event_bus = observer_info[0] if observer_info else None
+
         # Run session with async context manager
         async with client:
             status, response, error_info = await run_agent_session(
-                client, prompt, spec_dir, verbose, phase=current_log_phase
+                client,
+                prompt,
+                spec_dir,
+                verbose,
+                phase=current_log_phase,
+                event_bus=event_bus,
             )
+
+        # Stop observer agent after session
+        await stop_observer(observer_info)
 
         plan_validated = False
         if is_planning_phase and status != "error":
