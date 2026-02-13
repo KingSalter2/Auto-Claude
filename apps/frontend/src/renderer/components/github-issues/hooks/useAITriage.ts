@@ -6,7 +6,8 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import { useAITriageStore } from '../../../stores/github/ai-triage-store';
+import { useAITriageStore } from '@/stores/github/ai-triage-store';
+import { loadEnrichment } from '@/stores/github/enrichment-store';
 import type { CreateIssueParams } from '@shared/types/ai-triage';
 import { createDefaultEnrichment } from '@shared/types/enrichment';
 
@@ -24,6 +25,8 @@ export function useAITriage(projectId: string) {
   const clearLastError = useAITriageStore((s) => s.clearLastError);
 
   const loadedRef = useRef(false);
+  const projectIdRef = useRef(projectId);
+  projectIdRef.current = projectId;
 
   // Load persisted review queue on mount
   useEffect(() => {
@@ -69,6 +72,10 @@ export function useAITriage(projectId: string) {
         s.clearEnrichmentProgress();
         s.setEnrichmentResult(result);
         s.endTriage();
+        // Reload enrichment store so the UI picks up the persisted completenessScore
+        if (projectIdRef.current) {
+          loadEnrichment(projectIdRef.current);
+        }
       }),
       api.onSplitProgress((_projId, progress) => {
         useAITriageStore.getState().setSplitProgress(progress);
