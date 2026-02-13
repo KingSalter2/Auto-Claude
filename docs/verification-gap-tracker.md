@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-13
 **Total Gaps:** 46 confirmed (from 9-agent triple-verified audit)
-**Status:** 9 / 17 complete
+**Status:** 12 / 17 complete
 
 ---
 
@@ -160,46 +160,43 @@ Each gap has: ID, description, status, files to modify, verification source, tes
 ## TIER 4 — IPC Consistency (Hardcoded channel strings)
 
 ### VGAP-10: dependency-handlers.ts uses hardcoded IPC channel string
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Small
 - **Verified by:** IPC agent + Verifier-3 (CONFIRMED)
 - **Doc ref:** Codebase convention — all handlers use IPC_CHANNELS constants
-- **Files to modify:** `main/ipc-handlers/github/dependency-handlers.ts`
-- **Problem:** Line 63 uses `'github:deps:fetch'` instead of `IPC_CHANNELS.GITHUB_DEPS_FETCH`. No import of IPC_CHANNELS.
-- **Fix:** Add `import { IPC_CHANNELS } from '../../../shared/constants/ipc';` and replace string literal with `IPC_CHANNELS.GITHUB_DEPS_FETCH`.
-- **Tests:** Existing tests should still pass (string value unchanged)
-- **Test status:** —
+- **Files modified:** `main/ipc-handlers/github/dependency-handlers.ts`
+- **Fix:** Added `import { IPC_CHANNELS } from '../../../shared/constants/ipc'` and replaced `'github:deps:fetch'` with `IPC_CHANNELS.GITHUB_DEPS_FETCH`.
+- **Tests:** 3868 pass, lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** VGAP-10..12
 
 ### VGAP-11: label-sync-handlers.ts uses 6 hardcoded IPC channel strings
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Small
 - **Verified by:** IPC agent + Verifier-3 (CONFIRMED)
 - **Doc ref:** Codebase convention
-- **Files to modify:** `main/ipc-handlers/github/label-sync-handlers.ts`
-- **Problem:** Lines 56, 95, 136, 179, 189, 246 use hardcoded strings: `'github:label-sync:enable'`, `'github:label-sync:disable'`, `'github:label-sync:issue'`, `'github:label-sync:status'`, `'github:label-sync:bulk'`, `'github:label-sync:save'`. No import of IPC_CHANNELS.
-- **Fix:** Add `import { IPC_CHANNELS } from '../../../shared/constants/ipc';` and replace all 6 string literals with their `IPC_CHANNELS.GITHUB_LABEL_SYNC_*` equivalents.
-- **Tests:** Existing tests should still pass
-- **Test status:** —
+- **Files modified:** `main/ipc-handlers/github/label-sync-handlers.ts`
+- **Fix:** Added `import { IPC_CHANNELS } from '../../../shared/constants/ipc'` and replaced all 6 hardcoded strings with `IPC_CHANNELS.GITHUB_LABEL_SYNC_*` constants.
+- **Tests:** 3868 pass, lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** VGAP-10..12
 
 ### VGAP-12: metrics-handlers.ts uses 2 hardcoded IPC channel strings
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Small
 - **Verified by:** IPC agent + Verifier-3 (CONFIRMED)
 - **Doc ref:** Codebase convention
-- **Files to modify:** `main/ipc-handlers/github/metrics-handlers.ts`
-- **Problem:** Line 32 uses `'github:metrics:compute'`, line 134 uses `'github:metrics:state-counts'`. No import of IPC_CHANNELS.
-- **Fix:** Add `import { IPC_CHANNELS } from '../../../shared/constants/ipc';` and replace both string literals.
-- **Tests:** Existing tests should still pass
-- **Test status:** —
+- **Files modified:** `main/ipc-handlers/github/metrics-handlers.ts`
+- **Fix:** Added `import { IPC_CHANNELS } from '../../../shared/constants/ipc'` and replaced both hardcoded strings with `IPC_CHANNELS.GITHUB_METRICS_COMPUTE` and `IPC_CHANNELS.GITHUB_METRICS_STATE_COUNTS`.
+- **Tests:** 3868 pass, lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** VGAP-10..12
 
 ---
 
@@ -284,8 +281,8 @@ Each gap has: ID, description, status, files to modify, verification source, tes
 | 1 | Critical Wiring | 2 | 2 | 0 |
 | 2 | i18n Hardcoded Strings | 5 | 5 | 0 |
 | 3 | Accessibility Keyboard | 2 | 2 | 0 |
-| 4 | IPC Consistency | 3 | 0 | 3 |
+| 4 | IPC Consistency | 3 | 3 | 0 |
 | 5 | Phase 3 Audit Gaps | 5 | 0 | 5 |
-| **Total** | | **17** | **9** | **8** |
+| **Total** | | **17** | **12** | **5** |
 
 Note: VGAP-03 through VGAP-07 contain 28+ individual hardcoded strings grouped by component file. The 17 gap count represents work units (one per component/file), not individual string count.

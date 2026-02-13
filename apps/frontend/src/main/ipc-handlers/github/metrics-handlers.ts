@@ -8,6 +8,7 @@ import type { BrowserWindow } from 'electron';
 import { withProject } from './utils/project-middleware';
 import { readEnrichmentFile, readTransitionsFile } from './enrichment-persistence';
 import { createContextLogger } from './utils/logger';
+import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import type { WorkflowState } from '../../../shared/types/enrichment';
 import type { TriageMetrics, MetricsTimeWindow } from '../../../shared/types/metrics';
 import { getCompletenessCategory } from '../../../shared/types/metrics';
@@ -29,7 +30,7 @@ export function registerMetricsHandlers(
 ): void {
   // Compute full metrics
   ipcMain.handle(
-    'github:metrics:compute',
+    IPC_CHANNELS.GITHUB_METRICS_COMPUTE,
     async (_, projectId: string, timeWindow: MetricsTimeWindow) => {
       return withProject(projectId, async (project) => {
         const enrichmentData = await readEnrichmentFile(project.path);
@@ -131,7 +132,7 @@ export function registerMetricsHandlers(
 
   // Quick state count query
   ipcMain.handle(
-    'github:metrics:state-counts',
+    IPC_CHANNELS.GITHUB_METRICS_STATE_COUNTS,
     async (_, projectId: string) => {
       return withProject(projectId, async (project) => {
         const data = await readEnrichmentFile(project.path);

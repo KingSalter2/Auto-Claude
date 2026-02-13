@@ -13,6 +13,7 @@ import { withProject } from './utils/project-middleware';
 import { getAugmentedEnv } from '../../env-utils';
 import { readEnrichmentFile } from './enrichment-persistence';
 import { createContextLogger } from './utils/logger';
+import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import {
   getWorkflowLabels,
   getLabelForState,
@@ -53,7 +54,7 @@ export function registerLabelSyncHandlers(
 ): void {
   // Enable label sync — create all ac:* labels in the repo
   ipcMain.handle(
-    'github:label-sync:enable',
+    IPC_CHANNELS.GITHUB_LABEL_SYNC_ENABLE,
     async (_, projectId: string) => {
       return withProject(projectId, async (project) => {
         const labels = getWorkflowLabels();
@@ -92,7 +93,7 @@ export function registerLabelSyncHandlers(
 
   // Disable label sync — optionally remove all ac:* labels
   ipcMain.handle(
-    'github:label-sync:disable',
+    IPC_CHANNELS.GITHUB_LABEL_SYNC_DISABLE,
     async (_, projectId: string, cleanup: boolean) => {
       return withProject(projectId, async (project) => {
         if (cleanup) {
@@ -133,7 +134,7 @@ export function registerLabelSyncHandlers(
 
   // Sync a single issue's label
   ipcMain.handle(
-    'github:label-sync:issue',
+    IPC_CHANNELS.GITHUB_LABEL_SYNC_ISSUE,
     async (_, projectId: string, issueNumber: number, newState: string, _oldState: string | null) => {
       return withProject(projectId, async (project) => {
         const env = getAugmentedEnv();
@@ -176,7 +177,7 @@ export function registerLabelSyncHandlers(
 
   // Get current label sync config
   ipcMain.handle(
-    'github:label-sync:status',
+    IPC_CHANNELS.GITHUB_LABEL_SYNC_STATUS,
     async (_, projectId: string) => {
       return withProject(projectId, async (project) => {
         return readConfig(project.path);
@@ -186,7 +187,7 @@ export function registerLabelSyncHandlers(
 
   // Bulk sync labels for multiple issues
   ipcMain.handle(
-    'github:label-sync:bulk',
+    IPC_CHANNELS.GITHUB_LABEL_SYNC_BULK,
     async (_, projectId: string, issueNumbers: number[]) => {
       return withProject(projectId, async (project) => {
         const config = readConfig(project.path);
@@ -243,7 +244,7 @@ export function registerLabelSyncHandlers(
 
   // Save label sync config
   ipcMain.handle(
-    'github:label-sync:save',
+    IPC_CHANNELS.GITHUB_LABEL_SYNC_SAVE,
     async (_, projectId: string, config: LabelSyncConfig) => {
       return withProject(projectId, async (project) => {
         writeConfig(project.path, config);

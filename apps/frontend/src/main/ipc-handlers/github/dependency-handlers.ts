@@ -9,6 +9,7 @@ import { execFileSync } from 'child_process';
 import { withProject } from './utils/project-middleware';
 import { getAugmentedEnv } from '../../env-utils';
 import { createContextLogger } from './utils/logger';
+import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import type { IssueDependency, IssueDependencies } from '../../../shared/types/dependencies';
 
 const logger = createContextLogger('Dependencies');
@@ -60,7 +61,7 @@ export function registerDependencyHandlers(
   _getMainWindow: () => BrowserWindow | null,
 ): void {
   ipcMain.handle(
-    'github:deps:fetch',
+    IPC_CHANNELS.GITHUB_DEPS_FETCH,
     async (_, projectId: string, issueNumber: number) => {
       if (!issueNumber || issueNumber < 1) {
         return { error: 'Invalid issue number', tracks: [], trackedBy: [] };
