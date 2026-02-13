@@ -1,0 +1,512 @@
+"""
+Issue Investigation Orchestrator
+==================================
+
+Runs 4 specialist agents in parallel to investigate a GitHub issue:
+- Root Cause Analyzer: trace bug to source code paths
+- Impact Assessor: blast radius and affected components
+- Fix Advisor: concrete fix approaches with files and patterns
+- Reproducer: reproducibility and test coverage
+
+Inherits from ParallelAgentOrchestrator for shared SDK session
+infrastructure. Uses structured output via Pydantic model schemas.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+try:
+    from ...phase_config import (
+        get_thinking_budget,
+        resolve_model_id,
+    )
+    from .investigation_models import (
+        FixAdvice,
+        ImpactAssessment,
+        InvestigationReport,
+        ReproductionAnalysis,
+        RootCauseAnalysis,
+    )
+    from .investigation_persistence import (
+        save_agent_log,
+        save_investigation_report,
+    )
+    from .io_utils import safe_print
+    from .parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+except (ImportError, ValueError, SystemError):
+    from phase_config import (
+        get_thinking_budget,
+        resolve_model_id,
+    )
+    from services.investigation_models import (
+        FixAdvice,
+        ImpactAssessment,
+        InvestigationReport,
+        ReproductionAnalysis,
+        RootCauseAnalysis,
+    )
+    from services.investigation_persistence import (
+        save_agent_log,
+        save_investigation_report,
+    )
+    from services.io_utils import safe_print
+    from services.parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+
+
+logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Specialist Configurations
+# =============================================================================
+
+INVESTIGATION_SPECIALISTS: list[SpecialistConfig] = [
+    SpecialistConfig(
+        name="root_cause",
+        prompt_file="investigation_root_cause.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Trace the bug/issue to its source code paths and identify the root cause",
+    ),
+    SpecialistConfig(
+        name="impact",
+        prompt_file="investigation_impact.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Determine blast radius, affected components, and user impact",
+    ),
+    SpecialistConfig(
+        name="fix_advisor",
+        prompt_file="investigation_fix_advice.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Suggest concrete fix approaches with files to modify and patterns to follow",
+    ),
+    SpecialistConfig(
+        name="reproducer",
+        prompt_file="investigation_reproduction.md",
+        tools=["Read", "Grep", "Glob"],
+        description="Determine reproducibility, check test coverage, and suggest test approaches",
+    ),
+]
+
+# Map specialist name → Pydantic model for structured output
+_SPECIALIST_SCHEMAS: dict[str, type] = {
+    "root_cause": RootCauseAnalysis,
+    "impact": ImpactAssessment,
+    "fix_advisor": FixAdvice,
+    "reproducer": ReproductionAnalysis,
+}
+
+
+class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
+    """
+    Orchestrator for parallel issue investigation.
+
+    Runs 4 specialist agents in parallel, each with their own SDK session
+    and structured output schema. Results are combined into an
+    InvestigationReport.
+
+    Inherits from ParallelAgentOrchestrator:
+    - _report_progress() — progress callback
+    - _load_prompt() — loads from prompts/github/ directory
+    - _run_specialist_session() — generic SDK session runner
+    - _run_parallel_specialists() — asyncio.gather wrapper
+    """
+
+    async def investigate(
+        self,
+        issue_number: int,
+        issue_title: str,
+        issue_body: str,
+        issue_labels: list[str] | None = None,
+        issue_comments: list[str] | None = None,
+        project_root: Path | None = None,
+    ) -> InvestigationReport:
+        """
+        Run a full investigation on a GitHub issue.
+
+        Args:
+            issue_number: GitHub issue number
+            issue_title: Issue title
+            issue_body: Issue body text
+            issue_labels: Issue labels (optional)
+            issue_comments: Issue comments (optional)
+            project_root: Working directory for agents (worktree path).
+                         Defaults to self.project_dir.
+
+        Returns:
+            InvestigationReport combining all specialist results
+        """
+        working_dir = project_root or self.project_dir
+        investigation_id = f"inv-{uuid.uuid4().hex[:12]}"
+
+        logger.info(
+            f"[Investigation] Starting investigation {investigation_id} "
+            f"for issue #{issue_number}: {issue_title}"
+        )
+
+        self._report_progress(
+            "investigating",
+            10,
+            f"Starting investigation for issue #{issue_number}...",
+            issue_number=issue_number,
+        )
+
+        # Build issue context for all specialists
+        issue_context = self._build_issue_context(
+            issue_number=issue_number,
+            issue_title=issue_title,
+            issue_body=issue_body,
+            issue_labels=issue_labels or [],
+            issue_comments=issue_comments or [],
+        )
+
+        # Resolve model
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+        thinking_level = self.config.thinking_level or "medium"
+        thinking_budget = get_thinking_budget(thinking_level)
+
+        logger.info(
+            f"[Investigation] Using model={model}, "
+            f"thinking_level={thinking_level}, thinking_budget={thinking_budget}"
+        )
+
+        self._report_progress(
+            "investigating",
+            20,
+            "Launching specialist agents in parallel...",
+            issue_number=issue_number,
+        )
+
+        # Run all specialists in parallel
+        specialist_results = await self._run_investigation_specialists(
+            issue_context=issue_context,
+            project_root=working_dir,
+            model=model,
+            thinking_budget=thinking_budget,
+        )
+
+        self._report_progress(
+            "investigating",
+            80,
+            "Combining specialist results...",
+            issue_number=issue_number,
+        )
+
+        # Build the combined report
+        report = self._build_report(
+            issue_number=issue_number,
+            issue_title=issue_title,
+            investigation_id=investigation_id,
+            specialist_results=specialist_results,
+        )
+
+        # Save agent logs
+        for name, result in specialist_results.items():
+            log_text = result.get("result_text", "")
+            if log_text:
+                save_agent_log(self.project_dir, issue_number, name, log_text)
+
+        # Save report
+        save_investigation_report(self.project_dir, issue_number, report)
+
+        self._report_progress(
+            "investigating",
+            100,
+            "Investigation complete!",
+            issue_number=issue_number,
+        )
+
+        logger.info(
+            f"[Investigation] Investigation {investigation_id} complete. "
+            f"Severity: {report.severity}, likely_resolved: {report.likely_resolved}"
+        )
+
+        return report
+
+    def _build_issue_context(
+        self,
+        issue_number: int,
+        issue_title: str,
+        issue_body: str,
+        issue_labels: list[str],
+        issue_comments: list[str],
+    ) -> str:
+        """Build the issue context string injected into all specialist prompts."""
+        labels_str = ", ".join(issue_labels) if issue_labels else "(none)"
+
+        comments_section = ""
+        if issue_comments:
+            comments_list = []
+            for i, comment in enumerate(issue_comments[:10], 1):
+                # Truncate long comments
+                truncated = comment[:500] + "..." if len(comment) > 500 else comment
+                comments_list.append(f"**Comment {i}:**\n{truncated}")
+            comments_section = f"""
+### Comments ({len(issue_comments)} total)
+{chr(10).join(comments_list)}
+"""
+
+        return f"""
+## GitHub Issue #{issue_number}
+
+**Title:** {issue_title}
+**Labels:** {labels_str}
+
+### Description
+{issue_body or "(No description provided)"}
+{comments_section}
+"""
+
+    def _build_specialist_prompt(
+        self,
+        config: SpecialistConfig,
+        issue_context: str,
+        project_root: Path,
+    ) -> str:
+        """Build the full prompt for a specialist agent.
+
+        Args:
+            config: Specialist configuration
+            issue_context: Pre-built issue context string
+            project_root: Working directory for the agent
+
+        Returns:
+            Full system prompt with context injected
+        """
+        base_prompt = self._load_prompt(config.prompt_file)
+        if not base_prompt:
+            base_prompt = (
+                f"You are an issue investigation specialist ({config.name}). "
+                f"Analyze the issue and provide findings for: {config.description}."
+            )
+
+        # Inject working directory
+        working_dir_section = f"""
+## Working Directory
+
+All file paths are relative to: `{project_root}`
+Use Read, Grep, and Glob tools to explore the codebase.
+"""
+
+        return base_prompt + working_dir_section + issue_context
+
+    async def _run_investigation_specialists(
+        self,
+        issue_context: str,
+        project_root: Path,
+        model: str,
+        thinking_budget: int | None,
+    ) -> dict[str, dict[str, Any]]:
+        """Run all investigation specialists in parallel.
+
+        Args:
+            issue_context: Pre-built issue context
+            project_root: Working directory
+            model: Model to use
+            thinking_budget: Max thinking tokens
+
+        Returns:
+            Dict mapping specialist name → stream result dict
+        """
+        # Create coroutines for all specialists
+        coroutines = []
+        for config in INVESTIGATION_SPECIALISTS:
+            prompt = self._build_specialist_prompt(config, issue_context, project_root)
+            schema_class = _SPECIALIST_SCHEMAS.get(config.name)
+            output_schema = schema_class.model_json_schema() if schema_class else None
+
+            coroutines.append(
+                self._run_specialist_session(
+                    config=config,
+                    prompt=prompt,
+                    project_root=project_root,
+                    model=model,
+                    thinking_budget=thinking_budget,
+                    output_schema=output_schema,
+                    agent_type="investigation_specialist",
+                    context_name=f"Investigation:{config.name}",
+                )
+            )
+
+        # Run all in parallel
+        valid_results = await self._run_parallel_specialists(
+            tasks=coroutines,
+            orchestrator_name="IssueInvestigation",
+        )
+
+        # Map results back to specialist names
+        result_map: dict[str, dict[str, Any]] = {}
+        for i, config in enumerate(INVESTIGATION_SPECIALISTS):
+            if i < len(valid_results):
+                result_map[config.name] = valid_results[i]
+            else:
+                result_map[config.name] = {
+                    "result_text": "",
+                    "structured_output": None,
+                    "error": "Specialist did not complete",
+                    "msg_count": 0,
+                }
+
+        return result_map
+
+    def _build_report(
+        self,
+        issue_number: int,
+        issue_title: str,
+        investigation_id: str,
+        specialist_results: dict[str, dict[str, Any]],
+    ) -> InvestigationReport:
+        """Combine specialist results into an InvestigationReport.
+
+        Parses structured output from each specialist and falls back to
+        defaults if parsing fails.
+
+        Args:
+            issue_number: GitHub issue number
+            issue_title: Issue title
+            investigation_id: Unique investigation ID
+            specialist_results: Dict mapping specialist name → stream result
+
+        Returns:
+            Combined InvestigationReport
+        """
+        # Parse each specialist's structured output
+        root_cause = self._parse_specialist_result(
+            "root_cause", specialist_results, RootCauseAnalysis
+        )
+        impact = self._parse_specialist_result(
+            "impact", specialist_results, ImpactAssessment
+        )
+        fix_advice = self._parse_specialist_result(
+            "fix_advisor", specialist_results, FixAdvice
+        )
+        reproduction = self._parse_specialist_result(
+            "reproducer", specialist_results, ReproductionAnalysis
+        )
+
+        # Compute overall severity from impact assessment
+        severity = impact.severity if impact else "medium"
+
+        # Check if likely already resolved
+        likely_resolved = root_cause.likely_already_fixed if root_cause else False
+
+        # Build AI summary
+        ai_summary = self._generate_summary(
+            root_cause=root_cause,
+            impact=impact,
+            fix_advice=fix_advice,
+            reproduction=reproduction,
+        )
+
+        # Use defaults for any missing specialist results
+        if not root_cause:
+            root_cause = RootCauseAnalysis(
+                identified_root_cause="Unable to determine root cause (specialist failed)",
+                confidence="low",
+                evidence="Investigation specialist did not complete successfully",
+            )
+        if not impact:
+            impact = ImpactAssessment(
+                severity="medium",
+                blast_radius="Unable to assess (specialist failed)",
+                user_impact="Unable to assess (specialist failed)",
+                regression_risk="Unknown",
+            )
+        if not fix_advice:
+            fix_advice = FixAdvice()
+        if not reproduction:
+            reproduction = ReproductionAnalysis(
+                reproducible="unlikely",
+                test_coverage={
+                    "has_existing_tests": False,
+                    "test_files": [],
+                    "coverage_assessment": "Unable to assess (specialist failed)",
+                },
+                suggested_test_approach="Unable to determine (specialist failed)",
+            )
+
+        return InvestigationReport(
+            issue_number=issue_number,
+            issue_title=issue_title,
+            investigation_id=investigation_id,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            root_cause=root_cause,
+            impact=impact,
+            fix_advice=fix_advice,
+            reproduction=reproduction,
+            ai_summary=ai_summary,
+            severity=severity,
+            likely_resolved=likely_resolved,
+        )
+
+    def _parse_specialist_result(
+        self,
+        name: str,
+        specialist_results: dict[str, dict[str, Any]],
+        model_class: type,
+    ) -> Any | None:
+        """Parse structured output from a specialist into a Pydantic model.
+
+        Args:
+            name: Specialist name
+            specialist_results: Dict of all specialist results
+            model_class: Pydantic model class to validate against
+
+        Returns:
+            Parsed model instance, or None if parsing failed
+        """
+        result = specialist_results.get(name)
+        if not result:
+            return None
+
+        structured_output = result.get("structured_output")
+        if not structured_output:
+            logger.warning(f"[Investigation] No structured output from {name}")
+            return None
+
+        try:
+            return model_class.model_validate(structured_output)
+        except Exception as e:
+            logger.error(
+                f"[Investigation] Failed to parse {name} output: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def _generate_summary(
+        self,
+        root_cause: RootCauseAnalysis | None,
+        impact: ImpactAssessment | None,
+        fix_advice: FixAdvice | None,
+        reproduction: ReproductionAnalysis | None,
+    ) -> str:
+        """Generate a human-readable summary from specialist results."""
+        parts = []
+
+        if root_cause:
+            parts.append(
+                f"Root cause ({root_cause.confidence} confidence): "
+                f"{root_cause.identified_root_cause}"
+            )
+
+        if impact:
+            parts.append(
+                f"Severity: {impact.severity}. {impact.user_impact}"
+            )
+
+        if fix_advice and fix_advice.approaches:
+            rec_idx = fix_advice.recommended_approach
+            if 0 <= rec_idx < len(fix_advice.approaches):
+                approach = fix_advice.approaches[rec_idx]
+                parts.append(
+                    f"Recommended fix ({approach.complexity}): {approach.description}"
+                )
+
+        if reproduction:
+            parts.append(f"Reproducible: {reproduction.reproducible}.")
+
+        return " ".join(parts) if parts else "Investigation completed but no specialist produced results."

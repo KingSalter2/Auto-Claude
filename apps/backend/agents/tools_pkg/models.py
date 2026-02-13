@@ -300,6 +300,13 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "medium",
     },
+    "investigation_specialist": {
+        # Read-only specialist for issue investigation (root cause, impact, fix, reproduction)
+        "tools": BASE_READ_TOOLS,
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "high",
+    },
     # ═══════════════════════════════════════════════════════════════════════
     # ANALYSIS PHASES
     # ═══════════════════════════════════════════════════════════════════════
