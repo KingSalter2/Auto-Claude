@@ -5,7 +5,7 @@ import { SYNC_DEBOUNCE_MS } from '../../../../shared/constants/label-sync';
 import type { LabelSyncConfig } from '../../../../shared/types/label-sync';
 
 export function useLabelSync() {
-  const projectId = useProjectStore((s) => s.activeProject?.id ?? null);
+  const projectId = useProjectStore((s) => s.activeProjectId);
   const store = useLabelSyncStore();
 
   const loadStatus = useCallback(async () => {

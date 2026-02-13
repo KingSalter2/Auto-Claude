@@ -8,8 +8,8 @@ import { usePhase4Store } from '../../../../stores/github/phase4-store';
 
 // Mock project store
 vi.mock('../../../../stores/project-store', () => ({
-  useProjectStore: vi.fn((selector: (s: { activeProject: { id: string } | null }) => unknown) =>
-    selector({ activeProject: { id: 'test-project' } }),
+  useProjectStore: vi.fn((selector: (s: { activeProjectId: string | null }) => unknown) =>
+    selector({ activeProjectId: 'test-project' }),
   ),
 }));
 
@@ -19,7 +19,7 @@ const mockGithub = {
 };
 
 beforeEach(() => {
-  (window as Record<string, unknown>).electronAPI = { github: mockGithub };
+  (window as unknown as Record<string, unknown>).electronAPI = { github: mockGithub };
 });
 
 describe('useDependencies', () => {

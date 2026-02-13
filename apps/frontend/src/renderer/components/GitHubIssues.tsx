@@ -263,7 +263,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     async (): Promise<{ specNumber: string } | null> => {
       if (!selectedIssue || !selectedProject?.id) return null;
       const result = await window.electronAPI.github.createSpecFromIssue(selectedProject.id, selectedIssue.number);
-      if (result.success && result.data) return { specNumber: result.data.specNumber ?? String(selectedIssue.number) };
+      if (result.success) return { specNumber: String(selectedIssue.number) };
       return null;
     },
     [selectedIssue, selectedProject?.id],
@@ -543,7 +543,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       {/* AI Triage Progress */}
       {(aiTriage.enrichmentProgress || aiTriage.triageProgress) && (
         <TriageProgressOverlay
-          progress={aiTriage.enrichmentProgress ?? aiTriage.triageProgress ?? { progress: 0, message: '' }}
+          progress={aiTriage.enrichmentProgress ?? aiTriage.triageProgress ?? { phase: 'generating', progress: 0, message: '' }}
           onCancel={() => {
             window.electronAPI.github.cancelTriage().catch(() => { /* best-effort */ });
           }}

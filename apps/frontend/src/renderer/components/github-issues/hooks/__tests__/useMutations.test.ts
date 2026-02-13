@@ -23,10 +23,11 @@ const mockGitHub = {
 
 const baseIssue: GitHubIssue = {
   id: 1, number: 42, title: 'Test', body: 'Body', state: 'open',
-  htmlUrl: '', author: { login: 'u' }, labels: [{ id: 1, name: 'bug', color: 'ff0000' }],
+  url: '', htmlUrl: '', repoFullName: 'owner/repo',
+  author: { login: 'u' }, labels: [{ id: 1, name: 'bug', color: 'ff0000' }],
   assignees: [{ login: 'dev1' }], commentsCount: 3,
-  createdAt: '', updatedAt: '', milestone: null,
-} as GitHubIssue;
+  createdAt: '', updatedAt: '',
+};
 
 // Setup window.electronAPI mock
 beforeEach(() => {

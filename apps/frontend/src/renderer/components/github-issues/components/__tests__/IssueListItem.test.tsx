@@ -18,12 +18,14 @@ const mockIssue = {
   state: 'open' as const,
   body: 'Body text',
   author: { login: 'alice', avatarUrl: '' },
-  labels: [{ name: 'bug', color: 'ff0000' }],
+  labels: [{ id: 1, name: 'bug', color: 'ff0000' }],
   assignees: [],
   commentsCount: 3,
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-02T00:00:00Z',
-  url: 'https://github.com/owner/repo/issues/42',
+  url: 'https://api.github.com/repos/owner/repo/issues/42',
+  htmlUrl: 'https://github.com/owner/repo/issues/42',
+  repoFullName: 'owner/repo',
 };
 
 describe('IssueListItem compact mode', () => {

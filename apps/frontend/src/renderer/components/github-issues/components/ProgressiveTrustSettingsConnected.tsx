@@ -10,7 +10,7 @@ import { createDefaultProgressiveTrust } from '../../../../shared/types/ai-triag
 import type { ProgressiveTrustConfig } from '../../../../shared/types/ai-triage';
 
 export function ProgressiveTrustSettingsConnected() {
-  const projectId = useProjectStore((s) => s.activeProject?.id ?? null);
+  const projectId = useProjectStore((s) => s.activeProjectId);
   const [config, setConfig] = useState<ProgressiveTrustConfig>(createDefaultProgressiveTrust);
   const [visible, setVisible] = useState(false);
 

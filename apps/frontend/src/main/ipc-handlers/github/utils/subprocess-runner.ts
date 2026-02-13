@@ -133,6 +133,12 @@ export function runPythonSubprocess<T = unknown>(
     subprocessEnv = createFallbackRunnerEnv();
   }
 
+  // Force Python to use UTF-8 for all I/O (PEP 540).
+  // Without this, Python on Windows defaults to the system codepage (e.g., CP-437),
+  // mangling UTF-8 output (like box-drawing characters) from subprocesses such as Claude CLI.
+  subprocessEnv.PYTHONIOENCODING = 'utf-8';
+  subprocessEnv.PYTHONUTF8 = '1';
+
   // Parse Python command to handle paths with spaces (e.g., ~/Library/Application Support/...)
   const [pythonCommand, pythonBaseArgs] = parsePythonCommand(options.pythonPath);
   const child = spawn(pythonCommand, [...pythonBaseArgs, ...options.args], {

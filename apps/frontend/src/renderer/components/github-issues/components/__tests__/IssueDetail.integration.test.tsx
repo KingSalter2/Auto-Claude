@@ -26,15 +26,17 @@ const baseIssue: GitHubIssue = {
   title: 'Test Issue',
   body: 'Issue body text',
   state: 'open',
+  url: 'https://api.github.com/repos/owner/repo/issues/42',
   htmlUrl: 'https://github.com/owner/repo/issues/42',
+  repoFullName: 'owner/repo',
   author: { login: 'testuser', avatarUrl: '' },
   labels: [{ id: 1, name: 'bug', color: 'ff0000', description: '' }],
   assignees: [{ login: 'dev1', avatarUrl: '' }],
   commentsCount: 3,
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-02T00:00:00Z',
-  milestone: null,
-} as GitHubIssue;
+  milestone: undefined,
+};
 
 const baseProps = {
   issue: baseIssue,
@@ -170,7 +172,7 @@ describe('IssueDetail integration', () => {
   });
 
   it('body InlineEditor renders empty state when body is null', () => {
-    const issueNoBody = { ...baseIssue, body: null } as GitHubIssue;
+    const issueNoBody = { ...baseIssue, body: undefined } as GitHubIssue;
     render(<IssueDetail {...baseProps} issue={issueNoBody} onEditBody={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Edit mutations.editBody' })).toBeDefined();
   });

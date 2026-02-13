@@ -28,7 +28,7 @@ const mockGithub = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  (window as Record<string, unknown>).electronAPI = { github: mockGithub };
+  (window as unknown as Record<string, unknown>).electronAPI = { github: mockGithub };
   mockGithub.getProgressiveTrust.mockResolvedValue(createDefaultProgressiveTrust());
   mockGithub.saveProgressiveTrust.mockResolvedValue(true);
 });

@@ -6,7 +6,7 @@ import type { IssueDependencies } from '../../../../shared/types/dependencies';
 const EMPTY_DEPS: IssueDependencies = { tracks: [], trackedBy: [] };
 
 export function useDependencies(issueNumber: number | null) {
-  const projectId = useProjectStore((s) => s.activeProject?.id ?? null);
+  const projectId = useProjectStore((s) => s.activeProjectId);
   const depsMap = usePhase4Store((s) => s.dependencies);
   const loadingMap = usePhase4Store((s) => s.dependencyLoading);
   const errorsMap = usePhase4Store((s) => s.dependencyErrors);

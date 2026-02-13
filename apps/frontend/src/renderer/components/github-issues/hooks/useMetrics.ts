@@ -7,7 +7,7 @@ import type { MetricsTimeWindow } from '../../../../shared/types/metrics';
 const getPhase4State = usePhase4Store.getState;
 
 export function useMetrics() {
-  const projectId = useProjectStore((s) => s.activeProject?.id ?? null);
+  const projectId = useProjectStore((s) => s.activeProjectId);
   const metrics = usePhase4Store((s) => s.metrics);
   const timeWindow = usePhase4Store((s) => s.metricsTimeWindow);
   const isLoading = usePhase4Store((s) => s.metricsLoading);

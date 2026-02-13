@@ -251,6 +251,67 @@ const browserMockAPI: ElectronAPI = {
     bootstrapEnrichment: async () => ({ schemaVersion: 1, issues: {} }),
     reconcileEnrichment: async () => ({ schemaVersion: 1, issues: {} }),
     gcEnrichment: async () => ({ pruned: 0, orphaned: 0 }),
+
+    // Issue Mutations
+    editIssueTitle: async () => ({ success: true, issueNumber: 0 }),
+    editIssueBody: async () => ({ success: true, issueNumber: 0 }),
+    addIssueLabels: async () => ({ success: true, issueNumber: 0 }),
+    removeIssueLabels: async () => ({ success: true, issueNumber: 0 }),
+    addIssueAssignees: async () => ({ success: true, issueNumber: 0 }),
+    removeIssueAssignees: async () => ({ success: true, issueNumber: 0 }),
+    closeIssue: async () => ({ success: true, issueNumber: 0 }),
+    reopenIssue: async () => ({ success: true, issueNumber: 0 }),
+    addIssueComment: async () => ({ success: true, issueNumber: 0 }),
+
+    // Bulk Operations
+    executeBulk: async () => ({ action: 'close' as const, totalItems: 0, succeeded: 0, failed: 0, skipped: 0, results: [] }),
+    onBulkProgress: () => () => {},
+    onBulkComplete: () => () => {},
+
+    // Repository Data
+    getRepoLabels: async () => ({ success: true, data: [] }),
+    getRepoCollaborators: async () => ({ success: true, data: [] }),
+
+    // Spec from Issue
+    createSpecFromIssue: async () => ({ success: true, issueNumber: 0 }),
+
+    // AI Triage (Phase 3)
+    cancelTriage: async () => ({ cancelled: false }),
+    runEnrichment: () => {},
+    onEnrichmentProgress: () => () => {},
+    onEnrichmentError: () => () => {},
+    onEnrichmentComplete: () => () => {},
+
+    runSplitSuggestion: () => {},
+    onSplitProgress: () => () => {},
+    onSplitError: () => () => {},
+    onSplitComplete: () => () => {},
+
+    createIssue: async () => ({ number: 0, url: '' }),
+
+    applyTriageResults: () => {},
+    onApplyResultsProgress: () => () => {},
+    onApplyResultsComplete: () => () => {},
+
+    savePendingReview: async () => true,
+    loadPendingReview: async () => [],
+    saveProgressiveTrust: async () => true,
+    getProgressiveTrust: async () => ({ autoApply: { type: { enabled: false, threshold: 0.9 }, priority: { enabled: false, threshold: 0.9 }, labels: { enabled: false, threshold: 0.9 }, duplicate: { enabled: false, threshold: 0.9 } }, batchSize: 50, confirmAbove: 10 }),
+
+    // Label Sync (Phase 4)
+    enableLabelSync: async () => ({ created: 0, updated: 0, removed: 0, errors: [] }),
+    disableLabelSync: async () => ({ success: true }),
+    syncIssueLabel: async () => ({ synced: true }),
+    getLabelSyncStatus: async () => ({ enabled: false, lastSyncedAt: null }),
+    saveLabelSyncConfig: async () => ({ success: true }),
+    bulkLabelSync: async () => ({ synced: 0, errors: 0 }),
+
+    // Dependencies (Phase 4)
+    fetchDependencies: async () => ({ tracks: [], trackedBy: [] }),
+
+    // Metrics (Phase 4)
+    computeMetrics: async () => ({ stateCounts: { new: 0, triage: 0, ready: 0, in_progress: 0, review: 0, done: 0, blocked: 0 }, completenessDistribution: { low: 0, medium: 0, high: 0, excellent: 0 }, totalTransitions: 0, avgBacklogAge: 0, avgTimeInState: { new: 0, triage: 0, ready: 0, in_progress: 0, review: 0, done: 0, blocked: 0 }, weeklyThroughput: [], computedAt: new Date().toISOString() }),
+    getStateCounts: async () => ({ new: 0, triage: 0, ready: 0, in_progress: 0, review: 0, done: 0, blocked: 0 }),
   },
 
   // Queue Routing API (rate limit recovery)

@@ -87,11 +87,8 @@ export function MetricsDashboard({
             return (
               <div
                 key={state}
-                className="h-full transition-all"
-                style={{
-                  width: `${pct}%`,
-                  backgroundColor: WORKFLOW_STATE_COLORS[state],
-                }}
+                className={`h-full transition-all ${WORKFLOW_STATE_COLORS[state].bg}`}
+                style={{ width: `${pct}%` }}
                 title={`${t(`enrichment.states.${state}`)}: ${count}`}
               />
             );
@@ -104,8 +101,7 @@ export function MetricsDashboard({
             return (
               <div key={state} className="flex items-center gap-1 text-xs">
                 <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: WORKFLOW_STATE_COLORS[state] }}
+                  className={`w-2 h-2 rounded-full ${WORKFLOW_STATE_COLORS[state].bg}`}
                 />
                 <span className="text-muted-foreground">{t(`enrichment.states.${state}`)}</span>
                 <span className="text-foreground font-medium">{count}</span>

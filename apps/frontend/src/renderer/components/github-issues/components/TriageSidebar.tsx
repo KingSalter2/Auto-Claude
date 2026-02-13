@@ -51,6 +51,7 @@ export function TriageSidebar({
               metrics={metrics}
               timeWindow={metricsTimeWindow ?? '30d'}
               isLoading={isMetricsLoading ?? false}
+              error={null}
               onTimeWindowChange={onTimeWindowChange}
               onRefresh={onRefreshMetrics}
             />

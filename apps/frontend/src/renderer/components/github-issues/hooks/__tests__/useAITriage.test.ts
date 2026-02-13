@@ -10,7 +10,8 @@ import { useAITriageStore } from '../../../../stores/github/ai-triage-store';
 const mockGitHub = {
   runEnrichment: vi.fn(),
   onEnrichmentProgress: vi.fn(() => vi.fn()),
-  onEnrichmentError: vi.fn(() => vi.fn()),
+  // biome-ignore lint/suspicious/noExplicitAny: test mock requires flexible callback type
+  onEnrichmentError: vi.fn((_cb?: any) => vi.fn()),
   onEnrichmentComplete: vi.fn(() => vi.fn()),
   runSplitSuggestion: vi.fn(),
   onSplitProgress: vi.fn(() => vi.fn()),
@@ -308,7 +309,7 @@ describe('useAITriage', () => {
   it('enrichment error sets lastError in store', () => {
     // biome-ignore lint/suspicious/noEmptyBlockStatements: placeholder until mock captures callback
     let errorCallback: (projId: string, error: { error: string }) => void = () => {};
-    mockGitHub.onEnrichmentError.mockImplementation((cb: typeof errorCallback) => {
+    mockGitHub.onEnrichmentError.mockImplementation((cb: (projId: string, error: { error: string }) => void) => {
       errorCallback = cb;
       return vi.fn();
     });

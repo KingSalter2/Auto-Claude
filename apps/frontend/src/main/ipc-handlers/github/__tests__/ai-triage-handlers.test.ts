@@ -394,7 +394,7 @@ describe('applyTriageResults handler', () => {
     },
   ];
 
-  const trigger = (projectId: string, items: typeof reviewItems) =>
+  const trigger = (projectId: string, items: Array<{ issueNumber: number; issueTitle: string; result: { category: string; confidence: number; labelsToAdd: string[]; labelsToRemove: string[]; isDuplicate: boolean; isSpam: boolean; isFeatureCreep: boolean; suggestedBreakdown: string[]; priority: string; triagedAt: string }; status: string }>) =>
     onHandlers['github:triage:applyResults']({}, projectId, items);
 
   it('applies labels via execFileSync per accepted issue', async () => {
