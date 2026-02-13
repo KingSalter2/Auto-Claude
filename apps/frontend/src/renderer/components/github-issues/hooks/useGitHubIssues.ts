@@ -10,21 +10,17 @@ import {
 import type { FilterState } from "../types";
 
 export function useGitHubIssues(projectId: string | undefined) {
-  const {
-    issues,
-    isLoading,
-    isLoadingMore,
-    error,
-    selectedIssueNumber,
-    filterState,
-    hasMore,
-    selectIssue,
-    setFilterState,
-    getFilteredIssues,
-    getOpenIssuesCount,
-  } = useIssuesStore();
+  const issues = useIssuesStore((s) => s.issues);
+  const isLoading = useIssuesStore((s) => s.isLoading);
+  const isLoadingMore = useIssuesStore((s) => s.isLoadingMore);
+  const error = useIssuesStore((s) => s.error);
+  const selectedIssueNumber = useIssuesStore((s) => s.selectedIssueNumber);
+  const filterState = useIssuesStore((s) => s.filterState);
+  const hasMore = useIssuesStore((s) => s.hasMore);
+  const selectIssue = useIssuesStore((s) => s.selectIssue);
+  const setFilterState = useIssuesStore((s) => s.setFilterState);
 
-  const { syncStatus } = useSyncStatusStore();
+  const syncStatus = useSyncStatusStore((s) => s.syncStatus);
 
   // Track if we've checked connection for this mount
   const hasCheckedRef = useRef(false);
@@ -115,8 +111,8 @@ export function useGitHubIssues(projectId: string | undefined) {
     filterState,
     hasMore: !isSearchActive && hasMore, // No "load more" when search is active
     selectIssue,
-    getFilteredIssues,
-    getOpenIssuesCount,
+    getFilteredIssues: useIssuesStore.getState().getFilteredIssues,
+    getOpenIssuesCount: useIssuesStore.getState().getOpenIssuesCount,
     handleRefresh,
     handleFilterChange,
     handleLoadMore,

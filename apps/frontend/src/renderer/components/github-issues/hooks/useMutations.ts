@@ -1,11 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useMutationStore } from '../../../stores/github/mutation-store';
 import { useIssuesStore } from '../../../stores/github/issues-store';
 import { validateTitle, validateBody } from '@shared/utils/mutation-validation';
 import type { MutationResult } from '@shared/types/mutations';
 
 export function useMutations(projectId: string) {
-  const { startMutation, endMutation } = useMutationStore();
+  const startMutation = useMutationStore((s) => s.startMutation);
+  const endMutation = useMutationStore((s) => s.endMutation);
 
   const updateIssue = useIssuesStore.getState().updateIssue;
 
@@ -176,7 +177,12 @@ export function useMutations(projectId: string) {
     }
   }, [projectId, startMutation, endMutation, updateIssue]);
 
-  return {
+  const isMutating = useCallback(
+    (issueNumber: number) => useMutationStore.getState().mutatingIssues.has(issueNumber),
+    [],
+  );
+
+  return useMemo(() => ({
     editTitle,
     editBody,
     closeIssue,
@@ -186,6 +192,6 @@ export function useMutations(projectId: string) {
     removeLabels,
     addAssignees,
     removeAssignees,
-    isMutating: (issueNumber: number) => useMutationStore.getState().mutatingIssues.has(issueNumber),
-  };
+    isMutating,
+  }), [editTitle, editBody, closeIssue, reopenIssue, addComment, addLabels, removeLabels, addAssignees, removeAssignees, isMutating]);
 }

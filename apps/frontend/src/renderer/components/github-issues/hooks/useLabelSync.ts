@@ -6,44 +6,51 @@ import type { LabelSyncConfig } from '@shared/types/label-sync';
 
 export function useLabelSync() {
   const projectId = useProjectStore((s) => s.activeProjectId);
-  const store = useLabelSyncStore();
+
+  // Reactive state selectors — only re-render when these specific values change
+  const config = useLabelSyncStore((s) => s.config);
+  const isLoaded = useLabelSyncStore((s) => s.isLoaded);
+  const isSyncing = useLabelSyncStore((s) => s.isSyncing);
+  const error = useLabelSyncStore((s) => s.error);
+  const lastResult = useLabelSyncStore((s) => s.lastResult);
 
   const loadStatus = useCallback(async () => {
     if (!projectId) return;
     try {
-      const config = await window.electronAPI.github.getLabelSyncStatus(projectId);
-      store.setConfig(config);
+      const result = await window.electronAPI.github.getLabelSyncStatus(projectId);
+      useLabelSyncStore.getState().setConfig(result);
     } catch (error) {
-      store.setError(error instanceof Error ? error.message : 'Failed to load label sync status');
+      useLabelSyncStore.getState().setError(error instanceof Error ? error.message : 'Failed to load label sync status');
     }
-  }, [projectId, store]);
+  }, [projectId]);
 
   const enableSync = useCallback(async () => {
     if (!projectId) return;
-    store.setSyncing(true);
+    useLabelSyncStore.getState().setSyncing(true);
     try {
       const result = await window.electronAPI.github.enableLabelSync(projectId);
-      store.setLastResult(result);
-      store.setConfig({ enabled: true, lastSyncedAt: new Date().toISOString() });
+      const s = useLabelSyncStore.getState();
+      s.setLastResult(result);
+      s.setConfig({ enabled: true, lastSyncedAt: new Date().toISOString() });
     } catch (error) {
-      store.setError(error instanceof Error ? error.message : 'Failed to enable label sync');
+      useLabelSyncStore.getState().setError(error instanceof Error ? error.message : 'Failed to enable label sync');
     } finally {
-      store.setSyncing(false);
+      useLabelSyncStore.getState().setSyncing(false);
     }
-  }, [projectId, store]);
+  }, [projectId]);
 
   const disableSync = useCallback(async (cleanup: boolean) => {
     if (!projectId) return;
-    store.setSyncing(true);
+    useLabelSyncStore.getState().setSyncing(true);
     try {
       await window.electronAPI.github.disableLabelSync(projectId, cleanup);
-      store.setConfig({ enabled: false, lastSyncedAt: null });
+      useLabelSyncStore.getState().setConfig({ enabled: false, lastSyncedAt: null });
     } catch (error) {
-      store.setError(error instanceof Error ? error.message : 'Failed to disable label sync');
+      useLabelSyncStore.getState().setError(error instanceof Error ? error.message : 'Failed to disable label sync');
     } finally {
-      store.setSyncing(false);
+      useLabelSyncStore.getState().setSyncing(false);
     }
-  }, [projectId, store]);
+  }, [projectId]);
 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,7 +68,7 @@ export function useLabelSync() {
     newState: string,
     oldState: string | null,
   ) => {
-    if (!projectId || !store.config.enabled) return;
+    if (!projectId || !useLabelSyncStore.getState().config.enabled) return;
 
     if (syncTimerRef.current) {
       clearTimeout(syncTimerRef.current);
@@ -74,38 +81,38 @@ export function useLabelSync() {
         // Non-blocking — label sync failures shouldn't disrupt workflow
       }
     }, SYNC_DEBOUNCE_MS);
-  }, [projectId, store.config.enabled]);
+  }, [projectId]);
 
   const bulkLabelSync = useCallback(async (issueNumbers: number[]) => {
-    if (!projectId || !store.config.enabled) return { synced: 0, errors: 0 };
-    store.setSyncing(true);
+    if (!projectId || !useLabelSyncStore.getState().config.enabled) return { synced: 0, errors: 0 };
+    useLabelSyncStore.getState().setSyncing(true);
     try {
       const result = await window.electronAPI.github.bulkLabelSync(projectId, issueNumbers);
       return result;
     } catch (error) {
-      store.setError(error instanceof Error ? error.message : 'Bulk sync failed');
+      useLabelSyncStore.getState().setError(error instanceof Error ? error.message : 'Bulk sync failed');
       return { synced: 0, errors: 0 };
     } finally {
-      store.setSyncing(false);
+      useLabelSyncStore.getState().setSyncing(false);
     }
-  }, [projectId, store]);
+  }, [projectId]);
 
   const saveConfig = useCallback(async (config: LabelSyncConfig) => {
     if (!projectId) return;
     try {
       await window.electronAPI.github.saveLabelSyncConfig(projectId, config);
-      store.setConfig(config);
+      useLabelSyncStore.getState().setConfig(config);
     } catch (error) {
-      store.setError(error instanceof Error ? error.message : 'Failed to save config');
+      useLabelSyncStore.getState().setError(error instanceof Error ? error.message : 'Failed to save config');
     }
-  }, [projectId, store]);
+  }, [projectId]);
 
   return {
-    config: store.config,
-    isLoaded: store.isLoaded,
-    isSyncing: store.isSyncing,
-    error: store.error,
-    lastResult: store.lastResult,
+    config,
+    isLoaded,
+    isSyncing,
+    error,
+    lastResult,
     loadStatus,
     enableSync,
     disableSync,

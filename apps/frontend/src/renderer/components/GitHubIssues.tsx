@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useProjectStore } from "../stores/project-store";
 import { useTaskStore } from "../stores/task-store";
+import { useIssuesStore } from "../stores/github/issues-store";
 import {
   useEnrichmentStore,
   loadEnrichment,
@@ -62,7 +63,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     filterState,
     hasMore,
     selectIssue,
-    getFilteredIssues,
     getOpenIssuesCount,
     handleRefresh,
     handleFilterChange,
@@ -78,8 +78,18 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     resetInvestigationStatus,
   } = useGitHubInvestigation(selectedProject?.id);
 
+  // FE-1 fix: Subscribe to issues/filterState individually and memoize the
+  // filtered list instead of calling getFilteredIssues() which creates a new
+  // array on every render.
+  const storeIssues = useIssuesStore((s) => s.issues);
+  const storeFilterState = useIssuesStore((s) => s.filterState);
+  const memoizedFilteredIssues = useMemo(() => {
+    if (storeFilterState === 'all') return storeIssues;
+    return storeIssues.filter((issue) => issue.state === storeFilterState);
+  }, [storeIssues, storeFilterState]);
+
   const { searchQuery, setSearchQuery, filteredIssues, isSearchActive } = useIssueFiltering(
-    getFilteredIssues(),
+    memoizedFilteredIssues,
     {
       onSearchStart: handleSearchStart,
       onSearchClear: handleSearchClear,
