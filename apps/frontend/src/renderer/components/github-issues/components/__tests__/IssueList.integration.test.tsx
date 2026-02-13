@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { IssueList } from '../IssueList';
 import type { GitHubIssue } from '@shared/types';
-import type { IssueEnrichment } from '@shared/types/enrichment';
+import type { InvestigationState } from '@shared/types';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -47,23 +47,7 @@ function makeIssue(num: number): GitHubIssue {
   };
 }
 
-function makeEnrichment(issueNumber: number, state: string, score: number): IssueEnrichment {
-  return {
-    issueNumber,
-    triageState: state,
-    completenessScore: score,
-    enrichment: {
-      problem: '',
-      goal: '',
-      scopeIn: [],
-      scopeOut: [],
-      acceptanceCriteria: [],
-      technicalContext: '',
-    },
-  } as unknown as IssueEnrichment;
-}
-
-describe('IssueList enrichment integration', () => {
+describe('IssueList investigation integration', () => {
   const defaultProps = {
     issues: [makeIssue(1), makeIssue(2), makeIssue(3)],
     selectedIssueNumber: null,
@@ -73,22 +57,26 @@ describe('IssueList enrichment integration', () => {
     onInvestigate: vi.fn(),
   };
 
-  it('passes triageState from enrichments to IssueListItem', () => {
-    const enrichments = {
-      '1': makeEnrichment(1, 'triage', 40),
-      '2': makeEnrichment(2, 'ready', 80),
+  it('passes investigationStates to IssueListItem and renders progress bars', () => {
+    const investigationStates: Record<string, { state: InvestigationState; progress?: number }> = {
+      '1': { state: 'investigating', progress: 40 },
+      '2': { state: 'failed' },
     };
-    render(<IssueList {...defaultProps} enrichments={enrichments} />);
-    // Issue 1 should show 'triage' badge, Issue 2 'ready' (via i18n keys)
-    expect(screen.getByText('enrichment.states.triage')).toBeDefined();
-    expect(screen.getByText('enrichment.states.ready')).toBeDefined();
+    render(<IssueList {...defaultProps} investigationStates={investigationStates} />);
+    // Issue 1 should show a progress bar with 40%
+    expect(screen.getByText('40%')).toBeDefined();
+    // Issue 2 should show the failed indicator (via i18n key)
+    expect(screen.getByText('investigation.progress.failed')).toBeDefined();
   });
 
-  it('defaults to new state when no enrichment exists', () => {
-    render(<IssueList {...defaultProps} enrichments={{}} />);
-    // All 3 issues should show 'New' badge (via i18n key)
-    const newBadges = screen.getAllByText('enrichment.states.new');
-    expect(newBadges.length).toBe(3);
+  it('renders no progress bar when investigationStates is empty (new issues)', () => {
+    render(<IssueList {...defaultProps} investigationStates={{}} />);
+    // No progress bars or failure indicators should render for issues without investigation state
+    expect(screen.queryByText('investigation.progress.failed')).toBeNull();
+    // All 3 issues should still render their titles
+    expect(screen.getByText('Issue #1')).toBeDefined();
+    expect(screen.getByText('Issue #2')).toBeDefined();
+    expect(screen.getByText('Issue #3')).toBeDefined();
   });
 
   it('renders selection checkbox when onToggleSelect provided', () => {

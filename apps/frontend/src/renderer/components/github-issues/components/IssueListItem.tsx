@@ -80,19 +80,19 @@ export const IssueListItem = memo(function IssueListItem({
             {issue.title}
           </h4>
           {!compact && (
-            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground overflow-hidden">
+              <div className="flex items-center gap-1 shrink-0">
                 <User className="h-3 w-3" />
-                {issue.author.login}
+                <span className="truncate max-w-[80px]">{issue.author.login}</span>
               </div>
               {issue.commentsCount > 0 && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   <MessageCircle className="h-3 w-3" />
                   {issue.commentsCount}
                 </div>
               )}
               {issue.labels.length > 0 && (
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1 overflow-hidden">
                   {issue.labels.slice(0, 3).map((label) => {
                     const bg = `#${label.color}`;
                     const r = Number.parseInt(label.color.substring(0, 2), 16);

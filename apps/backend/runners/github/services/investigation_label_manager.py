@@ -63,9 +63,15 @@ class InvestigationLabelManager:
     # All managed label names for easy lookup
     ALL_LABEL_NAMES = [label["name"] for label in LABELS.values()]
 
+    # Terminal states that should never be debounced — these represent
+    # important outcomes that must always be reflected on GitHub.
+    _TERMINAL_STATES: set[str] = {"findings_ready", "task_created", "done", "completed"}
+
     def __init__(self) -> None:
         # Track last label-change timestamp per issue for debounce
         self._last_label_time: dict[int, float] = {}
+        # Track pending (debounced) label state per issue for trailing-edge apply
+        self._pending_state: dict[int, str] = {}
 
     # Map investigation states to label keys
     _STATE_MAP: dict[str, str] = {
@@ -125,18 +131,36 @@ class InvestigationLabelManager:
             logger.warning("Unknown investigation state %r, skipping label sync", state)
             return
 
-        # Debounce: skip if we changed labels for this issue too recently
+        # Resolve which state to apply: if there was a pending (debounced) state
+        # queued from a previous call, the current call supersedes it.
+        pending = self._pending_state.pop(issue_number, None)
+
+        # Debounce: skip non-terminal states if we changed labels too recently.
+        # Terminal states (findings_ready, task_created, done) always go through
+        # because they represent important outcomes that must be visible on GitHub.
         now = time.monotonic()
         last_time = self._last_label_time.get(issue_number, 0.0)
-        if now - last_time < _LABEL_DEBOUNCE_SECONDS:
+        is_terminal = state in self._TERMINAL_STATES
+        if not is_terminal and now - last_time < _LABEL_DEBOUNCE_SECONDS:
             logger.debug(
-                "Debounced label change for issue #%d (%.1fs since last change)",
+                "Debounced label change for issue #%d (%.1fs since last change), "
+                "storing %r as pending",
                 issue_number,
                 now - last_time,
+                state,
             )
-            # Still update the timestamp so the final state wins
-            self._last_label_time[issue_number] = now
+            # Store the desired state so the next non-debounced call applies it
+            self._pending_state[issue_number] = state
             return
+
+        # If there was a pending state and the current call supersedes it, log it
+        if pending and pending != state:
+            logger.debug(
+                "Superseding pending label state %r with %r for issue #%d",
+                pending,
+                state,
+                issue_number,
+            )
 
         try:
             # Remove all existing auto-claude: labels first
