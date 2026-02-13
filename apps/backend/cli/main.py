@@ -280,6 +280,19 @@ Environment Variables:
         help="Actually delete files in cleanup (not just preview)",
     )
 
+    # Issue workflow
+    parser.add_argument(
+        "--issue-workflow",
+        action="store_true",
+        help="Run build from a GitHub issue investigation (requires --issue-number)",
+    )
+    parser.add_argument(
+        "--issue-number",
+        type=int,
+        default=None,
+        help="GitHub issue number for --issue-workflow",
+    )
+
     return parser.parse_args()
 
 
@@ -477,6 +490,8 @@ def _run_cli() -> None:
         skip_qa=args.skip_qa,
         force_bypass_approval=args.force,
         base_branch=args.base_branch,
+        issue_workflow=args.issue_workflow,
+        issue_number=args.issue_number,
     )
 
 

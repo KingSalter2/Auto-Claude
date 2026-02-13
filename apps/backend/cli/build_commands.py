@@ -61,6 +61,8 @@ def handle_build_command(
     skip_qa: bool,
     force_bypass_approval: bool,
     base_branch: str | None = None,
+    issue_workflow: bool = False,
+    issue_number: int | None = None,
 ) -> None:
     """
     Handle the main build command.
@@ -77,6 +79,8 @@ def handle_build_command(
         skip_qa: Skip automatic QA validation
         force_bypass_approval: Force bypass approval check
         base_branch: Base branch for worktree creation (default: current branch)
+        issue_workflow: If True, run from a GitHub issue investigation
+        issue_number: GitHub issue number (required when issue_workflow=True)
     """
     # Lazy imports to avoid loading heavy modules
     from agent import run_autonomous_agent, sync_spec_to_source
@@ -94,6 +98,14 @@ def handle_build_command(
     from qa_loop import run_qa_validation_loop, should_run_qa
 
     from .utils import print_banner, validate_environment
+
+    # Handle issue workflow: load investigation report and inject context
+    if issue_workflow:
+        if not issue_number:
+            print("\nError: --issue-number is required with --issue-workflow")
+            sys.exit(1)
+
+        _inject_issue_workflow_context(project_dir, spec_dir, issue_number)
 
     # Get the resolved model for the planning phase (first phase of build)
     # This respects task_metadata.json phase configuration from the UI
@@ -484,4 +496,138 @@ def _handle_build_interrupt(
         content.append("")
         content.append(muted("Your build is in a separate workspace and is safe."))
     print(box(content, width=70, style="light"))
+    print()
+
+
+def _inject_issue_workflow_context(
+    project_dir: Path,
+    spec_dir: Path,
+    issue_number: int,
+) -> None:
+    """Inject investigation context into the build workflow.
+
+    Loads the investigation report for the given issue and writes a
+    HUMAN_INPUT.md file in the spec directory with root cause analysis,
+    fix advice, and other investigation context. This is read by the
+    coder agent as additional guidance.
+
+    Also updates the investigation state to "building".
+
+    Args:
+        project_dir: Project root directory
+        spec_dir: Spec directory path
+        issue_number: GitHub issue number
+    """
+    import json
+
+    # Use try/except for imports matching the codebase pattern
+    try:
+        from runners.github.services.investigation_persistence import (
+            load_investigation_report,
+            save_investigation_state,
+        )
+    except (ImportError, ValueError, SystemError):
+        # Add parent to path if needed
+        _backend = Path(__file__).parent.parent
+        if str(_backend) not in sys.path:
+            sys.path.insert(0, str(_backend))
+        from runners.github.services.investigation_persistence import (
+            load_investigation_report,
+            save_investigation_state,
+        )
+
+    report = load_investigation_report(project_dir, issue_number)
+    if report is None:
+        print(f"\nWarning: No investigation report found for issue #{issue_number}")
+        print("Proceeding without investigation context.")
+        return
+
+    # Build context string for the coder agent
+    context_parts: list[str] = []
+    context_parts.append(f"# Investigation Context for Issue #{issue_number}")
+    context_parts.append("")
+    context_parts.append(f"## {report.issue_title}")
+    context_parts.append("")
+    context_parts.append(f"**Severity:** {report.severity}")
+    context_parts.append("")
+
+    # AI summary
+    context_parts.append("## Summary")
+    context_parts.append(report.ai_summary)
+    context_parts.append("")
+
+    # Root cause
+    context_parts.append("## Root Cause")
+    context_parts.append(report.root_cause.identified_root_cause)
+    context_parts.append("")
+
+    if report.root_cause.code_paths:
+        context_parts.append("### Code Paths")
+        for cp in report.root_cause.code_paths:
+            end = cp.end_line if cp.end_line else cp.start_line
+            context_parts.append(f"- `{cp.file}:{cp.start_line}-{end}`: {cp.description}")
+        context_parts.append("")
+
+    # Fix advice
+    if report.fix_advice.approaches:
+        rec_idx = report.fix_advice.recommended_approach
+        context_parts.append("## Recommended Fix")
+        if 0 <= rec_idx < len(report.fix_advice.approaches):
+            approach = report.fix_advice.approaches[rec_idx]
+            context_parts.append(approach.description)
+            context_parts.append("")
+            if approach.files_affected:
+                context_parts.append("**Files to modify:**")
+                for f in approach.files_affected:
+                    context_parts.append(f"- `{f}`")
+                context_parts.append("")
+
+    # Gotchas
+    if report.fix_advice.gotchas:
+        context_parts.append("## Gotchas")
+        for gotcha in report.fix_advice.gotchas:
+            context_parts.append(f"- {gotcha}")
+        context_parts.append("")
+
+    # Patterns
+    if report.fix_advice.patterns_to_follow:
+        context_parts.append("## Patterns to Follow")
+        for pat in report.fix_advice.patterns_to_follow:
+            context_parts.append(f"- `{pat.file}`: {pat.description}")
+        context_parts.append("")
+
+    context = "\n".join(context_parts)
+
+    # Write as HUMAN_INPUT.md (existing mechanism for agent guidance injection)
+    input_file = spec_dir / "HUMAN_INPUT.md"
+    existing = ""
+    if input_file.exists():
+        existing = input_file.read_text(encoding="utf-8")
+
+    if existing:
+        # Append investigation context to existing human input
+        combined = existing + "\n\n" + context
+    else:
+        combined = context
+
+    input_file.write_text(combined, encoding="utf-8")
+
+    # Update investigation state to "building" (note: we use the broader
+    # "task_created" status since "building" isn't a valid InvestigationState status)
+    from datetime import datetime, timezone
+
+    save_investigation_state(
+        project_dir,
+        issue_number,
+        {
+            "issue_number": issue_number,
+            "status": "task_created",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "linked_spec_id": spec_dir.name,
+        },
+    )
+
+    print(f"\nIssue workflow: Injected investigation context for #{issue_number}")
+    print(f"  Root cause: {report.root_cause.identified_root_cause[:80]}...")
+    print(f"  Severity: {report.severity}")
     print()
