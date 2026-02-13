@@ -16,6 +16,8 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "AutoFixProcessor": (".autofix_processor", "AutoFixProcessor"),
     "BatchProcessor": (".batch_processor", "BatchProcessor"),
     "EnrichmentEngine": (".enrichment_engine", "EnrichmentEngine"),
+    "InvestigationReport": (".investigation_models", "InvestigationReport"),
+    "InvestigationState": (".investigation_models", "InvestigationState"),
     "ParallelAgentOrchestrator": (".parallel_agent_base", "ParallelAgentOrchestrator"),
     "PRReviewEngine": (".pr_review_engine", "PRReviewEngine"),
     "PromptManager": (".prompt_manager", "PromptManager"),
@@ -36,6 +38,8 @@ __all__ = [
     "BatchProcessor",
     "ParallelAgentOrchestrator",
     "SpecialistConfig",
+    "InvestigationReport",
+    "InvestigationState",
 ]
 
 # Cache for lazily loaded modules
