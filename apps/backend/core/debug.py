@@ -235,10 +235,10 @@ def debug_section(module: str, title: str) -> None:
         return
 
     timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
-    separator = "─" * 60
-    log_line = f"\n{Colors.TIMESTAMP}[{timestamp}]{Colors.RESET} {Colors.DEBUG}{Colors.BOLD}┌{separator}┐{Colors.RESET}"
-    log_line += f"\n{Colors.TIMESTAMP}         {Colors.RESET} {Colors.DEBUG}{Colors.BOLD}│ {module}: {title}{' ' * (58 - len(module) - len(title) - 2)}│{Colors.RESET}"
-    log_line += f"\n{Colors.TIMESTAMP}         {Colors.RESET} {Colors.DEBUG}{Colors.BOLD}└{separator}┘{Colors.RESET}"
+    separator = "-" * 60
+    log_line = f"\n{Colors.TIMESTAMP}[{timestamp}]{Colors.RESET} {Colors.DEBUG}{Colors.BOLD}+{separator}+{Colors.RESET}"
+    log_line += f"\n{Colors.TIMESTAMP}         {Colors.RESET} {Colors.DEBUG}{Colors.BOLD}| {module}: {title}{' ' * (58 - len(module) - len(title) - 2)}|{Colors.RESET}"
+    log_line += f"\n{Colors.TIMESTAMP}         {Colors.RESET} {Colors.DEBUG}{Colors.BOLD}+{separator}+{Colors.RESET}"
 
     _write_log(log_line)
 
