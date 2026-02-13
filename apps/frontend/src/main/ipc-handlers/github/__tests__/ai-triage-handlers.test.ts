@@ -277,7 +277,7 @@ describe('runEnrichment handler', () => {
               problem: 'Test problem',
               goal: 'Test goal',
             }),
-            completenessScore: 0.85,
+            completenessScore: 85,
           }),
         }),
       }),

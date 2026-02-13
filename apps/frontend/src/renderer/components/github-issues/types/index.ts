@@ -103,6 +103,7 @@ export interface IssueDetailProps {
   depsError?: string | null;
   onNavigateDependency?: (issueNumber: number) => void;
   onPostEnrichmentComment?: () => void;
+  onDismissEnrichmentComment?: () => void;
   hasExistingAIComment?: boolean;
 }
 

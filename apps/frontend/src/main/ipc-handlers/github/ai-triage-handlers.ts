@@ -195,7 +195,7 @@ export function registerAITriageHandlers(
                   technicalContext: enrichmentResult.technicalContext,
                   risksEdgeCases: enrichmentResult.risksEdgeCases,
                 },
-                completenessScore: enrichmentResult.confidence,
+                completenessScore: Math.round(enrichmentResult.confidence * 100),
                 updatedAt: new Date().toISOString(),
               };
               await writeEnrichmentFile(project.path, enrichmentFile);

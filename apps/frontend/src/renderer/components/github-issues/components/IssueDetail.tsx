@@ -55,6 +55,7 @@ export function IssueDetail({
   depsError,
   onNavigateDependency,
   onPostEnrichmentComment,
+  onDismissEnrichmentComment,
   hasExistingAIComment,
 }: IssueDetailProps) {
   const { t } = useTranslation('common');
@@ -306,6 +307,7 @@ export function IssueDetail({
                 onImproveIssue={isAIBusy ? undefined : onImproveIssue}
                 onSplitIssue={isAIBusy ? undefined : onSplitIssue}
                 onPostComment={onPostEnrichmentComment}
+                onDismissComment={onDismissEnrichmentComment}
                 hasExistingAIComment={hasExistingAIComment}
               />
             </CardContent>

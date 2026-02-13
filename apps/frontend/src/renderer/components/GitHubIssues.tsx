@@ -521,6 +521,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               onNavigateDependency={selectIssue}
               onCreateSpec={handleCreateSpec}
               onPostEnrichmentComment={aiTriage.enrichmentResult ? handlePostEnrichmentComment : undefined}
+              onDismissEnrichmentComment={aiTriage.enrichmentResult ? aiTriage.clearEnrichmentResult : undefined}
               hasExistingAIComment={hasExistingAIComment}
             />
           ) : (

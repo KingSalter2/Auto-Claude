@@ -18,6 +18,7 @@ interface EnrichmentPanelProps {
   lastError?: string | null;
   onRetry?: () => void;
   onPostComment?: () => void;
+  onDismissComment?: () => void;
   hasExistingAIComment?: boolean;
 }
 
@@ -44,6 +45,7 @@ export function EnrichmentPanel({
   lastError,
   onRetry,
   onPostComment,
+  onDismissComment,
   hasExistingAIComment,
 }: EnrichmentPanelProps) {
   const { t } = useTranslation('common');
@@ -167,14 +169,26 @@ export function EnrichmentPanel({
               {t('enrichmentComment.duplicateWarning')}
             </div>
           )}
-          <button
-            type="button"
-            className="w-full text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-            onClick={onPostComment}
-            aria-label={t('enrichmentComment.post')}
-          >
-            {t('enrichmentComment.post')}
-          </button>
+          <div className="flex gap-2">
+            {onDismissComment && (
+              <button
+                type="button"
+                className="flex-1 text-xs px-3 py-1.5 rounded-md bg-foreground/10 hover:bg-foreground/20 text-foreground/70 transition-colors"
+                onClick={onDismissComment}
+                aria-label={t('enrichmentComment.cancel')}
+              >
+                {t('enrichmentComment.cancel')}
+              </button>
+            )}
+            <button
+              type="button"
+              className="flex-1 text-xs px-3 py-1.5 rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+              onClick={onPostComment}
+              aria-label={t('enrichmentComment.post')}
+            >
+              {t('enrichmentComment.post')}
+            </button>
+          </div>
         </div>
       )}
     </div>
