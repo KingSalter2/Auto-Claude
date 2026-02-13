@@ -544,7 +544,9 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       {(aiTriage.enrichmentProgress || aiTriage.triageProgress) && (
         <TriageProgressOverlay
           progress={aiTriage.enrichmentProgress ?? aiTriage.triageProgress ?? { progress: 0, message: '' }}
-          onCancel={() => { /* cancel handled by store */ }}
+          onCancel={() => {
+            window.electronAPI.github.cancelTriage().catch(() => { /* best-effort */ });
+          }}
         />
       )}
 

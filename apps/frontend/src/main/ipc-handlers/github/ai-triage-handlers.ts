@@ -66,6 +66,10 @@ function getGitHubDir(projectPath: string): string {
   return path.join(projectPath, '.auto-claude', 'github');
 }
 
+// Track active subprocess for cancellation
+import type { ChildProcess } from 'child_process';
+let activeTriageProcess: ChildProcess | null = null;
+
 /**
  * Register AI triage handlers
  */
@@ -73,6 +77,19 @@ export function registerAITriageHandlers(
   getMainWindow: () => BrowserWindow | null,
 ): void {
   debugLog('Registering AI Triage handlers');
+
+  // Cancel active triage subprocess
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_TRIAGE_CANCEL,
+    async () => {
+      if (activeTriageProcess && !activeTriageProcess.killed) {
+        activeTriageProcess.kill('SIGTERM');
+        activeTriageProcess = null;
+        return { cancelled: true };
+      }
+      return { cancelled: false };
+    },
+  );
 
   // ============================================
   // Run AI enrichment for a single issue
@@ -122,7 +139,7 @@ export function registerAITriageHandlers(
           sendProgress({ phase: 'analyzing', progress: 10, message: 'Analyzing issue...' });
 
           const subprocessEnv = await getRunnerEnv();
-          const { promise } = runPythonSubprocess<AIEnrichmentResult>({
+          const { process: childProcess, promise } = runPythonSubprocess<AIEnrichmentResult>({
             pythonPath: getPythonPath(backendPath),
             args,
             cwd: backendPath,
@@ -136,8 +153,10 @@ export function registerAITriageHandlers(
               mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
             },
           });
+          activeTriageProcess = childProcess;
 
           const result = await promise;
+          activeTriageProcess = null;
 
           if (!result.success) {
             sendError(result.error ?? 'Enrichment failed');
@@ -227,7 +246,7 @@ export function registerAITriageHandlers(
           sendProgress({ phase: 'analyzing', progress: 10, message: 'Analyzing issue for splitting...' });
 
           const subprocessEnv = await getRunnerEnv();
-          const { promise } = runPythonSubprocess<SplitSuggestion>({
+          const { process: splitProcess, promise } = runPythonSubprocess<SplitSuggestion>({
             pythonPath: getPythonPath(backendPath),
             args,
             cwd: backendPath,
@@ -241,8 +260,10 @@ export function registerAITriageHandlers(
               mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
             },
           });
+          activeTriageProcess = splitProcess;
 
           const result = await promise;
+          activeTriageProcess = null;
 
           if (!result.success) {
             sendError(result.error ?? 'Split analysis failed');

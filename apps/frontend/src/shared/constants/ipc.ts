@@ -456,6 +456,7 @@ export const IPC_CHANNELS = {
   GITHUB_TRIAGE_APPLY_RESULTS: 'github:triage:applyResults',
   GITHUB_TRIAGE_APPLY_RESULTS_PROGRESS: 'github:triage:applyResults:progress',
   GITHUB_TRIAGE_APPLY_RESULTS_COMPLETE: 'github:triage:applyResults:complete',
+  GITHUB_TRIAGE_CANCEL: 'github:triage:cancel',
   GITHUB_TRIAGE_SAVE_TRUST: 'github:triage:saveTrust',
   GITHUB_TRIAGE_GET_TRUST: 'github:triage:getTrust',
 

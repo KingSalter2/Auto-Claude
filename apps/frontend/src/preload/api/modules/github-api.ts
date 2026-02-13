@@ -375,6 +375,7 @@ export interface GitHubAPI {
   createSpecFromIssue: (projectId: string, issueNumber: number) => Promise<MutationResult>;
 
   // AI Triage (Phase 3)
+  cancelTriage: () => Promise<{ cancelled: boolean }>;
   runEnrichment: (projectId: string, issueNumber: number) => void;
   onEnrichmentProgress: (callback: (projectId: string, progress: EnrichmentProgress) => void) => IpcListenerCleanup;
   onEnrichmentError: (callback: (projectId: string, error: { error: string }) => void) => IpcListenerCleanup;
@@ -950,6 +951,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
     invokeIpc(IPC_CHANNELS.GITHUB_ISSUE_CREATE_SPEC, projectId, issueNumber),
 
   // AI Triage (Phase 3)
+  cancelTriage: (): Promise<{ cancelled: boolean }> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_TRIAGE_CANCEL),
+
   runEnrichment: (projectId: string, issueNumber: number): void =>
     sendIpc(IPC_CHANNELS.GITHUB_TRIAGE_ENRICH, projectId, issueNumber),
 
