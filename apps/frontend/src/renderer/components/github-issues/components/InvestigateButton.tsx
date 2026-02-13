@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Search, Loader2, CheckCircle2, PlusCircle, XCircle } from 'lucide-react';
+import { Search, Loader2, CheckCircle2, PlusCircle, XCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { useTranslation } from 'react-i18next';
 import type { InvestigationState } from '@shared/types';
@@ -109,24 +109,35 @@ export const InvestigateButton = memo(function InvestigateButton({
     );
   }
 
-  // Task created / building / done — show status
+  // Task created / building / done — show status + re-investigate option
   if (state === 'task_created' || state === 'building' || state === 'done') {
     return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onViewResults}
-        disabled={disabled}
-        className={className}
-      >
-        <CheckCircle2 className="h-4 w-4 mr-1.5" />
-        {state === 'done'
-          ? t('investigation.button.done', 'Done')
-          : state === 'building'
-            ? t('investigation.button.building', 'Building...')
-            : t('investigation.button.taskCreated', 'Task Created')
-        }
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onViewResults}
+          disabled={disabled}
+          className={className}
+        >
+          <CheckCircle2 className="h-4 w-4 mr-1.5" />
+          {state === 'done'
+            ? t('investigation.button.done', 'Done')
+            : state === 'building'
+              ? t('investigation.button.building', 'Building...')
+              : t('investigation.button.taskCreated', 'Task Created')
+          }
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onInvestigate}
+          disabled={disabled}
+          title={t('investigation.button.reInvestigate', 'Re-Investigate')}
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
+      </div>
     );
   }
 

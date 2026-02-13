@@ -179,7 +179,8 @@
     "severity": "sévérité",
     "pullRequest": "Pull Request",
     "showMore": "Afficher plus",
-    "showLess": "Afficher moins"
+    "showLess": "Afficher moins",
+    "linkedIssue": "Issue #{{number}}"
   },
   "images": {
     "removeImageAriaLabel": "Supprimer l'image {{filename}}",

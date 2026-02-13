@@ -19,7 +19,7 @@ import type { BrowserWindow } from 'electron';
 import type { ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants';
+import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type {
   GitHubInvestigationResult,
   GitHubInvestigationStatus,
@@ -37,6 +37,7 @@ import { AgentManager } from '../../agent';
 import { getGitHubConfig, githubFetch } from './utils';
 import type { GitHubAPIComment } from './types';
 import { createSpecForIssue, buildIssueContext, buildInvestigationTask, updateImplementationPlanStatus } from './spec-utils';
+import { withSpecNumberLock } from '../../utils/spec-number-lock';
 import { createContextLogger } from './utils/logger';
 import { withProjectOrNull } from './utils/project-middleware';
 import { createIPCCommunicators } from './utils/ipc-communicator';
@@ -123,6 +124,38 @@ function getGitHubIssuesSettings(): { model: string; thinkingLevel: string } {
  */
 function getGitHubDir(projectPath: string): string {
   return path.join(projectPath, '.auto-claude', 'github');
+}
+
+/**
+ * Find an existing spec for a given GitHub issue number by scanning task_metadata.json files.
+ * Returns the specId if found, null otherwise.
+ */
+function findExistingSpecForIssue(projectPath: string, issueNumber: number, autoBuildPath?: string): string | null {
+  const specsBase = autoBuildPath || '.auto-claude';
+  const specsDir = path.join(projectPath, specsBase, 'specs');
+
+  if (!fs.existsSync(specsDir)) return null;
+
+  try {
+    const entries = fs.readdirSync(specsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const metadataPath = path.join(specsDir, entry.name, 'task_metadata.json');
+      if (!fs.existsSync(metadataPath)) continue;
+      try {
+        const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
+        if (metadata.githubIssueNumber === issueNumber) {
+          return entry.name;
+        }
+      } catch {
+        // Skip corrupt metadata files
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+
+  return null;
 }
 
 /**
@@ -460,6 +493,42 @@ async function runInvestigation(
 
       const backendPath = validation.backendPath ?? '';
       const { model, thinkingLevel } = getGitHubIssuesSettings();
+
+      // Pre-allocate a spec number for task creation (Gap 86)
+      // This reserves the number early to prevent collisions when multiple
+      // investigations complete around the same time.
+      let preAllocatedSpecNumber: number | null = null;
+      try {
+        preAllocatedSpecNumber = await withSpecNumberLock(project.path, (lock) => {
+          return lock.getNextSpecNumber(project.autoBuildPath);
+        });
+
+        // Save pre-allocated number to investigation state on disk
+        const issueStateDir = path.join(project.path, '.auto-claude', 'issues', `${issueNumber}`);
+        fs.mkdirSync(issueStateDir, { recursive: true });
+        const stateFile = path.join(issueStateDir, 'investigation_state.json');
+        const existingState: Record<string, unknown> = fs.existsSync(stateFile)
+          ? JSON.parse(fs.readFileSync(stateFile, 'utf-8'))
+          : {};
+        fs.writeFileSync(stateFile, JSON.stringify({
+          ...existingState,
+          issue_number: issueNumber,
+          status: 'investigating',
+          spec_id: String(preAllocatedSpecNumber).padStart(3, '0'),
+          started_at: new Date().toISOString(),
+        }, null, 2), 'utf-8');
+
+        debugLog('Pre-allocated spec number for investigation', {
+          issueNumber,
+          specNumber: preAllocatedSpecNumber,
+        });
+      } catch (lockErr) {
+        // Non-fatal: if pre-allocation fails, task creation will allocate on demand
+        debugLog('Failed to pre-allocate spec number (non-fatal)', {
+          issueNumber,
+          error: lockErr instanceof Error ? lockErr.message : String(lockErr),
+        });
+      }
 
       const args = buildRunnerArgs(
         getRunnerPath(backendPath),
@@ -846,6 +915,59 @@ export function registerInvestigationHandlers(
             ?.filter((l: { accepted?: boolean }) => l.accepted !== false)
             .map((l: { name: string }) => l.name) ?? [];
 
+          // Check if a task already exists for this issue
+          const existingSpecId = findExistingSpecForIssue(project.path, issueNumber, project.autoBuildPath);
+          if (existingSpecId) {
+            // Update the existing task's description with new investigation findings
+            const specsBase = getSpecsDir(project.autoBuildPath);
+            const existingSpecDir = path.join(project.path, specsBase, existingSpecId);
+            const planPath = path.join(existingSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+
+            try {
+              if (fs.existsSync(planPath)) {
+                const plan = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
+                plan.description = taskDescription;
+                plan.updated_at = new Date().toISOString();
+                fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+              }
+            } catch (updateErr) {
+              debugLog('Failed to update existing spec plan', {
+                specId: existingSpecId,
+                error: updateErr instanceof Error ? updateErr.message : String(updateErr),
+              });
+            }
+
+            debugLog('Found existing task for issue, returning existing specId', {
+              issueNumber,
+              specId: existingSpecId,
+            });
+            return { success: true, data: { specId: existingSpecId, existing: true } };
+          }
+
+          // Read pre-allocated spec number from investigation state (Gap 86)
+          let preAllocatedSpecNumber: number | undefined;
+          try {
+            const stateFile = path.join(
+              project.path,
+              '.auto-claude',
+              'issues',
+              `${issueNumber}`,
+              'investigation_state.json',
+            );
+            if (fs.existsSync(stateFile)) {
+              const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+              if (stateData.spec_id) {
+                const parsed = parseInt(stateData.spec_id, 10);
+                if (!isNaN(parsed) && parsed > 0) {
+                  preAllocatedSpecNumber = parsed;
+                  debugLog('Using pre-allocated spec number', { issueNumber, specNumber: parsed });
+                }
+              }
+            }
+          } catch {
+            // Non-fatal: will allocate on demand
+          }
+
           const specData = await createSpecForIssue(
             project,
             issueNumber,
@@ -854,6 +976,7 @@ export function registerInvestigationHandlers(
             githubUrl,
             labels,
             project.settings?.mainBranch,
+            preAllocatedSpecNumber,
           );
 
           return { success: true, data: { specId: specData.specId } };

@@ -179,7 +179,8 @@
     "severity": "severity",
     "pullRequest": "Pull Request",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "linkedIssue": "Issue #{{number}}"
   },
   "images": {
     "removeImageAriaLabel": "Remove image {{filename}}",

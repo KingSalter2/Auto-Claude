@@ -99,7 +99,8 @@ export async function createSpecForIssue(
   taskDescription: string,
   githubUrl: string,
   labels: string[] = [],
-  baseBranch?: string
+  baseBranch?: string,
+  preAllocatedSpecNumber?: number,
 ): Promise<SpecCreationData> {
   const specsBaseDir = getSpecsDir(project.autoBuildPath);
   const specsDir = path.join(project.path, specsBaseDir);
@@ -116,8 +117,8 @@ export async function createSpecForIssue(
 
   // Use coordinated spec numbering with lock to prevent collisions
   return await withSpecNumberLock(project.path, async (lock) => {
-    // Get next spec number from global scan (main + all worktrees)
-    const specNumber = lock.getNextSpecNumber(project.autoBuildPath);
+    // Use pre-allocated number if provided, otherwise get next from lock
+    const specNumber = preAllocatedSpecNumber ?? lock.getNextSpecNumber(project.autoBuildPath);
     const slugifiedTitle = slugifyTitle(safeTitle);
     const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
 

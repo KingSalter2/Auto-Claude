@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical, ExternalLink } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -62,6 +62,8 @@ interface TaskCardProps {
   isSelectable?: boolean;
   isSelected?: boolean;
   onToggleSelect?: () => void;
+  /** Navigate to the linked GitHub issue in the Issues view */
+  onNavigateToIssue?: (issueNumber: number) => void;
 }
 
 // Custom comparator for React.memo - only re-render when relevant task data changes
@@ -105,6 +107,7 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.metadata?.complexity === nextTask.metadata?.complexity &&
     prevTask.metadata?.archivedAt === nextTask.metadata?.archivedAt &&
     prevTask.metadata?.prUrl === nextTask.metadata?.prUrl &&
+    prevTask.metadata?.githubIssueNumber === nextTask.metadata?.githubIssueNumber &&
     // Check if any subtask statuses changed (compare all subtasks)
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
@@ -118,7 +121,8 @@ export const TaskCard = memo(function TaskCard({
   onStatusChange,
   isSelectable,
   isSelected,
-  onToggleSelect
+  onToggleSelect,
+  onNavigateToIssue
 }: TaskCardProps) {
   const { t } = useTranslation(['tasks', 'errors']);
   const { toast } = useToast();
@@ -254,6 +258,15 @@ export const TaskCard = memo(function TaskCard({
     e.stopPropagation();
     if (task.metadata?.prUrl && window.electronAPI?.openExternal) {
       window.electronAPI.openExternal(task.metadata.prUrl);
+    }
+  };
+
+  const handleViewLinkedIssue = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (task.metadata?.githubUrl && window.electronAPI?.openExternal) {
+      window.electronAPI.openExternal(task.metadata.githubUrl);
+    } else if (task.metadata?.githubIssueNumber && onNavigateToIssue) {
+      onNavigateToIssue(task.metadata.githubIssueNumber);
     }
   };
 
@@ -486,6 +499,17 @@ export const TaskCard = memo(function TaskCard({
                 className={cn('text-[10px] px-1.5 py-0', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
               >
                 {task.metadata.securitySeverity} {t('metadata.severity')}
+              </Badge>
+            )}
+            {/* GitHub issue link */}
+            {task.metadata?.githubIssueNumber && (
+              <Badge
+                variant="outline"
+                className="text-[10px] px-1.5 py-0.5 flex items-center gap-1 cursor-pointer hover:bg-accent/50 transition-colors"
+                onClick={handleViewLinkedIssue}
+              >
+                <ExternalLink className="h-2.5 w-2.5" />
+                {t('tasks:metadata.linkedIssue', { number: task.metadata.githubIssueNumber })}
               </Badge>
             )}
           </div>
