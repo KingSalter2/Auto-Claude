@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { User, MessageCircle, Tag, Sparkles } from 'lucide-react';
+import { User, MessageCircle, Sparkles } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import {
@@ -81,9 +81,26 @@ export const IssueListItem = memo(function IssueListItem({
                 </div>
               )}
               {issue.labels.length > 0 && (
-                <div className="flex items-center gap-1">
-                  <Tag className="h-3 w-3" />
-                  {issue.labels.length}
+                <div className="flex items-center gap-1 flex-wrap">
+                  {issue.labels.slice(0, 3).map((label) => {
+                    const bg = `#${label.color}`;
+                    const r = Number.parseInt(label.color.substring(0, 2), 16);
+                    const g = Number.parseInt(label.color.substring(2, 4), 16);
+                    const b = Number.parseInt(label.color.substring(4, 6), 16);
+                    const textColor = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#24292f' : '#ffffff';
+                    return (
+                      <span
+                        key={label.id}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none"
+                        style={{ backgroundColor: bg, color: textColor }}
+                      >
+                        {label.name}
+                      </span>
+                    );
+                  })}
+                  {issue.labels.length > 3 && (
+                    <span className="text-[10px] text-muted-foreground">+{issue.labels.length - 3}</span>
+                  )}
                 </div>
               )}
               {completenessScore !== undefined && (

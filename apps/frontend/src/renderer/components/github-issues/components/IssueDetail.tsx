@@ -157,19 +157,26 @@ export function IssueDetail({
           />
         ) : issue.labels.length > 0 ? (
           <div className="flex flex-wrap gap-2">
-            {issue.labels.map((label) => (
-              <Badge
-                key={label.id}
-                variant="outline"
-                style={{
-                  backgroundColor: `#${label.color}20`,
-                  borderColor: `#${label.color}50`,
-                  color: `#${label.color}`
-                }}
-              >
-                {label.name}
-              </Badge>
-            ))}
+            {issue.labels.map((label) => {
+              const bg = `#${label.color}`;
+              const lum = (() => {
+                const r = Number.parseInt(label.color.substring(0, 2), 16);
+                const g = Number.parseInt(label.color.substring(2, 4), 16);
+                const b = Number.parseInt(label.color.substring(4, 6), 16);
+                return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+              })();
+              const textColor = lum > 0.5 ? '#24292f' : '#ffffff';
+              return (
+                <Badge
+                  key={label.id}
+                  variant="outline"
+                  className="border-transparent"
+                  style={{ backgroundColor: bg, borderColor: bg, color: textColor }}
+                >
+                  {label.name}
+                </Badge>
+              );
+            })}
           </div>
         ) : null}
 
