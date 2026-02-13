@@ -197,6 +197,16 @@ export const IPC_CHANNELS = {
   ROADMAP_PROGRESS_LOAD: 'roadmap:progressLoad',
   ROADMAP_PROGRESS_CLEAR: 'roadmap:progressClear',
 
+  // Observation operations
+  OBSERVATION_LIST: 'observation:list',
+  OBSERVATION_SEARCH: 'observation:search',
+  OBSERVATION_GET: 'observation:get',
+  OBSERVATION_PIN: 'observation:pin',
+  OBSERVATION_EDIT: 'observation:edit',
+  OBSERVATION_DELETE: 'observation:delete',
+  OBSERVATION_PROMOTE: 'observation:promote',
+  OBSERVATION_GET_STATS: 'observation:getStats',
+
   // Context operations
   CONTEXT_GET: 'context:get',
   CONTEXT_REFRESH_INDEX: 'context:refreshIndex',
