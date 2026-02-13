@@ -4,18 +4,6 @@ import { Plus, X, Check } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
 
-/**
- * Returns white or dark text color for readable contrast against a hex background.
- * Uses perceived luminance formula (ITU-R BT.601).
- */
-function getContrastTextColor(hexColor: string): string {
-  const hex = hexColor.replace('#', '');
-  const r = Number.parseInt(hex.substring(0, 2), 16);
-  const g = Number.parseInt(hex.substring(2, 4), 16);
-  const b = Number.parseInt(hex.substring(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#24292f' : '#ffffff';
-}
 
 interface LabelManagerProps {
   currentLabels: string[];
@@ -70,17 +58,16 @@ export function LabelManager({
       <div className="flex flex-wrap gap-1.5">
         {currentLabels.map((label) => {
           const repoLabel = repoLabels.find((rl) => rl.name === label);
-          const bgColor = repoLabel ? `#${repoLabel.color}` : undefined;
-          const textColor = repoLabel ? getContrastTextColor(repoLabel.color) : undefined;
+          const labelColor = repoLabel ? `#${repoLabel.color}` : undefined;
           return (
             <Badge
               key={label}
               variant="outline"
-              className="gap-1 text-xs border-transparent"
-              style={bgColor ? {
-                backgroundColor: bgColor,
-                borderColor: bgColor,
-                color: textColor,
+              className="gap-1 text-xs"
+              style={labelColor ? {
+                backgroundColor: `${labelColor}20`,
+                borderColor: `${labelColor}40`,
+                color: labelColor,
               } : undefined}
             >
               {label}
@@ -90,7 +77,7 @@ export function LabelManager({
                   className="ml-0.5 opacity-70 hover:opacity-100"
                   onClick={() => onRemoveLabel(label)}
                   aria-label={`Remove label ${label}`}
-                  style={textColor ? { color: textColor } : undefined}
+                  style={labelColor ? { color: labelColor } : undefined}
                 >
                   <X className="h-3 w-3" />
                 </button>

@@ -98,16 +98,12 @@ export const IssueListItem = memo(function IssueListItem({
               {issue.labels.length > 0 && (
                 <div className="flex items-center gap-1 overflow-hidden">
                   {issue.labels.slice(0, 3).map((label) => {
-                    const bg = `#${label.color}`;
-                    const r = Number.parseInt(label.color.substring(0, 2), 16);
-                    const g = Number.parseInt(label.color.substring(2, 4), 16);
-                    const b = Number.parseInt(label.color.substring(4, 6), 16);
-                    const textColor = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.5 ? '#24292f' : '#ffffff';
+                    const color = `#${label.color}`;
                     return (
                       <span
                         key={label.id}
-                        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none"
-                        style={{ backgroundColor: bg, color: textColor }}
+                        className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium leading-none border"
+                        style={{ backgroundColor: `${color}20`, borderColor: `${color}40`, color }}
                       >
                         {label.name}
                       </span>

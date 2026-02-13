@@ -192,27 +192,19 @@ export function IssueDetail({
         {onAddLabels && onRemoveLabels && repoLabels ? (
           <LabelManager
             currentLabels={issue.labels.map(l => l.name)}
-            repoLabels={repoLabels}
+            repoLabels={[...repoLabels, ...issue.labels.filter(il => !repoLabels.some(rl => rl.name === il.name))]}
             onAddLabel={(label) => onAddLabels([label])}
             onRemoveLabel={(label) => onRemoveLabels([label])}
           />
         ) : issue.labels.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {issue.labels.map((label) => {
-              const bg = `#${label.color}`;
-              const lum = (() => {
-                const r = Number.parseInt(label.color.substring(0, 2), 16);
-                const g = Number.parseInt(label.color.substring(2, 4), 16);
-                const b = Number.parseInt(label.color.substring(4, 6), 16);
-                return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-              })();
-              const textColor = lum > 0.5 ? '#24292f' : '#ffffff';
+              const color = `#${label.color}`;
               return (
                 <Badge
                   key={label.id}
                   variant="outline"
-                  className="border-transparent"
-                  style={{ backgroundColor: bg, borderColor: bg, color: textColor }}
+                  style={{ backgroundColor: `${color}20`, borderColor: `${color}40`, color }}
                 >
                   {label.name}
                 </Badge>
