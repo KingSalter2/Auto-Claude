@@ -23,7 +23,6 @@ beforeEach(() => {
     isBulkOperating: false,
     bulkProgress: null,
     bulkResult: null,
-    selectedIssues: new Set(),
   });
 });
 

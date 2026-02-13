@@ -20,7 +20,6 @@ beforeEach(() => {
     isBulkOperating: false,
     bulkProgress: null,
     bulkResult: null,
-    selectedIssues: new Set(),
   });
 });
 
@@ -76,16 +75,12 @@ describe('store mutation tracking flow', () => {
 });
 
 // ============================================
-// Store selection + bulk flow
+// Store bulk flow
 // ============================================
 
-describe('selection + bulk flow', () => {
-  it('select issues → start bulk → progress → complete', () => {
+describe('bulk flow', () => {
+  it('start bulk → progress → complete', () => {
     const store = useMutationStore.getState();
-
-    // Select issues
-    store.selectAllIssues([1, 2, 3]);
-    expect(useMutationStore.getState().selectedIssues.size).toBe(3);
 
     // Start bulk
     store.startBulkOperation('close', 3);

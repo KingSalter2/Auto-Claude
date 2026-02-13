@@ -193,6 +193,13 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const aiTriage = useAITriage(selectedProject?.id ?? '');
   const lastBatchSnapshot = useAITriageStore((s) => s.lastBatchSnapshot);
 
+  // FE-11 fix: Apply progressive trust auto-apply when review items are loaded
+  useEffect(() => {
+    if (aiTriage.reviewItems.length > 0) {
+      aiTriage.applyProgressiveTrust();
+    }
+  }, [aiTriage.reviewItems.length, aiTriage.applyProgressiveTrust]);
+
   // Check for existing AI comment when enrichment result is available
   const [hasExistingAIComment, setHasExistingAIComment] = useState(false);
   useEffect(() => {
@@ -330,12 +337,24 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   }, [tasks]);
 
   // Load enrichment data when project is available
+  // FE-13 fix: Reset all local and store state on project change to prevent stale data
   useEffect(() => {
     if (selectedProject?.id && syncStatus?.connected) {
       loadEnrichment(selectedProject.id);
     }
     return () => {
       useEnrichmentStore.getState().clearEnrichment();
+      // Clear local state
+      setSelectedIssueNumbers(new Set());
+      setRepoLabels([]);
+      setCollaborators([]);
+      setWorkflowFilter([]);
+      setHasExistingAIComment(false);
+      setShowInvestigateDialog(false);
+      setSelectedIssueForInvestigation(null);
+      // Clear store state
+      useAITriageStore.getState().dismissReview();
+      useMutationStore.getState().clearBulkResult();
     };
   }, [selectedProject?.id, syncStatus?.connected]);
 

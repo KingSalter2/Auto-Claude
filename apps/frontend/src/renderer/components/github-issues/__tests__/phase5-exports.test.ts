@@ -2,15 +2,13 @@ import { describe, it, expect } from 'vitest';
 
 describe('Phase 5 Barrel Exports', () => {
   describe('hooks/index', () => {
-    it('exports all 13 hooks', async () => {
+    it('exports all hooks', async () => {
       const hooks = await import('../hooks/index');
       const exportNames = Object.keys(hooks);
       expect(exportNames).toContain('useGitHubIssues');
       expect(exportNames).toContain('useGitHubInvestigation');
       expect(exportNames).toContain('useIssueFiltering');
       expect(exportNames).toContain('useAutoFix');
-      expect(exportNames).toContain('useEnrichedIssue');
-      expect(exportNames).toContain('useEnrichedIssueFiltering');
       expect(exportNames).toContain('useMutations');
       expect(exportNames).toContain('useBulkOperations');
       expect(exportNames).toContain('useAITriage');
@@ -18,7 +16,7 @@ describe('Phase 5 Barrel Exports', () => {
       expect(exportNames).toContain('useDependencies');
       expect(exportNames).toContain('useMetrics');
       expect(exportNames).toContain('useAnalyzePreview');
-      expect(exportNames.length).toBeGreaterThanOrEqual(13);
+      expect(exportNames.length).toBeGreaterThanOrEqual(11);
     });
   });
 

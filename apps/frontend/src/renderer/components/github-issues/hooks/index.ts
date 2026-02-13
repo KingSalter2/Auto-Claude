@@ -2,8 +2,7 @@ export { useGitHubIssues } from './useGitHubIssues';
 export { useGitHubInvestigation } from './useGitHubInvestigation';
 export { useIssueFiltering } from './useIssueFiltering';
 export { useAutoFix } from './useAutoFix';
-export { useEnrichedIssue } from './useEnrichedIssue';
-export { useEnrichedIssueFiltering } from './useEnrichedIssueFiltering';
+
 export { useMutations } from './useMutations';
 export { useBulkOperations } from './useBulkOperations';
 export { useAITriage } from './useAITriage';

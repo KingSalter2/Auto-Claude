@@ -85,26 +85,4 @@ describe('enrichment store selectors', () => {
     expect(newOnes).toHaveLength(2);
   });
 
-  it('getStateCounts returns correct counts', () => {
-    const e1 = { ...createDefaultEnrichment(1), triageState: 'new' } as IssueEnrichment;
-    const e2 = { ...createDefaultEnrichment(2), triageState: 'triage' } as IssueEnrichment;
-    const e3 = { ...createDefaultEnrichment(3), triageState: 'new' } as IssueEnrichment;
-    const e4 = { ...createDefaultEnrichment(4), triageState: 'done' } as IssueEnrichment;
-
-    useEnrichmentStore.getState().setEnrichments({
-      '1': e1,
-      '2': e2,
-      '3': e3,
-      '4': e4,
-    });
-
-    const counts = useEnrichmentStore.getState().getStateCounts();
-    expect(counts.new).toBe(2);
-    expect(counts.triage).toBe(1);
-    expect(counts.done).toBe(1);
-    expect(counts.ready).toBe(0);
-    expect(counts.in_progress).toBe(0);
-    expect(counts.review).toBe(0);
-    expect(counts.blocked).toBe(0);
-  });
 });

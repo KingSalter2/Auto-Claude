@@ -11,9 +11,6 @@ interface MutationState {
   bulkProgress: BulkOperationProgress | null;
   bulkResult: BulkOperationResult | null;
 
-  // Selection
-  selectedIssues: Set<number>;
-
   // Actions — single mutation
   startMutation: (issueNumber: number) => void;
   endMutation: (issueNumber: number, error?: string) => void;
@@ -24,11 +21,6 @@ interface MutationState {
   updateBulkProgress: (progress: BulkOperationProgress) => void;
   endBulkOperation: (result: BulkOperationResult) => void;
   clearBulkResult: () => void;
-
-  // Actions — selection
-  toggleIssueSelection: (issueNumber: number) => void;
-  selectAllIssues: (issueNumbers: number[]) => void;
-  deselectAllIssues: () => void;
 }
 
 export const useMutationStore = create<MutationState>((set, get) => ({
@@ -38,7 +30,6 @@ export const useMutationStore = create<MutationState>((set, get) => ({
   isBulkOperating: false,
   bulkProgress: null,
   bulkResult: null,
-  selectedIssues: new Set(),
 
   // Single mutation tracking
   startMutation: (issueNumber) =>
@@ -91,21 +82,4 @@ export const useMutationStore = create<MutationState>((set, get) => ({
   clearBulkResult: () =>
     set({ bulkResult: null }),
 
-  // Selection
-  toggleIssueSelection: (issueNumber) =>
-    set((state) => {
-      const next = new Set(state.selectedIssues);
-      if (next.has(issueNumber)) {
-        next.delete(issueNumber);
-      } else {
-        next.add(issueNumber);
-      }
-      return { selectedIssues: next };
-    }),
-
-  selectAllIssues: (issueNumbers) =>
-    set({ selectedIssues: new Set(issueNumbers) }),
-
-  deselectAllIssues: () =>
-    set({ selectedIssues: new Set() }),
 }));

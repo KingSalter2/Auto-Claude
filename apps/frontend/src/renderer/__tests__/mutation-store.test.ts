@@ -8,7 +8,6 @@ beforeEach(() => {
     isBulkOperating: false,
     bulkProgress: null,
     bulkResult: null,
-    selectedIssues: new Set(),
   });
 });
 
@@ -47,38 +46,6 @@ describe('single mutation tracking', () => {
     const { mutatingIssues } = useMutationStore.getState();
     expect(mutatingIssues.has(1)).toBe(true);
     expect(mutatingIssues.has(2)).toBe(true);
-  });
-});
-
-// ============================================
-// Issue selection
-// ============================================
-
-describe('issue selection', () => {
-  it('toggleIssueSelection adds to selection', () => {
-    useMutationStore.getState().toggleIssueSelection(42);
-    expect(useMutationStore.getState().selectedIssues.has(42)).toBe(true);
-  });
-
-  it('toggle again removes from selection', () => {
-    useMutationStore.getState().toggleIssueSelection(42);
-    useMutationStore.getState().toggleIssueSelection(42);
-    expect(useMutationStore.getState().selectedIssues.has(42)).toBe(false);
-  });
-
-  it('selectAllIssues selects all given issues', () => {
-    useMutationStore.getState().selectAllIssues([1, 2, 3]);
-    const { selectedIssues } = useMutationStore.getState();
-    expect(selectedIssues.has(1)).toBe(true);
-    expect(selectedIssues.has(2)).toBe(true);
-    expect(selectedIssues.has(3)).toBe(true);
-    expect(selectedIssues.size).toBe(3);
-  });
-
-  it('deselectAllIssues clears selection', () => {
-    useMutationStore.getState().selectAllIssues([1, 2, 3]);
-    useMutationStore.getState().deselectAllIssues();
-    expect(useMutationStore.getState().selectedIssues.size).toBe(0);
   });
 });
 

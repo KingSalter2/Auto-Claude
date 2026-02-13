@@ -26,7 +26,6 @@ interface EnrichmentState {
   // Selectors
   getEnrichment: (issueNumber: number) => IssueEnrichment | null;
   getEnrichmentsByState: (state: WorkflowState) => IssueEnrichment[];
-  getStateCounts: () => Record<WorkflowState, number>;
 }
 
 export const useEnrichmentStore = create<EnrichmentState>((set, get) => ({
@@ -67,21 +66,6 @@ export const useEnrichmentStore = create<EnrichmentState>((set, get) => ({
     );
   },
 
-  getStateCounts: () => {
-    const counts: Record<WorkflowState, number> = {
-      new: 0,
-      triage: 0,
-      ready: 0,
-      in_progress: 0,
-      review: 0,
-      done: 0,
-      blocked: 0,
-    };
-    for (const enrichment of Object.values(get().enrichments)) {
-      counts[enrichment.triageState]++;
-    }
-    return counts;
-  },
 }));
 
 // External async actions
