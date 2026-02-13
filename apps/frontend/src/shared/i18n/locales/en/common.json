@@ -441,7 +441,23 @@
     "loadingMore": "Loading more...",
     "scrollForMore": "Scroll for more",
     "allLoaded": "All issues loaded",
-    "listLabel": "Issues"
+    "listLabel": "Issues",
+    "title": "GitHub Issues",
+    "openCount": "{{count}} open",
+    "searchPlaceholder": "Search issues...",
+    "filterOpen": "Open",
+    "filterClosed": "Closed",
+    "filterAll": "All",
+    "analyzeGroup": "Analyze & Group Issues",
+    "analyzeGroupTooltip": "Analyze up to 200 open issues, group similar ones, and review proposed batches before creating tasks.",
+    "autoFixNew": "Auto-Fix New",
+    "autoFixTooltip": "Automatically fix new issues as they come in.",
+    "autoFixProcessing": "Processing {{count}} issue(s)...",
+    "emptySearch": "No issues match your search",
+    "emptyList": "No issues found",
+    "notConnected": "GitHub Not Connected",
+    "configureToken": "Configure your GitHub token and repository in project settings to sync issues.",
+    "openSettings": "Open Settings"
   },
   "enrichment": {
     "states": {
@@ -509,13 +525,16 @@
     "add": "Add label",
     "remove": "Remove label",
     "search": "Search labels...",
+    "filter": "Filter labels...",
+    "noMatch": "No matching labels",
     "limit": "Maximum of {{limit}} labels reached"
   },
   "assignees": {
     "manage": "Manage assignees",
     "assign": "Assign",
     "unassign": "Unassign",
-    "search": "Search collaborators..."
+    "search": "Search collaborators...",
+    "noMatch": "No matching collaborators"
   },
   "bulk": {
     "selectAll": "Select all",
@@ -526,6 +545,13 @@
     "retryFailed": "Retry {{count}} failed",
     "dismiss": "Dismiss",
     "actions": "Bulk actions",
+    "actionClose": "Close",
+    "actionReopen": "Reopen",
+    "actionAddLabel": "Add Label",
+    "actionRemoveLabel": "Remove Label",
+    "actionAssign": "Assign",
+    "actionUnassign": "Unassign",
+    "actionTransition": "Transition",
     "confirmMessage": "{{action}} {{count}} issues?",
     "confirm": "Confirm",
     "cancel": "Cancel"

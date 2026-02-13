@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, X, Check } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -22,6 +23,7 @@ export function LabelManager({
   disabled,
   isLoading,
 }: LabelManagerProps) {
+  const { t } = useTranslation('common');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -89,7 +91,7 @@ export function LabelManager({
         aria-label="Add label"
       >
         <Plus className="h-3 w-3" />
-        Add Label
+        {t('labels.add')}
       </Button>
 
       {/* Dropdown */}
@@ -99,7 +101,7 @@ export function LabelManager({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter labels..."
+            placeholder={t('labels.filter')}
             className="w-full px-2 py-1 text-xs border-b border-border bg-transparent focus:outline-none"
             aria-label="Filter labels"
           />
@@ -129,7 +131,7 @@ export function LabelManager({
             })}
             {filteredLabels.length === 0 && (
               <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                No matching labels
+                {t('labels.noMatch')}
               </div>
             )}
           </div>

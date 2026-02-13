@@ -14,14 +14,14 @@ interface BulkActionBarProps {
   onDeselectAll?: () => void;
 }
 
-const BULK_ACTIONS: Array<{ action: BulkActionType; label: string }> = [
-  { action: 'close', label: 'Close' },
-  { action: 'reopen', label: 'Reopen' },
-  { action: 'add-label', label: 'Add Label' },
-  { action: 'remove-label', label: 'Remove Label' },
-  { action: 'add-assignee', label: 'Assign' },
-  { action: 'remove-assignee', label: 'Unassign' },
-  { action: 'transition', label: 'Transition' },
+const BULK_ACTIONS: Array<{ action: BulkActionType; labelKey: string }> = [
+  { action: 'close', labelKey: 'bulk.actionClose' },
+  { action: 'reopen', labelKey: 'bulk.actionReopen' },
+  { action: 'add-label', labelKey: 'bulk.actionAddLabel' },
+  { action: 'remove-label', labelKey: 'bulk.actionRemoveLabel' },
+  { action: 'add-assignee', labelKey: 'bulk.actionAssign' },
+  { action: 'remove-assignee', labelKey: 'bulk.actionUnassign' },
+  { action: 'transition', labelKey: 'bulk.actionTransition' },
 ];
 
 export function BulkActionBar({
@@ -60,7 +60,7 @@ export function BulkActionBar({
       className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2"
     >
       <span className="text-sm font-medium text-foreground">
-        {selectedCount} selected
+        {t('bulk.selected', { count: selectedCount })}
       </span>
 
       {onSelectAll && (
@@ -106,7 +106,7 @@ export function BulkActionBar({
         </div>
       ) : (
         <div className="flex items-center gap-1.5 ml-2">
-          {BULK_ACTIONS.map(({ action, label }) => (
+          {BULK_ACTIONS.map(({ action, labelKey }) => (
             <button
               key={action}
               type="button"
@@ -114,7 +114,7 @@ export function BulkActionBar({
               disabled={isOperating}
               onClick={() => setPendingAction(action)}
             >
-              {label}
+              {t(labelKey)}
             </button>
           ))}
         </div>
@@ -159,7 +159,7 @@ export function BulkActionBar({
 
       {isOperating && progress && (
         <span className="ml-auto text-xs text-muted-foreground">
-          Processing {progress.processedItems}/{progress.totalItems}...
+          {t('bulk.processing', { current: progress.processedItems, total: progress.totalItems })}
         </span>
       )}
     </div>

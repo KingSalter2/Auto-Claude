@@ -35,7 +35,7 @@ describe('BulkActionBar', () => {
         isOperating={false}
       />,
     );
-    expect(screen.getByText('5 selected')).toBeDefined();
+    expect(screen.getByText('bulk.selected')).toBeDefined();
   });
 
   it('Close button shows confirmation, confirm fires onBulkAction', () => {
@@ -48,7 +48,7 @@ describe('BulkActionBar', () => {
       />,
     );
     // Click Close — should show confirm prompt, NOT fire immediately
-    fireEvent.click(screen.getByText('Close'));
+    fireEvent.click(screen.getByText('bulk.actionClose'));
     expect(onBulkAction).not.toHaveBeenCalled();
     expect(screen.getByText('bulk.confirmMessage')).toBeDefined();
     // Click Confirm — should fire onBulkAction
@@ -65,13 +65,13 @@ describe('BulkActionBar', () => {
         isOperating={false}
       />,
     );
-    fireEvent.click(screen.getByText('Close'));
+    fireEvent.click(screen.getByText('bulk.actionClose'));
     expect(screen.getByText('bulk.confirmMessage')).toBeDefined();
     // Click Cancel
     fireEvent.click(screen.getByText('bulk.cancel'));
     expect(onBulkAction).not.toHaveBeenCalled();
     // Action buttons should be back
-    expect(screen.getByText('Close')).toBeDefined();
+    expect(screen.getByText('bulk.actionClose')).toBeDefined();
   });
 
   it('confirmation dialog has role=alert', () => {
@@ -82,7 +82,7 @@ describe('BulkActionBar', () => {
         isOperating={false}
       />,
     );
-    fireEvent.click(screen.getByText('Close'));
+    fireEvent.click(screen.getByText('bulk.actionClose'));
     expect(screen.getByRole('alert')).toBeDefined();
   });
 
@@ -142,7 +142,7 @@ describe('BulkActionBar', () => {
         }}
       />,
     );
-    expect(screen.getByText('Processing 2/5...')).toBeDefined();
+    expect(screen.getByText('bulk.processing')).toBeDefined();
   });
 
   it('renders Select All button when onSelectAll provided', () => {

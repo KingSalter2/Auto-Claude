@@ -3,7 +3,7 @@
 **Branch:** `terminal/enhancement-issues-tab`
 **Created:** 2026-02-13
 **Total Gaps:** 46 confirmed (from 9-agent triple-verified audit)
-**Status:** 2 / 17 complete
+**Status:** 7 / 17 complete
 
 ---
 
@@ -61,74 +61,69 @@ Each gap has: ID, description, status, files to modify, verification source, tes
 ## TIER 2 — i18n Hardcoded Strings
 
 ### VGAP-03: BulkActionBar.tsx hardcoded action labels (8 strings)
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Verified by:** i18n agent + Verifier-2 (CONFIRMED)
 - **Doc ref:** CLAUDE.md > i18n required
-- **Files to modify:** `renderer/components/github-issues/components/BulkActionBar.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
-- **Problem:** `BULK_ACTIONS` constant (lines 17-25) has hardcoded labels: 'Close', 'Reopen', 'Add Label', 'Remove Label', 'Assign', 'Unassign', 'Transition'. Line 63 has hardcoded `{selectedCount} selected`. Line 162 has hardcoded `Processing X/Y...`
-- **Fix:** Add `useTranslation` hook, add i18n keys `bulk.actions.close`, `bulk.actions.reopen`, etc. Replace hardcoded text with `t()` calls. Add keys to both en + fr.
-- **Tests:** Verify translated keys render (existing tests may need i18n mock update)
-- **Test status:** —
+- **Files modified:** `renderer/components/github-issues/components/BulkActionBar.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
+- **Fix:** Changed `BULK_ACTIONS` constant to use `labelKey` instead of `label`, rendering via `t(labelKey)`. Replaced `{selectedCount} selected` with `t('bulk.selected', { count })`. Replaced `Processing X/Y...` with `t('bulk.processing', { current, total })`. Updated test expectations to match i18n keys.
+- **Tests:** 3860 pass, lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** VGAP-03..07
 
 ### VGAP-04: EmptyStates.tsx hardcoded strings (4 strings)
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Small
 - **Verified by:** i18n agent + Verifier-2 (CONFIRMED)
 - **Doc ref:** CLAUDE.md > i18n required
-- **Files to modify:** `renderer/components/github-issues/components/EmptyStates.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
-- **Problem:** Line 12: 'No issues match your search'. Line 25: 'GitHub Not Connected'. Line 28: 'Configure your GitHub token...'. Line 33: 'Open Settings'.
-- **Fix:** Add `useTranslation` hook, add i18n keys `issues.emptySearch`, `issues.notConnected`, `issues.configureToken`, `issues.openSettings`. Replace with `t()`. Add to both en + fr.
-- **Tests:** Verify translated keys render
-- **Test status:** —
+- **Files modified:** `renderer/components/github-issues/components/EmptyStates.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
+- **Fix:** Added `useTranslation('common')` to both EmptyState and NotConnectedState. Replaced 4 hardcoded strings with `t('issues.emptySearch')`, `t('issues.notConnected')`, `t('issues.configureToken')`, `t('issues.openSettings')`.
+- **Tests:** 3860 pass, lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** VGAP-03..07
 
 ### VGAP-05: IssueListHeader.tsx hardcoded strings (9+ strings)
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Medium
 - **Verified by:** i18n agent + Verifier-2 (CONFIRMED)
 - **Doc ref:** CLAUDE.md > i18n required
-- **Files to modify:** `renderer/components/github-issues/components/IssueListHeader.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
-- **Problem:** Line 57: 'GitHub Issues'. Line 66: '{N} open'. Line 120: 'Analyze & Group Issues'. Line 124: tooltip text. Line 143: 'Auto-Fix New'. Line 154: tooltip. Line 156: 'Processing...'. Line 170: 'Search issues...'. Lines 182-184: 'Open', 'Closed', 'All'.
-- **Fix:** Add i18n keys for all strings. Use `t()` with interpolation for counts. Add to both en + fr.
-- **Tests:** Verify translated keys render
-- **Test status:** —
+- **Files modified:** `renderer/components/github-issues/components/IssueListHeader.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
+- **Fix:** Replaced 10 hardcoded strings with `t()` calls: title, openCount (with interpolation), analyzeGroup, analyzeGroupTooltip, autoFixNew, autoFixTooltip, autoFixProcessing (with interpolation), searchPlaceholder, filterOpen/Closed/All.
+- **Tests:** 3860 pass, lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** VGAP-03..07
 
 ### VGAP-06: LabelManager.tsx hardcoded strings (3 strings)
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Small
 - **Verified by:** i18n agent + Verifier-2 (CONFIRMED)
 - **Doc ref:** CLAUDE.md > i18n required
-- **Files to modify:** `renderer/components/github-issues/components/LabelManager.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
-- **Problem:** Line 92: 'Add Label'. Line 102: 'Filter labels...'. Line 132: 'No matching labels'. Keys exist in common.json (`labels.add`, etc.) but component doesn't import or use `useTranslation`.
-- **Fix:** Import `useTranslation`, replace hardcoded strings with `t('common:labels.add')`, `t('common:labels.filter')`, `t('common:labels.noMatch')`. Add any missing keys to both en + fr.
-- **Tests:** Verify translated keys render
-- **Test status:** —
+- **Files modified:** `renderer/components/github-issues/components/LabelManager.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
+- **Fix:** Added `useTranslation('common')`. Replaced `'Add Label'` → `t('labels.add')`, `'Filter labels...'` → `t('labels.filter')`, `'No matching labels'` → `t('labels.noMatch')`.
+- **Tests:** 3860 pass, lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** VGAP-03..07
 
 ### VGAP-07: AssigneeManager.tsx hardcoded strings (3 strings)
-- **Status:** `PENDING`
+- **Status:** `DONE`
 - **Priority:** SHOULD-FIX
 - **Scope:** Small
 - **Verified by:** i18n agent + Verifier-2 (CONFIRMED)
 - **Doc ref:** CLAUDE.md > i18n required
-- **Files to modify:** `renderer/components/github-issues/components/AssigneeManager.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
-- **Problem:** Line 88: 'Assign'. Line 98: 'Search collaborators...'. Line 124: 'No matching collaborators'. Keys exist in common.json (`assignees.assign`, etc.) but component doesn't use `useTranslation`.
-- **Fix:** Import `useTranslation`, replace hardcoded strings with `t()` calls using existing keys. Add any missing keys to both en + fr.
-- **Tests:** Verify translated keys render
-- **Test status:** —
+- **Files modified:** `renderer/components/github-issues/components/AssigneeManager.tsx`, `shared/i18n/locales/en/common.json`, `shared/i18n/locales/fr/common.json`
+- **Fix:** Added `useTranslation('common')`. Replaced `'Assign'` → `t('assignees.assign')`, `'Search collaborators...'` → `t('assignees.search')`, `'No matching collaborators'` → `t('assignees.noMatch')`.
+- **Tests:** 3860 pass, lint clean
+- **Test status:** `PASS`
 - **Depends on:** None
-- **Commit:** —
+- **Commit:** VGAP-03..07
 
 ---
 
@@ -289,10 +284,10 @@ Each gap has: ID, description, status, files to modify, verification source, tes
 | Tier | Description | Total | Done | Remaining |
 |------|-------------|-------|------|-----------|
 | 1 | Critical Wiring | 2 | 2 | 0 |
-| 2 | i18n Hardcoded Strings | 5 | 0 | 5 |
+| 2 | i18n Hardcoded Strings | 5 | 5 | 0 |
 | 3 | Accessibility Keyboard | 2 | 0 | 2 |
 | 4 | IPC Consistency | 3 | 0 | 3 |
 | 5 | Phase 3 Audit Gaps | 5 | 0 | 5 |
-| **Total** | | **17** | **0** | **17** |
+| **Total** | | **17** | **7** | **10** |
 
 Note: VGAP-03 through VGAP-07 contain 28+ individual hardcoded strings grouped by component file. The 17 gap count represents work units (one per component/file), not individual string count.

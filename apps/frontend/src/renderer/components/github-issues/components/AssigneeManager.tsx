@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, X, Check } from 'lucide-react';
 import { Button } from '../../ui/button';
 
@@ -17,6 +18,7 @@ export function AssigneeManager({
   onRemoveAssignee,
   disabled,
 }: AssigneeManagerProps) {
+  const { t } = useTranslation('common');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [search, setSearch] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -85,7 +87,7 @@ export function AssigneeManager({
         aria-label="Assign"
       >
         <Plus className="h-3 w-3" />
-        Assign
+        {t('assignees.assign')}
       </Button>
 
       {/* Dropdown */}
@@ -95,7 +97,7 @@ export function AssigneeManager({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search collaborators..."
+            placeholder={t('assignees.search')}
             className="w-full px-2 py-1 text-xs border-b border-border bg-transparent focus:outline-none"
             aria-label="Search collaborators"
           />
@@ -121,7 +123,7 @@ export function AssigneeManager({
             })}
             {filteredCollaborators.length === 0 && (
               <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                No matching collaborators
+                {t('assignees.noMatch')}
               </div>
             )}
           </div>

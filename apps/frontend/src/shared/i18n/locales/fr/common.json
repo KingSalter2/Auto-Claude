@@ -441,7 +441,23 @@
     "loadingMore": "Chargement...",
     "scrollForMore": "Défiler pour plus",
     "allLoaded": "Toutes les issues chargées",
-    "listLabel": "Issues"
+    "listLabel": "Issues",
+    "title": "Issues GitHub",
+    "openCount": "{{count}} ouvertes",
+    "searchPlaceholder": "Rechercher des issues...",
+    "filterOpen": "Ouvertes",
+    "filterClosed": "Fermées",
+    "filterAll": "Toutes",
+    "analyzeGroup": "Analyser et regrouper",
+    "analyzeGroupTooltip": "Analyser jusqu'à 200 issues ouvertes, regrouper les similaires et vérifier les lots proposés avant de créer des tâches.",
+    "autoFixNew": "Auto-fix nouvelles",
+    "autoFixTooltip": "Corriger automatiquement les nouvelles issues.",
+    "autoFixProcessing": "Traitement de {{count}} issue(s)...",
+    "emptySearch": "Aucune issue ne correspond à votre recherche",
+    "emptyList": "Aucune issue trouvée",
+    "notConnected": "GitHub non connecté",
+    "configureToken": "Configurez votre token GitHub et le dépôt dans les paramètres du projet pour synchroniser les issues.",
+    "openSettings": "Ouvrir les paramètres"
   },
   "enrichment": {
     "states": {
@@ -509,13 +525,16 @@
     "add": "Ajouter un label",
     "remove": "Supprimer le label",
     "search": "Rechercher des labels...",
+    "filter": "Filtrer les labels...",
+    "noMatch": "Aucun label correspondant",
     "limit": "Maximum de {{limit}} labels atteint"
   },
   "assignees": {
     "manage": "Gérer les assignés",
     "assign": "Assigner",
     "unassign": "Désassigner",
-    "search": "Rechercher des collaborateurs..."
+    "search": "Rechercher des collaborateurs...",
+    "noMatch": "Aucun collaborateur correspondant"
   },
   "bulk": {
     "selectAll": "Tout sélectionner",
@@ -526,6 +545,13 @@
     "retryFailed": "Réessayer {{count}} échoués",
     "dismiss": "Fermer",
     "actions": "Actions groupées",
+    "actionClose": "Fermer",
+    "actionReopen": "Rouvrir",
+    "actionAddLabel": "Ajouter un label",
+    "actionRemoveLabel": "Supprimer un label",
+    "actionAssign": "Assigner",
+    "actionUnassign": "Désassigner",
+    "actionTransition": "Transition",
     "confirmMessage": "{{action}} {{count}} issues ?",
     "confirm": "Confirmer",
     "cancel": "Annuler"
