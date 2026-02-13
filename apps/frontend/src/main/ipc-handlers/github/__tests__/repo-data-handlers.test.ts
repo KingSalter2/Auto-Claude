@@ -117,6 +117,15 @@ describe('getCollaborators handler', () => {
     });
   });
 
+  it('handles Windows \\r\\n line endings', async () => {
+    mockExecFileSync.mockReturnValue(Buffer.from('octocat\r\nuser1\r\nuser2\r\n'));
+    const result = await call('test-project');
+    expect(result).toEqual({
+      success: true,
+      data: ['octocat', 'user1', 'user2'],
+    });
+  });
+
   it('returns empty array for empty output', async () => {
     mockExecFileSync.mockReturnValue(Buffer.from(''));
     const result = await call('test-project');

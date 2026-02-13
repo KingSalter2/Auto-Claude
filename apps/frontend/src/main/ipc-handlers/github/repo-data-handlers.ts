@@ -74,7 +74,8 @@ export function registerRepoDataHandlers(
           const logins = output
             .toString()
             .trim()
-            .split('\n')
+            .split(/\r?\n/)
+            .map((line) => line.trim())
             .filter((line) => line.length > 0);
 
           return { success: true, data: logins };
