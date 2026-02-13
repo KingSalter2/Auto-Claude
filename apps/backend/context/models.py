@@ -32,3 +32,4 @@ class TaskContext:
     graph_hints: list[dict] = field(
         default_factory=list
     )  # Historical hints from Graphiti
+    observation_block: str = ""  # Observer memory observations

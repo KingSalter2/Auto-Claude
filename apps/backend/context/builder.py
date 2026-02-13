@@ -14,6 +14,7 @@ from .categorizer import FileCategorizer
 from .graphiti_integration import fetch_graph_hints, is_graphiti_enabled
 from .keyword_extractor import KeywordExtractor
 from .models import FileMatch, TaskContext
+from .observer_integration import get_observations_context, is_observer_enabled
 from .pattern_discovery import PatternDiscoverer
 from .search import CodeSearcher
 from .service_matcher import ServiceMatcher
@@ -55,6 +56,9 @@ class ContextBuilder:
         services: list[str] | None = None,
         keywords: list[str] | None = None,
         include_graph_hints: bool = True,
+        project_id: str | None = None,
+        spec_id: str | None = None,
+        subtask: dict | None = None,
     ) -> TaskContext:
         """
         Build context for a specific task.
@@ -127,6 +131,22 @@ class ContextBuilder:
                 # Graphiti is optional - fail gracefully
                 graph_hints = []
 
+        # Get observer memory observations
+        observation_block = ""
+        if is_observer_enabled():
+            try:
+                _project_id = project_id or str(self.project_dir)
+                _spec_id = spec_id or ""
+                observation_block = get_observations_context(
+                    project_id=_project_id,
+                    spec_id=_spec_id,
+                    project_dir=str(self.project_dir),
+                    subtask=subtask,
+                )
+            except Exception:
+                # Observer is optional - fail gracefully
+                observation_block = ""
+
         return TaskContext(
             task_description=task,
             scoped_services=services,
@@ -139,6 +159,7 @@ class ContextBuilder:
             patterns_discovered=patterns,
             service_contexts=service_contexts,
             graph_hints=graph_hints,
+            observation_block=observation_block,
         )
 
     async def build_context_async(
@@ -147,6 +168,9 @@ class ContextBuilder:
         services: list[str] | None = None,
         keywords: list[str] | None = None,
         include_graph_hints: bool = True,
+        project_id: str | None = None,
+        spec_id: str | None = None,
+        subtask: dict | None = None,
     ) -> TaskContext:
         """
         Build context for a specific task (async version).
@@ -208,6 +232,22 @@ class ContextBuilder:
         if include_graph_hints:
             graph_hints = await fetch_graph_hints(task, str(self.project_dir))
 
+        # Get observer memory observations
+        observation_block = ""
+        if is_observer_enabled():
+            try:
+                _project_id = project_id or str(self.project_dir)
+                _spec_id = spec_id or ""
+                observation_block = get_observations_context(
+                    project_id=_project_id,
+                    spec_id=_spec_id,
+                    project_dir=str(self.project_dir),
+                    subtask=subtask,
+                )
+            except Exception:
+                # Observer is optional - fail gracefully
+                observation_block = ""
+
         return TaskContext(
             task_description=task,
             scoped_services=services,
@@ -220,6 +260,7 @@ class ContextBuilder:
             patterns_discovered=patterns,
             service_contexts=service_contexts,
             graph_hints=graph_hints,
+            observation_block=observation_block,
         )
 
     def _get_service_context(
