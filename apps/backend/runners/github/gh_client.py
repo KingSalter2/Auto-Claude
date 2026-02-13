@@ -484,6 +484,7 @@ class GHClient:
             "--json",
             ",".join(json_fields),
         ]
+        args = self._add_repo_flag(args)
 
         result = await self.run(args)
         try:
@@ -525,6 +526,7 @@ class GHClient:
             "--json",
             ",".join(json_fields),
         ]
+        args = self._add_repo_flag(args)
 
         result = await self.run(args)
         try:
@@ -542,6 +544,7 @@ class GHClient:
             body: Comment body
         """
         args = ["issue", "comment", str(issue_number), "--body", body]
+        args = self._add_repo_flag(args)
         await self.run(args)
 
     async def issue_add_labels(self, issue_number: int, labels: list[str]) -> None:
@@ -562,6 +565,7 @@ class GHClient:
             "--add-label",
             ",".join(labels),
         ]
+        args = self._add_repo_flag(args)
         await self.run(args)
 
     async def issue_remove_labels(self, issue_number: int, labels: list[str]) -> None:
@@ -582,6 +586,7 @@ class GHClient:
             "--remove-label",
             ",".join(labels),
         ]
+        args = self._add_repo_flag(args)
         # Don't raise on error - labels might not exist
         await self.run(args, raise_on_error=False)
 

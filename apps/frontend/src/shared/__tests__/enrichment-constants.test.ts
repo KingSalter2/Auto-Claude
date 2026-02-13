@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   VALID_TRANSITIONS,
   COMPLETENESS_WEIGHTS,
-  WORKFLOW_LABEL_MAP,
   WORKFLOW_STATE_COLORS,
   isValidTransition,
   getValidTargets,
 } from '../constants/enrichment';
+import { WORKFLOW_LABEL_MAP } from '../constants/label-sync';
 import type { WorkflowState } from '../types/enrichment';
 
 const ALL_STATES: WorkflowState[] = [

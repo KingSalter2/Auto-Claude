@@ -32,7 +32,10 @@ export type TriageCategory =
   | 'documentation'
   | 'chore'
   | 'security'
-  | 'performance';
+  | 'performance'
+  | 'duplicate'
+  | 'spam'
+  | 'feature_creep';
 
 export type TransitionActor =
   | 'user'

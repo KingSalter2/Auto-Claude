@@ -33,20 +33,6 @@ export const WORKFLOW_STATE_LABELS: Record<WorkflowState, string> = {
 };
 
 // ============================================
-// GitHub Label ↔ Workflow State Mapping
-// ============================================
-
-export const WORKFLOW_LABEL_MAP: Record<WorkflowState, string> = {
-  new: 'ac:new',
-  triage: 'ac:triage',
-  ready: 'ac:ready',
-  in_progress: 'ac:in-progress',
-  review: 'ac:review',
-  done: 'ac:done',
-  blocked: 'ac:blocked',
-};
-
-// ============================================
 // Valid Transitions (State Machine)
 // ============================================
 

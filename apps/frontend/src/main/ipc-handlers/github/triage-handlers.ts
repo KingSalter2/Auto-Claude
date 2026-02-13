@@ -29,6 +29,7 @@ import {
   validateGitHubModule,
   buildRunnerArgs,
 } from './utils/subprocess-runner';
+import type { TriageCategory } from '../../../shared/types/enrichment';
 
 import type { ChildProcess } from 'child_process';
 
@@ -37,11 +38,6 @@ const { debug: debugLog } = createContextLogger('GitHub Triage');
 
 // Track active triage runs per project to prevent concurrent subprocess spawns
 const activeTriageRuns = new Map<string, ChildProcess>();
-
-/**
- * Triage categories
- */
-export type TriageCategory = 'bug' | 'feature' | 'documentation' | 'question' | 'duplicate' | 'spam' | 'feature_creep';
 
 /**
  * Triage result for a single issue

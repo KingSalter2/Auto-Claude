@@ -455,7 +455,7 @@ export interface PRListResult {
 export interface PRReviewFinding {
   id: string;
   severity: 'critical' | 'high' | 'medium' | 'low';
-  category: 'security' | 'quality' | 'style' | 'test' | 'docs' | 'pattern' | 'performance';
+  category: 'security' | 'quality' | 'style' | 'test' | 'docs' | 'pattern' | 'performance' | 'verification_failed' | 'redundancy';
   title: string;
   description: string;
   file: string;
