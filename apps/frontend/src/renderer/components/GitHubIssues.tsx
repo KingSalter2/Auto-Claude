@@ -4,22 +4,18 @@ import { useProjectStore } from "../stores/project-store";
 import { useTaskStore } from "../stores/task-store";
 import { useIssuesStore } from "../stores/github/issues-store";
 import {
-  useEnrichmentStore,
-  loadEnrichment,
-  transitionWorkflowState,
-} from "../stores/github/enrichment-store";
+  useInvestigationStore,
+  startIssueInvestigation,
+  cancelIssueInvestigation,
+} from "../stores/github";
+import { loadTasks } from "../stores/task-store";
 import {
   useGitHubIssues,
-  useGitHubInvestigation,
   useIssueFiltering,
   useAutoFix,
   useBulkOperations,
-  useAITriage,
-  useTriageMode,
-  useMetrics,
   useMutations,
   useDependencies,
-  useLabelSync,
 } from "./github-issues/hooks";
 import { useAnalyzePreview } from "./github-issues/hooks/useAnalyzePreview";
 import {
@@ -28,23 +24,15 @@ import {
   IssueListHeader,
   IssueList,
   IssueDetail,
-  InvestigationDialog,
   BatchReviewWizard,
   BulkActionBar,
   BulkResultsPanel,
-  TriageProgressOverlay,
-  IssueSplitDialog,
-  TriageSidebar,
-  BatchTriageReview,
 } from "./github-issues/components";
 import { GitHubSetupModal } from "./GitHubSetupModal";
-import { ResizablePanels, ResizableThreePanels } from "./ui/resizable-panels";
+import { ResizablePanels } from "./ui/resizable-panels";
 import { useMutationStore } from "../stores/github/mutation-store";
-import { useAITriageStore } from "../stores/github/ai-triage-store";
-import { formatEnrichmentComment, ENRICHMENT_COMMENT_FOOTER } from "../../shared/constants/ai-triage";
-import type { GitHubIssue } from "../../shared/types";
+import type { GitHubIssue, InvestigationState, InvestigationDismissReason, SuggestedLabel } from "../../shared/types";
 import type { GitHubIssuesProps } from "./github-issues/types";
-import type { WorkflowState, Resolution } from "../../shared/types/enrichment";
 
 export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesProps) {
   const { t } = useTranslation("common");
@@ -71,12 +59,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     handleSearchClear,
   } = useGitHubIssues(selectedProject?.id);
 
-  const {
-    investigationStatus,
-    lastInvestigationResult,
-    startInvestigation,
-    resetInvestigationStatus,
-  } = useGitHubInvestigation(selectedProject?.id);
+  // Investigation store — multi-issue keyed state
+  const investigationStore = useInvestigationStore();
 
   // FE-1 fix: Subscribe to issues/filterState individually and memoize the
   // filtered list instead of calling getFilteredIssues() which creates a new
@@ -119,31 +103,62 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     approveBatches,
   } = useAnalyzePreview({ projectId: selectedProject?.id || "" });
 
-  // Enrichment state
-  const enrichments = useEnrichmentStore((s) => s.enrichments);
-  const enrichmentLoaded = useEnrichmentStore((s) => s.isLoaded);
-  const [workflowFilter, setWorkflowFilter] = useState<WorkflowState[]>([]);
+  // Investigation state filter
+  const [investigationStateFilter, setInvestigationStateFilter] = useState<InvestigationState[]>([]);
+  const [showDismissed, setShowDismissed] = useState(false);
 
-  // Compute state counts from enrichments (must be derived via useMemo, not
-  // via a store selector that returns a new object — that causes infinite loops).
-  const stateCounts = useMemo(() => {
-    const counts: Record<WorkflowState, number> = {
-      new: 0, triage: 0, ready: 0, in_progress: 0, review: 0, done: 0, blocked: 0,
-    };
-    for (const e of Object.values(enrichments)) {
-      counts[e.triageState]++;
+  // Apply investigation state filter to issues
+  const investigationFilteredIssues = useMemo(() => {
+    if (investigationStateFilter.length === 0 && showDismissed) return filteredIssues;
+    return filteredIssues.filter((issue) => {
+      const projectId = selectedProject?.id;
+      if (!projectId) return true;
+      const entry = investigationStore.getInvestigationState(projectId, issue.number);
+
+      // Filter out dismissed unless showDismissed is on
+      if (entry?.dismissReason && !showDismissed) return false;
+
+      // If no investigation state filter, show all non-dismissed
+      if (investigationStateFilter.length === 0) return true;
+
+      const state = investigationStore.getDerivedState(projectId, issue.number);
+      return investigationStateFilter.includes(state);
+    });
+  }, [filteredIssues, investigationStateFilter, showDismissed, investigationStore, selectedProject?.id]);
+
+  // Build investigation state counts
+  const investigationStateCounts = useMemo(() => {
+    const counts: Partial<Record<InvestigationState, number>> = {};
+    if (!selectedProject?.id) return counts;
+    for (const issue of filteredIssues) {
+      const state = investigationStore.getDerivedState(selectedProject.id, issue.number);
+      counts[state] = (counts[state] ?? 0) + 1;
     }
     return counts;
-  }, [enrichments]);
+  }, [filteredIssues, investigationStore, selectedProject?.id]);
 
-  // Apply workflow filter to issues
-  const workflowFilteredIssues = useMemo(() => {
-    if (workflowFilter.length === 0) return filteredIssues;
-    return filteredIssues.filter((issue) => {
-      const state = enrichments[String(issue.number)]?.triageState ?? 'new';
-      return workflowFilter.includes(state);
-    });
-  }, [filteredIssues, workflowFilter, enrichments]);
+  // Active investigation count
+  const activeInvestigations = useMemo(() => {
+    if (!selectedProject?.id) return [];
+    return investigationStore.getActiveInvestigations(selectedProject.id);
+  }, [investigationStore, selectedProject?.id]);
+
+  // Build investigation states map for IssueList
+  const investigationStatesMap = useMemo(() => {
+    const map: Record<string, { state: InvestigationState; progress?: number; linkedTaskId?: string }> = {};
+    if (!selectedProject?.id) return map;
+    for (const issue of investigationFilteredIssues) {
+      const state = investigationStore.getDerivedState(selectedProject.id, issue.number);
+      const entry = investigationStore.getInvestigationState(selectedProject.id, issue.number);
+      const issueKey = String(issue.number);
+      map[issueKey] = {
+        state,
+        progress: entry?.progress?.progress,
+        linkedTaskId: entry?.specId ?? undefined,
+      };
+    }
+    return map;
+  }, [investigationFilteredIssues, investigationStore, selectedProject?.id]);
 
   // Bulk operations
   const { executeBulk, isOperating: isBulkOperating } = useBulkOperations(selectedProject?.id ?? '');
@@ -166,8 +181,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   );
 
   const handleSelectAll = useCallback(() => {
-    setSelectedIssueNumbers(new Set(workflowFilteredIssues.map((i) => i.number)));
-  }, [workflowFilteredIssues]);
+    setSelectedIssueNumbers(new Set(investigationFilteredIssues.map((i) => i.number)));
+  }, [investigationFilteredIssues]);
 
   const handleDeselectAll = useCallback(() => {
     setSelectedIssueNumbers(new Set());
@@ -182,54 +197,9 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     wasBulkOperating.current = isBulkOperating;
   }, [isBulkOperating]);
 
-  // Bulk operation results (GAP-09)
+  // Bulk operation results
   const bulkResult = useMutationStore((s) => s.bulkResult);
   const clearBulkResult = useMutationStore((s) => s.clearBulkResult);
-
-  // Label sync (Phase 4)
-  const labelSync = useLabelSync();
-
-  // AI Triage
-  const aiTriage = useAITriage(selectedProject?.id ?? '');
-  const lastBatchSnapshot = useAITriageStore((s) => s.lastBatchSnapshot);
-
-  // FE-11 fix: Apply progressive trust auto-apply when review items are loaded
-  const lastAppliedLengthRef = useRef(0);
-  useEffect(() => {
-    if (aiTriage.reviewItems.length > 0 && aiTriage.reviewItems.length !== lastAppliedLengthRef.current) {
-      lastAppliedLengthRef.current = aiTriage.reviewItems.length;
-      aiTriage.applyProgressiveTrust();
-    }
-  }, [aiTriage.reviewItems.length, aiTriage.applyProgressiveTrust]);
-
-  // Check for existing AI comment when enrichment result is available
-  const [hasExistingAIComment, setHasExistingAIComment] = useState(false);
-  useEffect(() => {
-    if (!aiTriage.enrichmentResult || !selectedIssue || !selectedProject?.id) {
-      setHasExistingAIComment(false);
-      return;
-    }
-    let cancelled = false;
-    window.electronAPI.github.getIssueComments(selectedProject.id, selectedIssue.number)
-      .then((result) => {
-        if (cancelled) return;
-        const comments = result?.data ?? [];
-        const hasAI = comments.some((c: { body?: string }) =>
-          c.body?.includes(ENRICHMENT_COMMENT_FOOTER),
-        );
-        setHasExistingAIComment(hasAI);
-      })
-      .catch(() => {
-        if (!cancelled) setHasExistingAIComment(false);
-      });
-    return () => { cancelled = true; };
-  }, [aiTriage.enrichmentResult, selectedIssue, selectedProject?.id]);
-
-  // Triage mode (3-panel layout)
-  const { isEnabled: triageModeEnabled, isAvailable: triageModeAvailable, toggle: toggleTriageMode } = useTriageMode();
-
-  // Metrics
-  const { metrics, timeWindow: metricsTimeWindow, isLoading: isMetricsLoading, computeMetrics, setTimeWindow: setMetricsTimeWindow } = useMetrics();
 
   // Dependencies for selected issue
   const { dependencies, isLoading: isDepsLoading, error: depsError } = useDependencies(selectedIssue?.number ?? null);
@@ -278,15 +248,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     async (logins: string[]) => { if (selectedIssue) await mutations.removeAssignees(selectedIssue.number, logins); },
     [selectedIssue, mutations],
   );
-  const handleCreateSpec = useCallback(
-    async (): Promise<{ specNumber: string } | null> => {
-      if (!selectedIssue || !selectedProject?.id) return null;
-      const result = await window.electronAPI.github.createSpecFromIssue(selectedProject.id, selectedIssue.number);
-      if (result.success) return { specNumber: String(selectedIssue.number) };
-      return null;
-    },
-    [selectedIssue, selectedProject?.id],
-  );
 
   // Fetch repo labels & collaborators for mutation UI
   const [repoLabels, setRepoLabels] = useState<Array<{ name: string; color: string }>>([]);
@@ -302,22 +263,12 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     });
   }, [selectedProject?.id]);
 
-  // Compute metrics on mount when enrichment is loaded
-  useEffect(() => {
-    if (selectedProject?.id && enrichmentLoaded) {
-      computeMetrics();
-    }
-  }, [selectedProject?.id, enrichmentLoaded, computeMetrics]);
-
-  // Clear selection when filters change — deps are intentional triggers, not consumed values
+  // Clear selection when filters change
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset on filter/search change
   useEffect(() => {
     setSelectedIssueNumbers(new Set());
-  }, [workflowFilter, filterState, searchQuery]);
+  }, [investigationStateFilter, filterState, searchQuery]);
 
-  const [showInvestigateDialog, setShowInvestigateDialog] = useState(false);
-  const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] =
-    useState<GitHubIssue | null>(null);
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
 
   // Show GitHub setup modal when module is not installed
@@ -338,78 +289,80 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     return map;
   }, [tasks]);
 
-  // Load enrichment data when project is available
-  // FE-13 fix: Reset all local and store state on project change to prevent stale data
+  // Reset local state on project change
   useEffect(() => {
-    if (selectedProject?.id && syncStatus?.connected) {
-      loadEnrichment(selectedProject.id);
-    }
     return () => {
-      useEnrichmentStore.getState().clearEnrichment();
-      // Clear local state
       setSelectedIssueNumbers(new Set());
       setRepoLabels([]);
       setCollaborators([]);
-      setWorkflowFilter([]);
-      setHasExistingAIComment(false);
-      setShowInvestigateDialog(false);
-      setSelectedIssueForInvestigation(null);
-      // Clear store state
-      useAITriageStore.getState().dismissReview();
+      setInvestigationStateFilter([]);
+      setShowDismissed(false);
       useMutationStore.getState().clearBulkResult();
     };
   }, [selectedProject?.id, syncStatus?.connected]);
 
-  // Enhanced refresh that also checks for new auto-fix issues
+  // Enhanced refresh
   const handleRefreshWithAutoFix = useCallback(() => {
     handleRefresh();
-    // Also check for new auto-fix issues if enabled
     if (autoFixConfig?.enabled) {
       checkForNewIssues();
     }
-    // Refresh enrichment data
-    if (selectedProject?.id) {
-      loadEnrichment(selectedProject.id);
-    }
-  }, [handleRefresh, autoFixConfig?.enabled, checkForNewIssues, selectedProject?.id]);
+  }, [handleRefresh, autoFixConfig?.enabled, checkForNewIssues]);
 
+  // Investigation callbacks for selected issue
   const handleInvestigate = useCallback((issue: GitHubIssue) => {
-    setSelectedIssueForInvestigation(issue);
-    setShowInvestigateDialog(true);
-  }, []);
+    if (selectedProject?.id) {
+      startIssueInvestigation(selectedProject.id, issue.number);
+    }
+  }, [selectedProject?.id]);
 
-  const handleStartInvestigation = useCallback(
-    (selectedCommentIds: number[]) => {
-      if (selectedIssueForInvestigation) {
-        startInvestigation(selectedIssueForInvestigation, selectedCommentIds);
-      }
-    },
-    [selectedIssueForInvestigation, startInvestigation]
-  );
+  const handleCancelInvestigation = useCallback(() => {
+    if (selectedProject?.id && selectedIssue) {
+      cancelIssueInvestigation(selectedProject.id, selectedIssue.number);
+    }
+  }, [selectedProject?.id, selectedIssue]);
 
-  const handlePostEnrichmentComment = useCallback(() => {
-    if (!selectedIssue || !aiTriage.enrichmentResult) return;
-    const content = formatEnrichmentComment(aiTriage.enrichmentResult);
-    const fullContent = `${content}\n\n${ENRICHMENT_COMMENT_FOOTER}`;
-    mutations.addComment(selectedIssue.number, fullContent);
-    aiTriage.clearEnrichmentResult();
-  }, [selectedIssue, aiTriage.enrichmentResult, aiTriage.clearEnrichmentResult, mutations]);
+  const handleCreateTask = useCallback(async () => {
+    if (!selectedProject?.id || !selectedIssue) return;
+    const result = await window.electronAPI.github.createTaskFromInvestigation(
+      selectedProject.id, selectedIssue.number
+    );
+    if (result.success) {
+      loadTasks(selectedProject.id);
+    }
+  }, [selectedProject?.id, selectedIssue]);
 
-  const handleTransition = useCallback(
-    (to: WorkflowState, resolution?: Resolution) => {
-      if (selectedIssue && selectedProject?.id) {
-        const oldState = enrichments[String(selectedIssue.number)]?.triageState ?? 'new';
-        transitionWorkflowState(selectedProject.id, selectedIssue.number, to, resolution);
-        labelSync.syncIssueLabel(selectedIssue.number, to, oldState);
-      }
-    },
-    [selectedIssue, selectedProject?.id, enrichments, labelSync],
-  );
+  const handleDismissIssue = useCallback(async (reason: InvestigationDismissReason) => {
+    if (!selectedProject?.id || !selectedIssue) return;
+    await window.electronAPI.github.dismissIssue(selectedProject.id, selectedIssue.number, reason);
+    investigationStore.dismiss(selectedProject.id, selectedIssue.number, reason);
+  }, [selectedProject?.id, selectedIssue, investigationStore]);
 
-  const handleCloseDialog = useCallback(() => {
-    setShowInvestigateDialog(false);
-    resetInvestigationStatus();
-  }, [resetInvestigationStatus]);
+  const handlePostToGitHub = useCallback(async () => {
+    if (!selectedProject?.id || !selectedIssue) return;
+    await window.electronAPI.github.postInvestigationToGitHub(selectedProject.id, selectedIssue.number);
+  }, [selectedProject?.id, selectedIssue]);
+
+  const [isPostingToGitHub, setIsPostingToGitHub] = useState(false);
+  const handlePostToGitHubWrapped = useCallback(async () => {
+    setIsPostingToGitHub(true);
+    try {
+      await handlePostToGitHub();
+    } finally {
+      setIsPostingToGitHub(false);
+    }
+  }, [handlePostToGitHub]);
+
+  // Get per-issue investigation state for the selected issue
+  const selectedIssueInvestigationState = useMemo(() => {
+    if (!selectedProject?.id || !selectedIssue) return undefined;
+    return investigationStore.getDerivedState(selectedProject.id, selectedIssue.number);
+  }, [selectedProject?.id, selectedIssue, investigationStore]);
+
+  const selectedIssueEntry = useMemo(() => {
+    if (!selectedProject?.id || !selectedIssue) return null;
+    return investigationStore.getInvestigationState(selectedProject.id, selectedIssue.number);
+  }, [selectedProject?.id, selectedIssue, investigationStore]);
 
   // Not connected state
   if (!syncStatus?.connected) {
@@ -434,12 +387,12 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         onAutoFixToggle={toggleAutoFix}
         onAnalyzeAndGroup={openWizard}
         isAnalyzing={isAnalyzing}
-        workflowFilter={workflowFilter}
-        onWorkflowFilterChange={setWorkflowFilter}
-        stateCounts={stateCounts}
-        onToggleTriageMode={toggleTriageMode}
-        isTriageModeEnabled={triageModeEnabled}
-        isTriageModeAvailable={triageModeAvailable}
+        investigationStateFilter={investigationStateFilter}
+        onInvestigationStateFilterChange={setInvestigationStateFilter}
+        investigationStateCounts={investigationStateCounts}
+        showDismissed={showDismissed}
+        onToggleShowDismissed={() => setShowDismissed(!showDismissed)}
+        activeInvestigationCount={activeInvestigations.length}
       />
 
       {/* Bulk Action Bar */}
@@ -453,7 +406,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         />
       )}
 
-      {/* Bulk Results Panel (GAP-09) */}
+      {/* Bulk Results Panel */}
       {bulkResult && (
         <BulkResultsPanel
           result={bulkResult}
@@ -462,53 +415,42 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         />
       )}
 
-      {/* Content */}
-      {triageModeEnabled && selectedIssue ? (
-        <ResizableThreePanels
-          storageKey="github-issues-panel-3"
-          defaultLeftWidth={25}
-          defaultMiddleWidth={50}
-          minPanelWidth={15}
-          leftPanel={
-            <section className="flex flex-col h-full border-r border-border" aria-label={t('panels.issueList')} data-triage-panel="1" tabIndex={-1}>
-              <IssueList
-                issues={workflowFilteredIssues}
-                selectedIssueNumber={selectedIssueNumber}
-                isLoading={isLoading}
-                isLoadingMore={isLoadingMore}
-                hasMore={hasMore && !isSearchActive}
-                error={error}
-                onSelectIssue={selectIssue}
-                onInvestigate={handleInvestigate}
-                onLoadMore={!isSearchActive ? handleLoadMore : undefined}
-                enrichments={enrichments}
-                selectedIssueNumbers={selectedIssueNumbers}
-                onToggleSelect={handleToggleSelect}
-                compact
-              />
-            </section>
-          }
-          middlePanel={
-            <section className="flex flex-col h-full border-r border-border" aria-label={t('panels.issueDetail')} data-triage-panel="2" tabIndex={-1}>
+      {/* Content — 2-panel layout (investigation panel is inline in detail view) */}
+      <ResizablePanels
+        storageKey="github-issues-panel-2"
+        defaultLeftWidth={50}
+        minLeftWidth={25}
+        maxLeftWidth={75}
+        leftPanel={
+          <section className="flex flex-col h-full border-r border-border" aria-label={t('panels.issueList')} tabIndex={-1}>
+            <IssueList
+              issues={investigationFilteredIssues}
+              selectedIssueNumber={selectedIssueNumber}
+              isLoading={isLoading}
+              isLoadingMore={isLoadingMore}
+              hasMore={hasMore && !isSearchActive}
+              error={error}
+              onSelectIssue={selectIssue}
+              onInvestigate={handleInvestigate}
+              onLoadMore={!isSearchActive ? handleLoadMore : undefined}
+              selectedIssueNumbers={selectedIssueNumbers}
+              onToggleSelect={handleToggleSelect}
+              investigationStates={investigationStatesMap}
+              onViewTask={onNavigateToTask}
+            />
+          </section>
+        }
+        rightPanel={
+          <section className="flex flex-col h-full" aria-label={t('panels.issueDetail')} tabIndex={-1}>
+            {selectedIssue ? (
               <IssueDetail
                 issue={selectedIssue}
                 onInvestigate={() => handleInvestigate(selectedIssue)}
-                investigationResult={
-                  lastInvestigationResult?.issueNumber === selectedIssue.number
-                    ? lastInvestigationResult
-                    : null
-                }
                 linkedTaskId={issueToTaskMap.get(selectedIssue.number)}
                 onViewTask={onNavigateToTask}
                 projectId={selectedProject?.id}
                 autoFixConfig={autoFixConfig}
                 autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
-                enrichment={enrichments[String(selectedIssue.number)] ?? null}
-                onTransition={handleTransition}
-                onAITriage={() => aiTriage.runEnrichment(selectedIssue.number)}
-                onImproveIssue={() => aiTriage.runEnrichment(selectedIssue.number)}
-                onSplitIssue={() => aiTriage.runSplitSuggestion(selectedIssue.number)}
-                isAIBusy={aiTriage.isTriaging}
                 onEditTitle={handleEditTitle}
                 onEditBody={handleEditBody}
                 onClose={handleCloseIssue}
@@ -524,122 +466,23 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
                 isDepsLoading={isDepsLoading}
                 depsError={depsError}
                 onNavigateDependency={selectIssue}
-                onCreateSpec={handleCreateSpec}
-                onPostEnrichmentComment={aiTriage.enrichmentResult ? handlePostEnrichmentComment : undefined}
-                onDismissEnrichmentComment={aiTriage.enrichmentResult ? aiTriage.clearEnrichmentResult : undefined}
-                hasExistingAIComment={hasExistingAIComment}
+                // Investigation system
+                investigationState={selectedIssueInvestigationState}
+                investigationReport={selectedIssueEntry?.report ?? null}
+                investigationProgress={selectedIssueEntry?.progress?.progress}
+                isInvestigating={selectedIssueEntry?.isInvestigating ?? false}
+                investigationError={selectedIssueEntry?.error ?? null}
+                onCancelInvestigation={handleCancelInvestigation}
+                onCreateTask={handleCreateTask}
+                onDismissIssue={handleDismissIssue}
+                onPostToGitHub={handlePostToGitHubWrapped}
+                isPostingToGitHub={isPostingToGitHub}
               />
-            </section>
-          }
-          rightPanel={
-            <section className="flex flex-col h-full" aria-label={t('panels.triageSidebar')} data-triage-panel="3" tabIndex={-1}>
-              <TriageSidebar
-                enrichment={enrichments[String(selectedIssue.number)] ?? null}
-                currentState={enrichments[String(selectedIssue.number)]?.triageState ?? 'new'}
-                previousState={enrichments[String(selectedIssue.number)]?.previousState}
-                isAgentLocked={enrichments[String(selectedIssue.number)]?.agentLinks?.some(l => l.status === 'active')}
-                onTransition={handleTransition}
-                completenessScore={enrichments[String(selectedIssue.number)]?.completenessScore ?? 0}
-                onAITriage={() => aiTriage.runEnrichment(selectedIssue.number)}
-                onImproveIssue={() => aiTriage.runEnrichment(selectedIssue.number)}
-                onSplitIssue={() => aiTriage.runSplitSuggestion(selectedIssue.number)}
-                isAIBusy={aiTriage.isTriaging}
-                dependencies={dependencies}
-                isDepsLoading={isDepsLoading}
-                depsError={depsError}
-                metrics={metrics}
-                metricsTimeWindow={metricsTimeWindow}
-                isMetricsLoading={isMetricsLoading}
-                onTimeWindowChange={setMetricsTimeWindow}
-                onRefreshMetrics={computeMetrics}
-              />
-            </section>
-          }
-        />
-      ) : (
-        <ResizablePanels
-          storageKey="github-issues-panel-2"
-          defaultLeftWidth={50}
-          minLeftWidth={25}
-          maxLeftWidth={75}
-          leftPanel={
-            <section className="flex flex-col h-full border-r border-border" aria-label={t('panels.issueList')} data-triage-panel="1" tabIndex={-1}>
-              <IssueList
-                issues={workflowFilteredIssues}
-                selectedIssueNumber={selectedIssueNumber}
-                isLoading={isLoading}
-                isLoadingMore={isLoadingMore}
-                hasMore={hasMore && !isSearchActive}
-                error={error}
-                onSelectIssue={selectIssue}
-                onInvestigate={handleInvestigate}
-                onLoadMore={!isSearchActive ? handleLoadMore : undefined}
-                enrichments={enrichments}
-                selectedIssueNumbers={selectedIssueNumbers}
-                onToggleSelect={handleToggleSelect}
-                compact={triageModeEnabled}
-              />
-            </section>
-          }
-          rightPanel={
-            <section className="flex flex-col h-full" aria-label={t('panels.issueDetail')} data-triage-panel="2" tabIndex={-1}>
-              {selectedIssue ? (
-                <IssueDetail
-                  issue={selectedIssue}
-                  onInvestigate={() => handleInvestigate(selectedIssue)}
-                  investigationResult={
-                    lastInvestigationResult?.issueNumber === selectedIssue.number
-                      ? lastInvestigationResult
-                      : null
-                  }
-                  linkedTaskId={issueToTaskMap.get(selectedIssue.number)}
-                  onViewTask={onNavigateToTask}
-                  projectId={selectedProject?.id}
-                  autoFixConfig={autoFixConfig}
-                  autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
-                  enrichment={enrichments[String(selectedIssue.number)] ?? null}
-                  onTransition={handleTransition}
-                  onAITriage={() => aiTriage.runEnrichment(selectedIssue.number)}
-                  onImproveIssue={() => aiTriage.runEnrichment(selectedIssue.number)}
-                  onSplitIssue={() => aiTriage.runSplitSuggestion(selectedIssue.number)}
-                  isAIBusy={aiTriage.isTriaging}
-                  onEditTitle={handleEditTitle}
-                  onEditBody={handleEditBody}
-                  onClose={handleCloseIssue}
-                  onReopen={handleReopenIssue}
-                  onComment={handleAddComment}
-                  onAddLabels={handleAddLabels}
-                  onRemoveLabels={handleRemoveLabels}
-                  repoLabels={repoLabels}
-                  onAddAssignees={handleAddAssignees}
-                  onRemoveAssignees={handleRemoveAssignees}
-                  collaborators={collaborators}
-                  dependencies={dependencies}
-                  isDepsLoading={isDepsLoading}
-                  depsError={depsError}
-                  onNavigateDependency={selectIssue}
-                  onCreateSpec={handleCreateSpec}
-                  onPostEnrichmentComment={aiTriage.enrichmentResult ? handlePostEnrichmentComment : undefined}
-                  onDismissEnrichmentComment={aiTriage.enrichmentResult ? aiTriage.clearEnrichmentResult : undefined}
-                  hasExistingAIComment={hasExistingAIComment}
-                />
-              ) : (
-                <EmptyState message="Select an issue to view details" />
-              )}
-            </section>
-          }
-        />
-      )}
-
-      {/* Investigation Dialog */}
-      <InvestigationDialog
-        open={showInvestigateDialog}
-        onOpenChange={setShowInvestigateDialog}
-        selectedIssue={selectedIssueForInvestigation}
-        investigationStatus={investigationStatus}
-        onStartInvestigation={handleStartInvestigation}
-        onClose={handleCloseDialog}
-        projectId={selectedProject?.id}
+            ) : (
+              <EmptyState message="Select an issue to view details" />
+            )}
+          </section>
+        }
       />
 
       {/* Batch Review Wizard (Proactive workflow) */}
@@ -656,40 +499,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         isApproving={isApproving}
       />
 
-      {/* AI Triage Progress */}
-      {(aiTriage.enrichmentProgress || aiTriage.triageProgress) && (
-        <TriageProgressOverlay
-          progress={aiTriage.enrichmentProgress ?? aiTriage.triageProgress ?? { phase: 'generating', progress: 0, message: '' }}
-          onCancel={() => {
-            window.electronAPI.github.cancelTriage().catch(() => { /* best-effort */ });
-          }}
-        />
-      )}
-
-      {/* Batch Triage Review (GAP-16) */}
-      {aiTriage.reviewItems.length > 0 && (
-        <BatchTriageReview
-          items={aiTriage.reviewItems}
-          onAccept={aiTriage.acceptResult}
-          onReject={aiTriage.rejectResult}
-          onAcceptAll={() => { useAITriageStore.getState().acceptAllRemaining(); }}
-          onDismiss={() => { useAITriageStore.getState().dismissReview(); }}
-          onApply={() => { useAITriageStore.getState().snapshotBeforeApply(); aiTriage.applyTriageResults(); }}
-          onUndo={lastBatchSnapshot ? () => { aiTriage.undoLastBatchWithGitHub(); } : undefined}
-        />
-      )}
-
-      {/* Split Dialog */}
-      {aiTriage.splitSuggestion && (
-        <IssueSplitDialog
-          suggestion={aiTriage.splitSuggestion}
-          progress={aiTriage.splitProgress}
-          onConfirm={aiTriage.confirmSplit}
-          onCancel={() => { /* reset split state */ }}
-        />
-      )}
-
-      {/* GitHub Setup Modal - shown when GitHub module is not configured */}
+      {/* GitHub Setup Modal */}
       {selectedProject && (
         <GitHubSetupModal
           open={showGitHubSetup}
@@ -697,7 +507,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
           project={selectedProject}
           onComplete={() => {
             setShowGitHubSetup(false);
-            // Retry the analysis after setup is complete
             openWizard();
             startAnalysis();
           }}

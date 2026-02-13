@@ -7,7 +7,6 @@ export type {
   FilterState,
   IssueListItemProps,
   IssueDetailProps,
-  InvestigationDialogProps,
   IssueListHeaderProps,
   IssueListProps
 } from './types';
@@ -23,11 +22,13 @@ export {
 export {
   IssueListItem,
   IssueDetail,
-  InvestigationDialog,
   EmptyState,
   NotConnectedState,
   IssueListHeader,
-  IssueList
+  IssueList,
+  InvestigateButton,
+  InvestigationPanel,
+  InvestigationProgressBar,
 } from './components';
 
 // Re-export utils for external usage if needed
