@@ -73,10 +73,6 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
       ([entry]) => {
         const nowVisible = entry.isIntersecting;
 
-        if (prevVisibleRef.current !== nowVisible && window.DEBUG) {
-          console.log(`[PhaseProgress] Visibility changed: ${prevVisibleRef.current} -> ${nowVisible}, animations ${nowVisible ? 'resumed' : 'paused'}`);
-        }
-
         prevVisibleRef.current = nowVisible;
         setIsVisible(nowVisible);
       },

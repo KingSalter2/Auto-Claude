@@ -175,11 +175,6 @@ function droppableColumnPropsAreEqual(
   // Deep compare tasks
   const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
 
-  // Only log when re-rendering (reduces noise)
-  if (window.DEBUG && !tasksEqual) {
-    console.log(`[DroppableColumn] Re-render: ${nextProps.status} column (${nextProps.tasks.length} tasks)`);
-  }
-
   return tasksEqual;
 }
 

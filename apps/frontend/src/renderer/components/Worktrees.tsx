@@ -172,9 +172,6 @@ export function Worktrees({ projectId }: WorktreesProps) {
         window.electronAPI.listTerminalWorktrees(selectedProject.path)
       ]);
 
-      console.log('[Worktrees] Task worktrees result:', taskResult);
-      console.log('[Worktrees] Terminal worktrees result:', terminalResult);
-
       if (taskResult.success) {
         // Always update state when successful, even if data is null/undefined
         setWorktrees(taskResult.data?.worktrees || []);
@@ -186,7 +183,6 @@ export function Worktrees({ projectId }: WorktreesProps) {
         // Always update state when successful, ensuring a new array reference to force React re-render
         // This is critical when data is an empty array - we need a new reference to update the UI
         const newWorktrees = Array.isArray(terminalResult.data) ? [...terminalResult.data] : [];
-        console.log('[Worktrees] Setting terminal worktrees:', newWorktrees);
         setTerminalWorktrees(newWorktrees);
       } else {
         console.warn('[Worktrees] Terminal worktrees fetch failed:', terminalResult);

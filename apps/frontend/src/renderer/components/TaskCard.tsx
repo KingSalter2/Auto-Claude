@@ -109,19 +109,6 @@ function taskCardPropsAreEqual(prevProps: TaskCardProps, nextProps: TaskCardProp
     prevTask.subtasks.every((s, i) => s.status === nextTask.subtasks[i]?.status)
   );
 
-  // Only log when actually re-rendering (reduces noise significantly)
-  if (window.DEBUG && !isEqual) {
-    const changes: string[] = [];
-    if (prevTask.status !== nextTask.status) changes.push(`status: ${prevTask.status} -> ${nextTask.status}`);
-    if (prevTask.executionProgress?.phase !== nextTask.executionProgress?.phase) {
-      changes.push(`phase: ${prevTask.executionProgress?.phase} -> ${nextTask.executionProgress?.phase}`);
-    }
-    if (prevTask.subtasks.length !== nextTask.subtasks.length) {
-      changes.push(`subtasks: ${prevTask.subtasks.length} -> ${nextTask.subtasks.length}`);
-    }
-    console.log(`[TaskCard] Re-render: ${prevTask.id} | ${changes.join(', ') || 'other fields'}`);
-  }
-
   return isEqual;
 }
 
