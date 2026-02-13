@@ -9,13 +9,13 @@ a structured response validated against these schemas. The combined results
 form an InvestigationReport.
 
 Usage with Claude Agent SDK structured output:
-    from .investigation_models import RootCauseResponse
+    from .investigation_models import RootCauseAnalysis
 
     client = create_client(
         ...,
         output_format={
             "type": "json_schema",
-            "schema": RootCauseResponse.model_json_schema(),
+            "schema": RootCauseAnalysis.model_json_schema(),
         },
     )
 """
@@ -32,18 +32,13 @@ from pydantic import BaseModel, Field
 # =============================================================================
 
 
-class CodeReference(BaseModel):
-    """A reference to a specific location in the codebase."""
+class CodePath(BaseModel):
+    """A reference to a specific code location involved in the issue."""
 
     file: str = Field(description="File path relative to project root")
-    line: int = Field(0, description="Line number (0 if unknown)")
-    end_line: int | None = Field(None, description="End line for multi-line references")
-    snippet: str | None = Field(
-        None, description="Relevant code snippet from this location"
-    )
-    explanation: str = Field(
-        description="Why this code location is relevant to the analysis"
-    )
+    start_line: int = Field(description="Start line number")
+    end_line: int | None = Field(None, description="End line number (None if single line)")
+    description: str = Field(description="What this code location does / why it matters")
 
 
 class SuggestedLabel(BaseModel):
@@ -51,8 +46,8 @@ class SuggestedLabel(BaseModel):
 
     name: str = Field(description="Label name (e.g., 'bug', 'security', 'performance')")
     reason: str = Field(description="Why this label is appropriate for the issue")
-    confidence: float = Field(
-        ge=0.0, le=1.0, description="Confidence in the suggestion (0.0-1.0)"
+    accepted: bool | None = Field(
+        None, description="Whether the user accepted this suggestion (None = pending)"
     )
 
 
@@ -61,210 +56,174 @@ class LinkedPR(BaseModel):
 
     number: int = Field(description="PR number")
     title: str = Field(description="PR title")
-    status: Literal["open", "closed", "merged"] = Field(description="PR status")
-    relevance: str = Field(
-        description="How this PR relates to the issue (fixes, partially addresses, etc.)"
-    )
+    status: Literal["open", "merged", "closed"] = Field(description="PR status")
 
 
 # =============================================================================
-# Per-Specialist Response Models
+# Root Cause Analyzer
 # =============================================================================
 
 
 class RootCauseAnalysis(BaseModel):
     """Structured output from the Root Cause Analyzer agent."""
 
-    summary: str = Field(
-        description="One-paragraph summary of the root cause"
+    identified_root_cause: str = Field(
+        description="Clear description of the identified root cause"
+    )
+    code_paths: list[CodePath] = Field(
+        default_factory=list,
+        description="Code paths involved in the issue, ordered from entry point to root cause",
     )
     confidence: Literal["high", "medium", "low"] = Field(
         description="Confidence in the root cause identification"
     )
-    root_cause_description: str = Field(
-        description="Detailed description of the root cause"
-    )
-    code_paths: list[CodeReference] = Field(
-        default_factory=list,
-        description="Code paths involved in the issue, ordered from entry point to root cause",
+    evidence: str = Field(
+        description="Evidence supporting the root cause identification (code snippets, traces)"
     )
     related_issues: list[str] = Field(
         default_factory=list,
         description="Patterns or known issue categories this matches (e.g., 'race condition', 'null reference')",
     )
+    likely_already_fixed: bool = Field(
+        False,
+        description="True if evidence suggests this issue has already been resolved",
+    )
 
 
-class RootCauseResponse(BaseModel):
-    """Full response schema for the root cause agent's SDK session."""
+# =============================================================================
+# Impact Assessor
+# =============================================================================
 
-    specialist_name: str = Field(
-        default="root_cause",
-        description="Always 'root_cause' for this specialist",
+
+class AffectedComponent(BaseModel):
+    """A component or module affected by the issue."""
+
+    file: str = Field(description="File path of the affected component")
+    component: str = Field(description="Component or module name")
+    impact_type: Literal["direct", "indirect", "dependency"] = Field(
+        description="How this component is affected"
     )
-    analysis: RootCauseAnalysis = Field(
-        description="The root cause analysis results"
-    )
-    files_examined: list[str] = Field(
-        default_factory=list,
-        description="Files that were examined during analysis",
-    )
+    description: str = Field(description="Description of the impact on this component")
 
 
 class ImpactAssessment(BaseModel):
     """Structured output from the Impact Assessor agent."""
 
-    summary: str = Field(
-        description="One-paragraph summary of the impact"
-    )
     severity: Literal["critical", "high", "medium", "low"] = Field(
         description="Overall severity of the issue based on impact"
     )
-    affected_components: list[str] = Field(
+    affected_components: list[AffectedComponent] = Field(
         default_factory=list,
-        description="List of components/modules affected by this issue",
+        description="Components/modules affected by this issue",
     )
-    affected_code: list[CodeReference] = Field(
-        default_factory=list,
-        description="Code locations that would be affected if this issue is not fixed",
+    blast_radius: str = Field(
+        description="Description of how far-reaching the impact is"
     )
     user_impact: str = Field(
         description="How end users are affected by this issue"
     )
-    risk_if_unfixed: str = Field(
-        description="What happens if this issue is not addressed"
+    regression_risk: str = Field(
+        description="Risk of regression if fixing this issue"
     )
 
 
-class ImpactResponse(BaseModel):
-    """Full response schema for the impact agent's SDK session."""
-
-    specialist_name: str = Field(
-        default="impact",
-        description="Always 'impact' for this specialist",
-    )
-    assessment: ImpactAssessment = Field(
-        description="The impact assessment results"
-    )
-    files_examined: list[str] = Field(
-        default_factory=list,
-        description="Files that were examined during analysis",
-    )
+# =============================================================================
+# Fix Advisor
+# =============================================================================
 
 
 class FixApproach(BaseModel):
     """A concrete approach to fixing the issue."""
 
     description: str = Field(description="Description of the fix approach")
-    files_to_modify: list[str] = Field(
-        default_factory=list,
-        description="Files that need to be modified for this fix",
-    )
-    complexity: Literal["trivial", "simple", "moderate", "complex"] = Field(
+    complexity: Literal["simple", "moderate", "complex"] = Field(
         description="Estimated complexity of implementing this fix"
     )
-    risks: list[str] = Field(
+    files_affected: list[str] = Field(
         default_factory=list,
-        description="Potential risks or gotchas with this approach",
+        description="Files that would need to be modified",
     )
-    code_references: list[CodeReference] = Field(
+    pros: list[str] = Field(
         default_factory=list,
-        description="Existing code patterns to follow when implementing the fix",
+        description="Advantages of this approach",
     )
+    cons: list[str] = Field(
+        default_factory=list,
+        description="Disadvantages or risks of this approach",
+    )
+
+
+class PatternReference(BaseModel):
+    """A reference to an existing codebase pattern to follow."""
+
+    file: str = Field(description="File containing the pattern")
+    description: str = Field(description="What pattern to follow and why")
 
 
 class FixAdvice(BaseModel):
     """Structured output from the Fix Advisor agent."""
 
-    summary: str = Field(
-        description="One-paragraph summary of the recommended fix"
-    )
-    recommended_approach: FixApproach = Field(
-        description="The primary recommended fix approach"
-    )
-    alternative_approaches: list[FixApproach] = Field(
+    approaches: list[FixApproach] = Field(
         default_factory=list,
-        description="Alternative approaches if the primary one is not feasible",
+        description="Possible fix approaches, ordered by recommendation",
     )
-    patterns_to_follow: list[CodeReference] = Field(
+    recommended_approach: int = Field(
+        0,
+        description="Index into approaches list for the recommended approach",
+    )
+    files_to_modify: list[str] = Field(
+        default_factory=list,
+        description="All files that need modification across all approaches",
+    )
+    patterns_to_follow: list[PatternReference] = Field(
         default_factory=list,
         description="Existing codebase patterns the fix should follow for consistency",
     )
-    likely_already_fixed: bool = Field(
-        False,
-        description="True if evidence suggests this issue has already been resolved",
-    )
-    already_fixed_evidence: str | None = Field(
-        None,
-        description="Evidence that the issue is already fixed (if likely_already_fixed is True)",
-    )
-
-
-class FixAdviceResponse(BaseModel):
-    """Full response schema for the fix advisor agent's SDK session."""
-
-    specialist_name: str = Field(
-        default="fix_advisor",
-        description="Always 'fix_advisor' for this specialist",
-    )
-    advice: FixAdvice = Field(
-        description="The fix advice results"
-    )
-    files_examined: list[str] = Field(
+    gotchas: list[str] = Field(
         default_factory=list,
-        description="Files that were examined during analysis",
+        description="Potential pitfalls and things to watch out for when implementing the fix",
     )
 
 
-class ReproductionStep(BaseModel):
-    """A step to reproduce the issue."""
+# =============================================================================
+# Reproducer
+# =============================================================================
 
-    step_number: int = Field(description="Step number in the reproduction sequence")
-    action: str = Field(description="What to do in this step")
-    expected_result: str = Field(description="What should happen")
-    actual_result: str | None = Field(
-        None, description="What actually happens (if known from code analysis)"
+
+class TestCoverage(BaseModel):
+    """Assessment of existing test coverage for the affected code."""
+
+    has_existing_tests: bool = Field(
+        description="Whether there are existing tests for the affected code"
+    )
+    test_files: list[str] = Field(
+        default_factory=list,
+        description="Existing test files that cover the affected code paths",
+    )
+    coverage_assessment: str = Field(
+        description="Assessment of how well the affected code is tested"
     )
 
 
 class ReproductionAnalysis(BaseModel):
     """Structured output from the Reproducer agent."""
 
-    summary: str = Field(
-        description="One-paragraph summary of reproducibility assessment"
-    )
-    reproducible: Literal["yes", "likely", "unlikely", "unknown"] = Field(
+    reproducible: Literal["yes", "likely", "unlikely", "no"] = Field(
         description="Whether the issue can be reproduced"
     )
-    reproduction_steps: list[ReproductionStep] = Field(
+    reproduction_steps: list[str] = Field(
         default_factory=list,
-        description="Steps to reproduce the issue (if reproducible)",
+        description="Steps to reproduce the issue",
     )
-    test_coverage: str = Field(
-        description="Assessment of existing test coverage for the affected code"
+    test_coverage: TestCoverage = Field(
+        description="Assessment of existing test coverage"
     )
     related_test_files: list[str] = Field(
         default_factory=list,
-        description="Existing test files that cover the affected code paths",
+        description="Test files related to the affected code",
     )
-    suggested_test_approach: str | None = Field(
-        None,
-        description="How to write a test that verifies the fix",
-    )
-
-
-class ReproductionResponse(BaseModel):
-    """Full response schema for the reproducer agent's SDK session."""
-
-    specialist_name: str = Field(
-        default="reproducer",
-        description="Always 'reproducer' for this specialist",
-    )
-    analysis: ReproductionAnalysis = Field(
-        description="The reproduction analysis results"
-    )
-    files_examined: list[str] = Field(
-        default_factory=list,
-        description="Files that were examined during analysis",
+    suggested_test_approach: str = Field(
+        description="How to write a test that verifies the fix"
     )
 
 
@@ -282,30 +241,31 @@ class InvestigationReport(BaseModel):
 
     issue_number: int = Field(description="GitHub issue number")
     issue_title: str = Field(description="GitHub issue title")
-    issue_url: str = Field(default="", description="GitHub issue URL")
+    investigation_id: str = Field(description="Unique investigation ID")
+    timestamp: str = Field(description="ISO 8601 timestamp of investigation completion")
 
-    # Agent results (None if agent failed or was skipped)
-    root_cause: RootCauseAnalysis | None = Field(
-        None, description="Root cause analysis results"
+    # Agent results
+    root_cause: RootCauseAnalysis = Field(
+        description="Root cause analysis results"
     )
-    impact: ImpactAssessment | None = Field(
-        None, description="Impact assessment results"
+    impact: ImpactAssessment = Field(
+        description="Impact assessment results"
     )
-    fix_advice: FixAdvice | None = Field(
-        None, description="Fix advice results"
+    fix_advice: FixAdvice = Field(
+        description="Fix advice results"
     )
-    reproduction: ReproductionAnalysis | None = Field(
-        None, description="Reproduction analysis results"
+    reproduction: ReproductionAnalysis = Field(
+        description="Reproduction analysis results"
     )
 
     # Overall assessment
-    overall_severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Overall severity computed from agent assessments"
-    )
     ai_summary: str = Field(
         description="AI-generated summary combining all agent findings"
     )
-    likely_already_fixed: bool = Field(
+    severity: Literal["critical", "high", "medium", "low"] = Field(
+        description="Overall severity computed from agent assessments"
+    )
+    likely_resolved: bool = Field(
         False,
         description="True if evidence suggests the issue has already been resolved",
     )
@@ -318,18 +278,6 @@ class InvestigationReport(BaseModel):
     linked_prs: list[LinkedPR] = Field(
         default_factory=list,
         description="Pull requests linked to this issue",
-    )
-    agents_completed: list[str] = Field(
-        default_factory=list,
-        description="Names of agents that completed successfully",
-    )
-    agents_failed: list[str] = Field(
-        default_factory=list,
-        description="Names of agents that failed",
-    )
-    files_examined: list[str] = Field(
-        default_factory=list,
-        description="All files examined across all agents (deduplicated)",
     )
 
 

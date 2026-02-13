@@ -36,14 +36,18 @@ from .investigation_models import InvestigationReport, InvestigationState
 logger = logging.getLogger(__name__)
 
 
-def _issues_dir(project_dir: Path) -> Path:
-    """Get the base issues directory."""
-    return project_dir / ".auto-claude" / "issues"
+def get_issues_dir(project_dir: Path) -> Path:
+    """Get the base issues directory, creating it if needed."""
+    d = project_dir / ".auto-claude" / "issues"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
-def _issue_dir(project_dir: Path, issue_number: int) -> Path:
-    """Get the directory for a specific issue."""
-    return _issues_dir(project_dir) / str(issue_number)
+def get_issue_dir(project_dir: Path, issue_number: int) -> Path:
+    """Get the directory for a specific issue, creating it if needed."""
+    d = get_issues_dir(project_dir) / str(issue_number)
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 # =============================================================================
@@ -54,22 +58,24 @@ def _issue_dir(project_dir: Path, issue_number: int) -> Path:
 def save_investigation_state(
     project_dir: Path,
     issue_number: int,
-    state: InvestigationState,
+    state: InvestigationState | dict[str, Any],
 ) -> Path:
     """Save investigation state to disk.
 
     Args:
         project_dir: Project root directory
         issue_number: GitHub issue number
-        state: Investigation state to save
+        state: Investigation state (Pydantic model or raw dict)
 
     Returns:
         Path to the saved state file
     """
-    issue_path = _issue_dir(project_dir, issue_number)
+    issue_path = get_issue_dir(project_dir, issue_number)
     state_file = issue_path / "investigation_state.json"
-    write_json_atomic(state_file, state.model_dump(mode="json"))
-    logger.debug(f"Saved investigation state for issue #{issue_number}: {state.status}")
+    data = state.model_dump(mode="json") if isinstance(state, InvestigationState) else state
+    write_json_atomic(state_file, data)
+    status = state.status if isinstance(state, InvestigationState) else state.get("status", "?")
+    logger.debug(f"Saved investigation state for issue #{issue_number}: {status}")
     return state_file
 
 
@@ -86,7 +92,7 @@ def load_investigation_state(
     Returns:
         InvestigationState if found, None otherwise
     """
-    state_file = _issue_dir(project_dir, issue_number) / "investigation_state.json"
+    state_file = get_issue_dir(project_dir, issue_number) / "investigation_state.json"
     if not state_file.exists():
         return None
 
@@ -118,7 +124,7 @@ def save_investigation_report(
     Returns:
         Path to the saved report file
     """
-    issue_path = _issue_dir(project_dir, issue_number)
+    issue_path = get_issue_dir(project_dir, issue_number)
     report_file = issue_path / "investigation_report.json"
     write_json_atomic(report_file, report.model_dump(mode="json"))
     logger.debug(f"Saved investigation report for issue #{issue_number}")
@@ -138,7 +144,7 @@ def load_investigation_report(
     Returns:
         InvestigationReport if found, None otherwise
     """
-    report_file = _issue_dir(project_dir, issue_number) / "investigation_report.json"
+    report_file = get_issue_dir(project_dir, issue_number) / "investigation_report.json"
     if not report_file.exists():
         return None
 
@@ -172,7 +178,7 @@ def save_agent_log(
     Returns:
         Path to the saved log file
     """
-    logs_dir = _issue_dir(project_dir, issue_number) / "agent_logs"
+    logs_dir = get_issue_dir(project_dir, issue_number) / "agent_logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     log_file = logs_dir / f"{agent_name}.log"
     log_file.write_text(log_content, encoding="utf-8")
@@ -200,8 +206,7 @@ def save_github_comment_id(
         comment_id: GitHub comment ID
     """
     # Save to dedicated file for quick lookup
-    issue_path = _issue_dir(project_dir, issue_number)
-    issue_path.mkdir(parents=True, exist_ok=True)
+    issue_path = get_issue_dir(project_dir, issue_number)
     comment_file = issue_path / "github_comment_id"
     comment_file.write_text(str(comment_id), encoding="utf-8")
 
@@ -227,7 +232,7 @@ def load_github_comment_id(
     Returns:
         Comment ID if found, None otherwise
     """
-    comment_file = _issue_dir(project_dir, issue_number) / "github_comment_id"
+    comment_file = get_issue_dir(project_dir, issue_number) / "github_comment_id"
     if not comment_file.exists():
         return None
 
@@ -255,7 +260,7 @@ def save_suggested_labels(
         issue_number: GitHub issue number
         labels: List of label dicts with name, reason, confidence, accepted status
     """
-    labels_file = _issue_dir(project_dir, issue_number) / "suggested_labels.json"
+    labels_file = get_issue_dir(project_dir, issue_number) / "suggested_labels.json"
     write_json_atomic(labels_file, labels)
     logger.debug(f"Saved {len(labels)} suggested labels for issue #{issue_number}")
 
@@ -273,7 +278,7 @@ def load_suggested_labels(
     Returns:
         List of label dicts, empty list if not found
     """
-    labels_file = _issue_dir(project_dir, issue_number) / "suggested_labels.json"
+    labels_file = get_issue_dir(project_dir, issue_number) / "suggested_labels.json"
     if not labels_file.exists():
         return []
 
@@ -301,7 +306,7 @@ def list_investigated_issues(
     Returns:
         Sorted list of issue numbers
     """
-    issues_dir = _issues_dir(project_dir)
+    issues_dir = project_dir / ".auto-claude" / "issues"
     if not issues_dir.exists():
         return []
 
@@ -329,4 +334,4 @@ def has_investigation(
     Returns:
         True if investigation data exists
     """
-    return _issue_dir(project_dir, issue_number).exists()
+    return (project_dir / ".auto-claude" / "issues" / str(issue_number)).exists()

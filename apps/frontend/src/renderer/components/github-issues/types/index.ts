@@ -1,4 +1,4 @@
-import type { GitHubIssue, GitHubInvestigationResult } from '@shared/types';
+import type { GitHubIssue, GitHubInvestigationResult, InvestigationState, InvestigationReport, InvestigationDismissReason, SuggestedLabel } from '@shared/types';
 import type { AutoFixConfig, AutoFixQueueItem } from '../../../../preload/api/modules/github-api';
 import type { WorkflowState, Resolution, IssueEnrichment } from '@shared/types/enrichment';
 import type { IssueDependencies } from '@shared/types/dependencies';
@@ -58,18 +58,29 @@ export interface IssueListItemProps {
   isSelected: boolean;
   onClick: () => void;
   onInvestigate: () => void;
+  /** @deprecated Use investigationState instead. Kept for F6 migration. */
   triageState?: WorkflowState;
+  /** @deprecated Use investigationProgress instead. Kept for F6 migration. */
   completenessScore?: number;
   isSelectable?: boolean;
   isChecked?: boolean;
   onToggleSelect?: () => void;
   compact?: boolean;
+  /** Investigation state for this issue */
+  investigationState?: InvestigationState;
+  /** Investigation progress percentage (0-100) */
+  investigationProgress?: number;
+  /** Linked task ID (shown as badge after task creation) */
+  linkedTaskId?: string;
+  /** Handler to navigate to the linked task */
+  onViewTask?: (taskId: string) => void;
 }
 
 export interface IssueDetailProps {
   issue: GitHubIssue;
   onInvestigate: () => void;
-  investigationResult: GitHubInvestigationResult | null;
+  /** @deprecated Use investigationReport instead. Kept for F6 migration. */
+  investigationResult?: GitHubInvestigationResult | null;
   /** ID of existing task linked to this issue (from metadata.githubIssueNumber) */
   linkedTaskId?: string;
   /** Handler to navigate to view the linked task */
@@ -80,11 +91,17 @@ export interface IssueDetailProps {
   autoFixConfig?: AutoFixConfig | null;
   /** Auto-fix queue item for this issue */
   autoFixQueueItem?: AutoFixQueueItem | null;
+  /** @deprecated Will be removed in F9. */
   enrichment?: IssueEnrichment | null;
+  /** @deprecated Will be removed in F9. */
   onTransition?: (to: WorkflowState, resolution?: Resolution) => void;
+  /** @deprecated Will be removed in F9. */
   onAITriage?: () => void;
+  /** @deprecated Will be removed in F9. */
   onImproveIssue?: () => void;
+  /** @deprecated Will be removed in F9. */
   onSplitIssue?: () => void;
+  /** @deprecated Will be removed in F9. */
   isAIBusy?: boolean;
   onEditTitle?: (title: string) => Promise<void>;
   onEditBody?: (body: string) => Promise<void>;
@@ -94,6 +111,7 @@ export interface IssueDetailProps {
   onAddAssignees?: (logins: string[]) => Promise<void>;
   onRemoveAssignees?: (logins: string[]) => Promise<void>;
   collaborators?: string[];
+  /** @deprecated Will be removed in F9. */
   onCreateSpec?: () => Promise<{ specNumber: string } | null>;
   onClose?: (comment?: string) => Promise<void>;
   onReopen?: () => Promise<void>;
@@ -102,9 +120,37 @@ export interface IssueDetailProps {
   isDepsLoading?: boolean;
   depsError?: string | null;
   onNavigateDependency?: (issueNumber: number) => void;
+  /** @deprecated Will be removed in F9. */
   onPostEnrichmentComment?: () => void;
+  /** @deprecated Will be removed in F9. */
   onDismissEnrichmentComment?: () => void;
+  /** @deprecated Will be removed in F9. */
   hasExistingAIComment?: boolean;
+  // --- Investigation system (F5) ---
+  /** Investigation derived state for this issue */
+  investigationState?: InvestigationState;
+  /** Investigation report (when complete) */
+  investigationReport?: InvestigationReport | null;
+  /** Investigation progress percentage (0-100) */
+  investigationProgress?: number;
+  /** Whether investigation is currently running */
+  isInvestigating?: boolean;
+  /** Investigation error message */
+  investigationError?: string | null;
+  /** Cancel ongoing investigation */
+  onCancelInvestigation?: () => void;
+  /** Create a kanban task from investigation results */
+  onCreateTask?: () => void;
+  /** Dismiss issue with a reason */
+  onDismissIssue?: (reason: InvestigationDismissReason) => void;
+  /** Post investigation results as GitHub comment */
+  onPostToGitHub?: () => void;
+  /** Accept a suggested label */
+  onAcceptLabel?: (label: SuggestedLabel) => void;
+  /** Reject a suggested label */
+  onRejectLabel?: (label: SuggestedLabel) => void;
+  /** Whether posting to GitHub is in progress */
+  isPostingToGitHub?: boolean;
 }
 
 export interface InvestigationDialogProps {
@@ -136,15 +182,35 @@ export interface IssueListHeaderProps {
   autoFixRunning?: boolean;
   autoFixProcessing?: number; // Number of issues being processed
   onAutoFixToggle?: (enabled: boolean) => void;
-  // Analyze & Group (proactive - for existing issues)
+  /** @deprecated Will be removed in F9. */
   onAnalyzeAndGroup?: () => void;
+  /** @deprecated Will be removed in F9. */
   isAnalyzing?: boolean;
+  /** @deprecated Use investigationStateFilter instead. Kept for F6 migration. */
   workflowFilter?: WorkflowState[];
+  /** @deprecated Use onInvestigationStateFilterChange instead. Kept for F6 migration. */
   onWorkflowFilterChange?: (states: WorkflowState[]) => void;
+  /** @deprecated Will be removed in F9. */
   stateCounts?: Record<WorkflowState, number>;
+  /** @deprecated Will be removed in F9. */
   onToggleTriageMode?: () => void;
+  /** @deprecated Will be removed in F9. */
   isTriageModeEnabled?: boolean;
+  /** @deprecated Will be removed in F9. */
   isTriageModeAvailable?: boolean;
+  // --- Investigation system (F5) ---
+  /** Filter by investigation states */
+  investigationStateFilter?: InvestigationState[];
+  /** Callback when investigation state filter changes */
+  onInvestigationStateFilterChange?: (states: InvestigationState[]) => void;
+  /** Counts per investigation state for filter chip badges */
+  investigationStateCounts?: Partial<Record<InvestigationState, number>>;
+  /** Whether dismissed issues are shown */
+  showDismissed?: boolean;
+  /** Toggle dismissed issue visibility */
+  onToggleShowDismissed?: () => void;
+  /** Count of active investigations */
+  activeInvestigationCount?: number;
 }
 
 export interface IssueListProps {
@@ -157,10 +223,15 @@ export interface IssueListProps {
   onSelectIssue: (issueNumber: number) => void;
   onInvestigate: (issue: GitHubIssue) => void;
   onLoadMore?: () => void;
+  /** @deprecated Use investigationStates instead. Kept for F6 migration. */
   enrichments?: Record<string, IssueEnrichment>;
   selectedIssueNumbers?: Set<number>;
   onToggleSelect?: (issueNumber: number) => void;
   compact?: boolean;
+  /** Investigation states keyed by issue number */
+  investigationStates?: Record<string, { state: InvestigationState; progress?: number; linkedTaskId?: string }>;
+  /** Handler to navigate to a linked task */
+  onViewTask?: (taskId: string) => void;
 }
 
 export interface EmptyStateProps {
