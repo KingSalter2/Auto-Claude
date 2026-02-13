@@ -9,6 +9,7 @@ import { GitLabIntegration } from '../integrations/GitLabIntegration';
 import { InitializationGuard } from '../common/InitializationGuard';
 import { LabelSyncSettingsConnected } from '../../github-issues/components/LabelSyncSettingsConnected';
 import { ProgressiveTrustSettingsConnected } from '../../github-issues/components/ProgressiveTrustSettingsConnected';
+import { InvestigationSettings } from '../../github-issues/components/InvestigationSettings';
 import type { ProjectSettingsSection } from '../ProjectSettingsContent';
 
 interface SectionRouterProps {
@@ -143,6 +144,7 @@ export function SectionRouter({
             />
             <LabelSyncSettingsConnected />
             <ProgressiveTrustSettingsConnected />
+            <InvestigationSettings projectId={project.id} />
           </InitializationGuard>
         </SettingsSection>
       );

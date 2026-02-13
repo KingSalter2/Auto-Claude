@@ -39,3 +39,7 @@ export { CompletenessBreakdown } from './CompletenessBreakdown';
 
 // Phase 5 — Integration
 export { TriageSidebar } from './TriageSidebar';
+
+// Investigation System (F7)
+export { BatchStagingBanner } from './BatchStagingBanner';
+export { InvestigationSettings } from './InvestigationSettings';
