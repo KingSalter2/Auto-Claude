@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Plus, X, Check } from 'lucide-react';
 import { Button } from '../../ui/button';
 
@@ -19,12 +19,25 @@ export function AssigneeManager({
 }: AssigneeManagerProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const assignedLogins = new Set(currentAssignees.map((a) => a.login));
 
   const filteredCollaborators = collaborators.filter((login) =>
     login.toLowerCase().includes(search.toLowerCase()),
   );
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+        setSearch('');
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [dropdownOpen]);
 
   function toggleDropdown() {
     setDropdownOpen((prev) => !prev);
@@ -77,7 +90,7 @@ export function AssigneeManager({
 
       {/* Dropdown */}
       {dropdownOpen && (
-        <div className="border border-border rounded-md bg-popover shadow-md p-1 max-h-48 overflow-y-auto">
+        <div ref={dropdownRef} className="border border-border rounded-md bg-popover shadow-md p-1 max-h-48 overflow-y-auto">
           <input
             type="text"
             value={search}
