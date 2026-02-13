@@ -7,6 +7,8 @@ in ~/.auto-claude/observations/{project-hash}/ with atomic writes, full-text
 search, filtering, archiving, and stats.
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import os

@@ -26,8 +26,52 @@ from graphiti_config import get_graphiti_status, is_graphiti_enabled
 # Now safe since this module is named memory_manager (not memory)
 from memory import save_session_insights as save_file_based_memory
 from memory.graphiti_helpers import get_graphiti_memory
+from observer.config import ObserverConfig
+from observer.prompt_builder import build_observation_block
 
 logger = logging.getLogger(__name__)
+
+
+async def get_observations_context(
+    project_dir: str,
+    spec_id: str,
+    subtask: dict | None = None,
+) -> str:
+    """
+    Retrieve observer memory observations for injection into agent prompts.
+
+    Checks if observer is enabled via ObserverConfig, then builds the
+    observation block from the persistent observation store.
+
+    Args:
+        project_dir: Project root directory path
+        spec_id: Spec ID to filter observations
+        subtask: Optional subtask dict for complexity-based budget sizing
+
+    Returns:
+        Formatted markdown string with observations, or empty string if
+        observer is disabled or no observations exist.
+    """
+    try:
+        config = ObserverConfig.from_env()
+        if not config.enabled:
+            return ""
+
+        return build_observation_block(
+            project_id=project_dir,
+            spec_id=spec_id,
+            project_dir=project_dir,
+            subtask=subtask,
+        )
+    except Exception as e:
+        logger.warning("Failed to get observer observations context: %s", e)
+        capture_exception(
+            e,
+            operation="get_observations_context",
+            project_dir=project_dir,
+            spec_id=spec_id,
+        )
+        return ""
 
 
 def debug_memory_system_status() -> None:
@@ -452,7 +496,7 @@ async def save_session_memory(
                 file_path=str(memory_dir / f"session_{session_num:03d}.json"),
                 subtasks_saved=len(subtasks_completed),
             )
-        return True, "file"
+        file_result = (True, "file")
     except Exception as e:
         logger.error(f"File-based memory save also failed: {e}")
         if is_debug_enabled():
@@ -468,7 +512,25 @@ async def save_session_memory(
             spec_dir=str(spec_dir),
             project_dir=str(project_dir),
         )
-        return False, "none"
+        file_result = (False, "none")
+
+    # Attempt to flush observer observations (best-effort)
+    try:
+        config = ObserverConfig.from_env()
+        if config.enabled:
+            if is_debug_enabled():
+                debug("memory", "Observer flush triggered after session save")
+    except Exception as e:
+        logger.warning("Observer flush failed: %s", e)
+        capture_exception(
+            e,
+            operation="save_session_memory_observer_flush",
+            subtask_id=subtask_id,
+            session_num=session_num,
+            spec_dir=str(spec_dir),
+        )
+
+    return file_result
 
 
 # Keep the old function name as an alias for backwards compatibility
