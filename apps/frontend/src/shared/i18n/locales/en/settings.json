@@ -893,5 +893,29 @@
       "label": "PR Template Filler",
       "description": "AI-fills GitHub PR templates from code changes"
     }
+  },
+  "investigation": {
+    "title": "AI Investigation",
+    "description": "Configure how AI investigations create tasks and interact with GitHub.",
+    "autoCreateTasks": "Auto-create tasks",
+    "autoCreateTasksDescription": "Automatically create kanban tasks from investigation results",
+    "autoStartTasks": "Auto-start tasks",
+    "autoStartTasksDescription": "Auto-start build pipeline when tasks are created",
+    "pipelineMode": "Pipeline mode",
+    "pipelineModeDescription": "Pipeline mode for investigation-created tasks",
+    "pipelineFull": "Full",
+    "pipelineSkipToPlanning": "Skip to planning",
+    "pipelineMinimal": "Minimal",
+    "autoPostToGitHub": "Auto-post to GitHub",
+    "autoPostToGitHubDescription": "Automatically post investigation results to GitHub",
+    "autoCloseIssues": "Auto-close issues",
+    "autoCloseIssuesDescription": "Close GitHub issues when linked task completes",
+    "maxParallel": "Max parallel investigations",
+    "maxParallelDescription": "Maximum concurrent investigations (1-10)",
+    "labelIncludeFilter": "Label include filter",
+    "labelIncludeFilterDescription": "Only auto-create tasks for issues with these labels",
+    "labelExcludeFilter": "Label exclude filter",
+    "labelExcludeFilterDescription": "Never auto-create tasks for issues with these labels",
+    "labelPlaceholder": "Add label..."
   }
 }

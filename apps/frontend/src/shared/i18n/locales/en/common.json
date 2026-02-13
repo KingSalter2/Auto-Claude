@@ -1018,5 +1018,66 @@
     "noDescription": "No description provided.",
     "milestone": "Milestone",
     "commentCount": "{{count}} comments"
+  },
+  "investigation": {
+    "button": {
+      "investigate": "AI Investigate",
+      "investigating": "Investigating...",
+      "cancel": "Cancel",
+      "viewResults": "View Results",
+      "createTask": "Create Task",
+      "retry": "Retry Investigation",
+      "done": "Done",
+      "building": "Building...",
+      "taskCreated": "Task Created"
+    },
+    "panel": {
+      "findings": "Findings",
+      "codeReferences": "Code References",
+      "likelyResolved": "Likely Resolved",
+      "summary": "Summary",
+      "showSummary": "Show AI Summary",
+      "showOriginal": "Show Original",
+      "linkedPRs": "Linked PRs",
+      "suggestedLabels": "Suggested Labels",
+      "posting": "Posting...",
+      "postToGitHub": "Post to GitHub"
+    },
+    "batchStaging": {
+      "title": "Pending Task Creations",
+      "approveAll": "Approve All",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved": "Approved",
+      "rejected": "Rejected"
+    },
+    "states": {
+      "new": "New",
+      "investigating": "Investigating",
+      "findingsReady": "Findings Ready",
+      "resolved": "Resolved",
+      "failed": "Failed",
+      "taskCreated": "Task Created",
+      "building": "Building",
+      "done": "Done"
+    },
+    "agents": {
+      "rootCause": "Root Cause Analyzer",
+      "impact": "Impact Assessor",
+      "fixAdvisor": "Fix Advisor",
+      "reproducer": "Reproducer"
+    },
+    "dismiss": {
+      "wontFix": "Won't fix",
+      "duplicate": "Duplicate",
+      "cannotReproduce": "Cannot reproduce",
+      "outOfScope": "Out of scope"
+    },
+    "severity": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    }
   }
 }

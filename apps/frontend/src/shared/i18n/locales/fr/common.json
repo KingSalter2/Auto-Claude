@@ -1018,5 +1018,66 @@
     "noDescription": "Aucune description fournie.",
     "milestone": "Jalon",
     "commentCount": "{{count}} commentaires"
+  },
+  "investigation": {
+    "button": {
+      "investigate": "Investigation IA",
+      "investigating": "Investigation en cours...",
+      "cancel": "Annuler",
+      "viewResults": "Voir les résultats",
+      "createTask": "Créer une tâche",
+      "retry": "Relancer l'investigation",
+      "done": "Terminé",
+      "building": "Construction en cours...",
+      "taskCreated": "Tâche créée"
+    },
+    "panel": {
+      "findings": "Résultats",
+      "codeReferences": "Références de code",
+      "likelyResolved": "Probablement résolu",
+      "summary": "Résumé",
+      "showSummary": "Afficher le résumé IA",
+      "showOriginal": "Afficher l'original",
+      "linkedPRs": "PRs liées",
+      "suggestedLabels": "Labels suggérés",
+      "posting": "Publication...",
+      "postToGitHub": "Publier sur GitHub"
+    },
+    "batchStaging": {
+      "title": "Créations de tâches en attente",
+      "approveAll": "Tout approuver",
+      "approve": "Approuver",
+      "reject": "Rejeter",
+      "approved": "Approuvé",
+      "rejected": "Rejeté"
+    },
+    "states": {
+      "new": "Nouveau",
+      "investigating": "En investigation",
+      "findingsReady": "Résultats prêts",
+      "resolved": "Résolu",
+      "failed": "Échoué",
+      "taskCreated": "Tâche créée",
+      "building": "En construction",
+      "done": "Terminé"
+    },
+    "agents": {
+      "rootCause": "Analyseur de cause racine",
+      "impact": "Évaluateur d'impact",
+      "fixAdvisor": "Conseiller de correction",
+      "reproducer": "Reproducteur"
+    },
+    "dismiss": {
+      "wontFix": "Ne sera pas corrigé",
+      "duplicate": "Doublon",
+      "cannotReproduce": "Non reproductible",
+      "outOfScope": "Hors périmètre"
+    },
+    "severity": {
+      "critical": "Critique",
+      "high": "Élevé",
+      "medium": "Moyen",
+      "low": "Faible"
+    }
   }
 }
