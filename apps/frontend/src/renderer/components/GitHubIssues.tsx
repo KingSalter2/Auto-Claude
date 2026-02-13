@@ -31,6 +31,16 @@ import {
 } from "./github-issues/components";
 import { GitHubSetupModal } from "./GitHubSetupModal";
 import { ResizablePanels } from "./ui/resizable-panels";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from "./ui/alert-dialog";
 import { useMutationStore } from "../stores/github/mutation-store";
 import type { GitHubIssue, InvestigationState, InvestigationDismissReason, SuggestedLabel } from "../../shared/types";
 import type { GitHubIssuesProps } from "./github-issues/types";
@@ -108,6 +118,10 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const [investigationStateFilter, setInvestigationStateFilter] = useState<InvestigationState[]>([]);
   const [showDismissed, setShowDismissed] = useState(false);
 
+  // Label consent dialog state
+  const [showLabelConsent, setShowLabelConsent] = useState(false);
+  const pendingInvestigationRef = useRef<{ type: 'single'; issue: GitHubIssue } | { type: 'bulk' } | null>(null);
+
   // Apply investigation state filter to issues
   const investigationFilteredIssues = useMemo(() => {
     if (investigationStateFilter.length === 0 && showDismissed) return filteredIssues;
@@ -146,7 +160,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
 
   // Build investigation states map for IssueList
   const investigationStatesMap = useMemo(() => {
-    const map: Record<string, { state: InvestigationState; progress?: number; linkedTaskId?: string }> = {};
+    const map: Record<string, { state: InvestigationState; progress?: number; linkedTaskId?: string; isStale?: boolean }> = {};
     if (!selectedProject?.id) return map;
     for (const issue of investigationFilteredIssues) {
       const state = investigationStore.getDerivedState(selectedProject.id, issue.number);
@@ -156,6 +170,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         state,
         progress: entry?.progress?.progress,
         linkedTaskId: entry?.specId ?? undefined,
+        isStale: entry?.isStale,
       };
     }
     return map;
@@ -270,6 +285,13 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     loadPersistedInvestigations(selectedProject.id);
   }, [selectedProject?.id]);
 
+  // Mark stale investigations: cross-reference investigations with fetched issues
+  useEffect(() => {
+    if (!selectedProject?.id || storeIssues.length === 0) return;
+    const activeIssueNumbers = new Set(storeIssues.map((issue) => issue.number));
+    investigationStore.markStaleInvestigations(selectedProject.id, activeIssueNumbers);
+  }, [storeIssues, selectedProject?.id, investigationStore]);
+
   // Clear selection when filters change
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset on filter/search change
   useEffect(() => {
@@ -298,9 +320,17 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
 
   // Sync investigation state with linked task status changes
   // When a task linked to an issue changes status, update the investigation store
+  // Also detect deleted tasks and revert investigations to findings_ready
   useEffect(() => {
     if (!selectedProject?.id) return;
     const projectId = selectedProject.id;
+
+    // Build a set of specIds from current tasks for fast lookup
+    const taskSpecIds = new Set<string>();
+    for (const task of tasks) {
+      const specId = task.specId || task.id;
+      if (specId) taskSpecIds.add(specId);
+    }
 
     for (const task of tasks) {
       const issueNumber = task.metadata?.githubIssueNumber;
@@ -311,6 +341,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       if (!inv?.specId) continue;
 
       investigationStore.syncTaskState(projectId, issueNumber, task.status);
+    }
+
+    // Detect deleted tasks: if an investigation has a specId but no matching task exists
+    const { investigations } = useInvestigationStore.getState();
+    for (const inv of Object.values(investigations)) {
+      if (inv.projectId !== projectId || !inv.specId) continue;
+      if (!taskSpecIds.has(inv.specId)) {
+        investigationStore.clearLinkedTask(projectId, inv.issueNumber);
+      }
     }
   }, [tasks, selectedProject?.id, investigationStore]);
 
@@ -379,20 +418,64 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     }
   }, [handleRefresh, autoFixConfig?.enabled, checkForNewIssues]);
 
+  // Helper: check if label consent is needed before investigating
+  const needsLabelConsent = useCallback(() => {
+    if (!selectedProject?.id) return false;
+    const settings = investigationStore.getSettings(selectedProject.id);
+    return !settings?.labelConsentGiven;
+  }, [selectedProject?.id, investigationStore]);
+
+  // Helper: grant label consent and persist
+  const grantLabelConsent = useCallback(() => {
+    if (!selectedProject?.id) return;
+    const current = investigationStore.getSettings(selectedProject.id);
+    const updated = { ...(current ?? { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [] as string[], labelExcludeFilter: [] as string[] }), labelConsentGiven: true };
+    investigationStore.setSettings(selectedProject.id, updated);
+    if (window.electronAPI?.github?.saveInvestigationSettings) {
+      window.electronAPI.github.saveInvestigationSettings(selectedProject.id, updated).catch(() => {});
+    }
+  }, [selectedProject?.id, investigationStore]);
+
   // Investigation callbacks for selected issue
   const handleInvestigate = useCallback((issue: GitHubIssue) => {
-    if (selectedProject?.id) {
-      startIssueInvestigation(selectedProject.id, issue.number);
+    if (!selectedProject?.id) return;
+    if (needsLabelConsent()) {
+      pendingInvestigationRef.current = { type: 'single', issue };
+      setShowLabelConsent(true);
+      return;
     }
-  }, [selectedProject?.id]);
+    startIssueInvestigation(selectedProject.id, issue.number);
+  }, [selectedProject?.id, needsLabelConsent]);
 
   // Bulk investigate: queue all selected issues for investigation
   const handleBulkInvestigate = useCallback(() => {
     if (!selectedProject?.id) return;
+    if (needsLabelConsent()) {
+      pendingInvestigationRef.current = { type: 'bulk' };
+      setShowLabelConsent(true);
+      return;
+    }
     for (const issueNumber of selectedIssueNumbers) {
       startIssueInvestigation(selectedProject.id, issueNumber);
     }
-  }, [selectedProject?.id, selectedIssueNumbers]);
+  }, [selectedProject?.id, selectedIssueNumbers, needsLabelConsent]);
+
+  // Handle consent dialog confirm
+  const handleConsentConfirm = useCallback(() => {
+    grantLabelConsent();
+    setShowLabelConsent(false);
+    if (!selectedProject?.id) return;
+    const pending = pendingInvestigationRef.current;
+    pendingInvestigationRef.current = null;
+    if (!pending) return;
+    if (pending.type === 'single') {
+      startIssueInvestigation(selectedProject.id, pending.issue.number);
+    } else {
+      for (const issueNumber of selectedIssueNumbers) {
+        startIssueInvestigation(selectedProject.id, issueNumber);
+      }
+    }
+  }, [grantLabelConsent, selectedProject?.id, selectedIssueNumbers]);
 
   const handleCancelInvestigation = useCallback(() => {
     if (selectedProject?.id && selectedIssue) {
@@ -556,6 +639,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
                 onDismissIssue={handleDismissIssue}
                 onPostToGitHub={handlePostToGitHubWrapped}
                 isPostingToGitHub={isPostingToGitHub}
+                investigationActivityLog={selectedIssueEntry?.activityLog}
               />
             ) : (
               <EmptyState message="Select an issue to view details" />
@@ -592,6 +676,28 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
           onSkip={() => setShowGitHubSetup(false)}
         />
       )}
+
+      {/* Label Creation Consent Dialog */}
+      <AlertDialog open={showLabelConsent} onOpenChange={setShowLabelConsent}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('investigation.labelConsent.title', 'Label Creation Notice')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('investigation.labelConsent.body', 'The first investigation will create up to 5 auto-claude:* labels on your GitHub repository to categorize investigation results. These labels are used for filtering and organization.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { pendingInvestigationRef.current = null; }}>
+              {t('buttons.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleConsentConfirm}>
+              {t('investigation.labelConsent.confirm', 'Continue')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -193,6 +193,7 @@ const browserMockAPI: ElectronAPI = {
     // Investigation operations (new system)
     startInvestigation: () => {},
     cancelInvestigation: () => {},
+    cancelAllInvestigations: () => {},
     createTaskFromInvestigation: async () => ({ success: true, data: { specId: '' } }),
     dismissIssue: async () => ({ success: true }),
     postInvestigationToGitHub: async () => ({ success: true, data: { commentId: 0 } }),
@@ -458,7 +459,17 @@ const browserMockAPI: ElectronAPI = {
   openLogsFolder: async () => ({ success: false, error: 'Not available in browser mode' }),
   copyDebugInfo: async () => ({ success: false, error: 'Not available in browser mode' }),
   getRecentErrors: async () => [],
-  listLogFiles: async () => []
+  listLogFiles: async () => [],
+
+  // Top-level investigation operations (legacy ElectronAPI surface)
+  startInvestigation: () => {},
+  cancelInvestigation: () => {},
+  cancelAllInvestigations: () => {},
+  createTaskFromInvestigation: async () => ({ success: true, data: { specId: '' } }),
+  dismissIssue: async () => ({ success: true }),
+  postInvestigationToGitHub: async () => ({ success: true, data: { commentId: 0 } }),
+  getInvestigationSettings: async () => ({ success: true, data: { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [], labelExcludeFilter: [] } }),
+  saveInvestigationSettings: async () => ({ success: true }),
 };
 
 /**

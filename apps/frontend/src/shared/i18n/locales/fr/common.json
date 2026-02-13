@@ -1050,7 +1050,9 @@
       "postToGitHub": "Publier sur GitHub",
       "postedToGitHub": "Publié sur GitHub",
       "closeIssue": "Fermer l'issue",
-      "closedIssueWarning": "Cette issue a été fermée sur GitHub.",
+      "closingIssue": "Fermeture...",
+      "closedIssueWarning": "Cette issue est fermée. Les résultats de l'investigation peuvent ne pas être exploitables.",
+      "resolvedSuggestion": "Cette issue semble déjà résolue. La fermer sur GitHub ?",
       "confidence": "Confiance",
       "rootCause": "Cause racine",
       "impact": "Impact",
@@ -1090,7 +1092,8 @@
       "taskCreated": "Tâche créée",
       "building": "En construction",
       "done": "Terminé",
-      "dismissed": "Rejeté"
+      "dismissed": "Rejeté",
+      "stale": "Obsolète"
     },
     "stateFilters": {
       "all": "Tous",
@@ -1161,6 +1164,15 @@
       "position": "Position dans la file : {{position}}",
       "waiting": "En attente dans la file...",
       "running": "{{current}} sur {{max}} en cours"
+    },
+    "toast": {
+      "investigationComplete": "Investigation terminée pour l'issue #{{issueNumber}}",
+      "investigationFailed": "Investigation échouée pour l'issue #{{issueNumber}}"
+    },
+    "labelConsent": {
+      "title": "Avis de création de labels",
+      "body": "La première investigation créera jusqu'à 5 labels auto-claude:* sur votre dépôt GitHub pour catégoriser les résultats d'investigation. Ces labels sont utilisés pour le filtrage et l'organisation.",
+      "confirm": "Continuer"
     }
   }
 }

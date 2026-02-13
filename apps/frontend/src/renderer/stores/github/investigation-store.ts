@@ -10,6 +10,7 @@ import type {
   InvestigationState,
   PersistedInvestigationState,
 } from '@shared/types';
+import { toast } from '../../hooks/use-toast';
 
 // ============================================
 // Per-Issue Investigation State
@@ -43,6 +44,10 @@ export interface IssueInvestigationState {
   completedAt: string | null;
   /** Linked task status (synced from task store for building/done states) */
   linkedTaskStatus: string | null;
+  /** Activity log tracking key lifecycle events */
+  activityLog: Array<{ event: string; timestamp: string }>;
+  /** True if the issue no longer exists in the GitHub response (stale/deleted) */
+  isStale?: boolean;
 }
 
 // ============================================
@@ -73,7 +78,10 @@ interface InvestigationStoreState {
   clearIssueInvestigation: (projectId: string, issueNumber: number) => void;
   setSettings: (projectId: string, settings: InvestigationSettings) => void;
   syncTaskState: (projectId: string, issueNumber: number, taskStatus: string) => void;
+  clearLinkedTask: (projectId: string, issueNumber: number) => void;
   loadPersistedInvestigations: (projectId: string, states: PersistedInvestigationState[]) => void;
+  cancelAllInvestigations: (projectId: string) => void;
+  markStaleInvestigations: (projectId: string, activeIssueNumbers: Set<number>) => void;
 
   // ---- Selectors ----
   getInvestigationState: (projectId: string, issueNumber: number) => IssueInvestigationState | null;
@@ -108,6 +116,9 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   startInvestigation: (projectId: string, issueNumber: number) => set((state) => {
     const key = `${projectId}:${issueNumber}`;
     const existing = state.investigations[key];
+    const now = new Date().toISOString();
+    const event = existing?.report ? 're-investigation started' : 'investigation started';
+    const log = [...(existing?.activityLog ?? []), { event, timestamp: now }];
     return {
       investigations: {
         ...state.investigations,
@@ -122,9 +133,10 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           specId: existing?.specId ?? null,
           dismissReason: null, // clear dismiss on re-investigation
           githubCommentId: existing?.githubCommentId ?? null,
-          startedAt: new Date().toISOString(),
+          startedAt: now,
           completedAt: null,
-          linkedTaskStatus: existing?.linkedTaskStatus ?? null
+          linkedTaskStatus: existing?.linkedTaskStatus ?? null,
+          activityLog: log
         }
       }
     };
@@ -149,7 +161,8 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           githubCommentId: existing?.githubCommentId ?? null,
           startedAt: existing?.startedAt ?? null,
           completedAt: null,
-          linkedTaskStatus: existing?.linkedTaskStatus ?? null
+          linkedTaskStatus: existing?.linkedTaskStatus ?? null,
+          activityLog: existing?.activityLog ?? []
         }
       }
     };
@@ -158,6 +171,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   setResult: (projectId: string, result: InvestigationResult) => set((state) => {
     const key = `${projectId}:${result.issueNumber}`;
     const existing = state.investigations[key];
+    const log = [...(existing?.activityLog ?? []), { event: 'investigation completed', timestamp: result.completedAt }];
     return {
       investigations: {
         ...state.investigations,
@@ -174,7 +188,8 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           githubCommentId: result.githubCommentId ?? existing?.githubCommentId ?? null,
           startedAt: existing?.startedAt ?? null,
           completedAt: result.completedAt,
-          linkedTaskStatus: existing?.linkedTaskStatus ?? null
+          linkedTaskStatus: existing?.linkedTaskStatus ?? null,
+          activityLog: log
         }
       }
     };
@@ -183,6 +198,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   setError: (projectId: string, issueNumber: number, error: string) => set((state) => {
     const key = `${projectId}:${issueNumber}`;
     const existing = state.investigations[key];
+    const log = [...(existing?.activityLog ?? []), { event: 'investigation failed', timestamp: new Date().toISOString() }];
     return {
       investigations: {
         ...state.investigations,
@@ -199,7 +215,8 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           githubCommentId: existing?.githubCommentId ?? null,
           startedAt: existing?.startedAt ?? null,
           completedAt: null,
-          linkedTaskStatus: existing?.linkedTaskStatus ?? null
+          linkedTaskStatus: existing?.linkedTaskStatus ?? null,
+          activityLog: log
         }
       }
     };
@@ -209,12 +226,14 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     const key = `${projectId}:${issueNumber}`;
     const existing = state.investigations[key];
     if (!existing) return state;
+    const log = [...(existing.activityLog ?? []), { event: `dismissed: ${reason}`, timestamp: new Date().toISOString() }];
     return {
       investigations: {
         ...state.investigations,
         [key]: {
           ...existing,
-          dismissReason: reason
+          dismissReason: reason,
+          activityLog: log
         }
       }
     };
@@ -276,6 +295,24 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     };
   }),
 
+  clearLinkedTask: (projectId: string, issueNumber: number) => set((state) => {
+    const key = `${projectId}:${issueNumber}`;
+    const existing = state.investigations[key];
+    if (!existing) return state;
+    const log = [...(existing.activityLog ?? []), { event: 'linked task deleted', timestamp: new Date().toISOString() }];
+    return {
+      investigations: {
+        ...state.investigations,
+        [key]: {
+          ...existing,
+          specId: null,
+          linkedTaskStatus: null,
+          activityLog: log
+        }
+      }
+    };
+  }),
+
   loadPersistedInvestigations: (projectId: string, states: PersistedInvestigationState[]) => set((state) => {
     const newInvestigations = { ...state.investigations };
 
@@ -304,10 +341,41 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         startedAt: null,
         completedAt: persisted.completedAt ?? null,
         linkedTaskStatus: null,
+        activityLog: []
       };
     }
 
     return { investigations: newInvestigations };
+  }),
+
+  cancelAllInvestigations: (projectId: string) => set((state) => {
+    const updated = { ...state.investigations };
+    let changed = false;
+    for (const [key, inv] of Object.entries(updated)) {
+      if (inv.projectId !== projectId || !inv.isInvestigating) continue;
+      updated[key] = {
+        ...inv,
+        isInvestigating: false,
+        progress: null,
+        error: 'Investigation cancelled',
+      };
+      changed = true;
+    }
+    return changed ? { investigations: updated } : state;
+  }),
+
+  markStaleInvestigations: (projectId: string, activeIssueNumbers: Set<number>) => set((state) => {
+    const updated = { ...state.investigations };
+    let changed = false;
+    for (const [key, inv] of Object.entries(updated)) {
+      if (inv.projectId !== projectId) continue;
+      const shouldBeStale = !activeIssueNumbers.has(inv.issueNumber);
+      if (inv.isStale !== shouldBeStale) {
+        updated[key] = { ...inv, isStale: shouldBeStale };
+        changed = true;
+      }
+    }
+    return changed ? { investigations: updated } : state;
   }),
 
   // ---- Selectors ----
@@ -390,6 +458,9 @@ export function initializeInvestigationListeners(): void {
   const cleanupComplete = window.electronAPI.github.onInvestigationComplete(
     (projectId: string, result: InvestigationResult) => {
       store.setResult(projectId, result);
+      toast({
+        title: `Investigation complete for Issue #${result.issueNumber}`,
+      });
     }
   );
   cleanupFunctions.push(cleanupComplete);
@@ -404,6 +475,10 @@ export function initializeInvestigationListeners(): void {
       // but for now we mark all active investigations as errored.
       for (const inv of active) {
         store.setError(projectId, inv.issueNumber, error);
+        toast({
+          title: `Investigation failed for Issue #${inv.issueNumber}`,
+          variant: 'destructive',
+        });
       }
     }
   );
@@ -465,6 +540,15 @@ export function cancelIssueInvestigation(
   // Mark as not investigating immediately
   store.setError(projectId, issueNumber, 'Investigation cancelled');
   window.electronAPI.github.cancelInvestigation(projectId, issueNumber);
+}
+
+/**
+ * Cancel all running investigations for a project.
+ */
+export function cancelAllIssueInvestigations(projectId: string): void {
+  const store = useInvestigationStore.getState();
+  store.cancelAllInvestigations(projectId);
+  window.electronAPI.github.cancelAllInvestigations(projectId);
 }
 
 /**

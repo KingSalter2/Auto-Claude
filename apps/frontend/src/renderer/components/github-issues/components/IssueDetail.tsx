@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ExternalLink, User, Clock, MessageCircle, CheckCircle2, Eye, X, RotateCcw, XCircle } from 'lucide-react';
+import { ExternalLink, User, Clock, MessageCircle, CheckCircle2, Eye, X, RotateCcw, XCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
@@ -71,6 +71,7 @@ export function IssueDetail({
   onAcceptLabel,
   onRejectLabel,
   isPostingToGitHub,
+  investigationActivityLog,
 }: IssueDetailProps) {
   const { t } = useTranslation('common');
   const [isClosing, setIsClosing] = useState(false);
@@ -158,6 +159,16 @@ export function IssueDetail({
             </h2>
           )}
         </div>
+
+        {/* Warning banner for closed issues with active/pending investigation */}
+        {issue.state === 'closed' && (derivedState === 'investigating' || derivedState === 'new' || derivedState === 'findings_ready') && (
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-800">
+            <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 shrink-0" />
+            <p className="text-sm text-yellow-800 dark:text-yellow-300">
+              {t('investigation.panel.closedIssueWarning', 'This issue is closed. Investigation results may not be actionable.')}
+            </p>
+          </div>
+        )}
 
         {/* Meta */}
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -333,6 +344,9 @@ export function IssueDetail({
                 onAcceptLabel={onAcceptLabel}
                 onRejectLabel={onRejectLabel}
                 isPostingToGitHub={isPostingToGitHub}
+                activityLog={investigationActivityLog}
+                onCloseIssue={issue.state === 'open' && onClose ? handleClose : undefined}
+                isClosingIssue={isClosing}
               />
             </CardContent>
           </Card>

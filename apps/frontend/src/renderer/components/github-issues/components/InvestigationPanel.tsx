@@ -11,7 +11,9 @@ import {
   Tag,
   Check,
   X,
-  FileText
+  FileText,
+  Clock,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Badge } from '../../ui/badge';
@@ -33,6 +35,12 @@ interface InvestigationPanelProps {
   onAcceptLabel?: (label: SuggestedLabel) => void;
   onRejectLabel?: (label: SuggestedLabel) => void;
   isPostingToGitHub?: boolean;
+  /** Activity log entries for the investigation lifecycle */
+  activityLog?: Array<{ event: string; timestamp: string }>;
+  /** Callback to close the issue on GitHub (used for resolved suggestion) */
+  onCloseIssue?: () => void;
+  /** Whether the close-issue action is in progress */
+  isClosingIssue?: boolean;
 }
 
 const SEVERITY_COLORS: Record<string, string> = {
@@ -144,11 +152,38 @@ export function InvestigationPanel({
   onAcceptLabel,
   onRejectLabel,
   isPostingToGitHub,
+  activityLog,
+  onCloseIssue,
+  isClosingIssue,
 }: InvestigationPanelProps) {
   const { t } = useTranslation('common');
+  const [activityOpen, setActivityOpen] = useState(false);
 
   return (
     <div className="space-y-4">
+      {/* Resolved suggestion banner */}
+      {report.likelyResolved && onCloseIssue && state !== 'done' && (
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800">
+          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
+          <p className="text-sm text-green-800 dark:text-green-300 flex-1">
+            {t('investigation.panel.resolvedSuggestion', 'This issue appears to be already resolved. Close it on GitHub?')}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCloseIssue}
+            disabled={isClosingIssue}
+            className="border-green-300 text-green-700 hover:bg-green-100 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/40"
+          >
+            <X className="h-3.5 w-3.5 mr-1" />
+            {isClosingIssue
+              ? t('investigation.panel.closingIssue', 'Closing...')
+              : t('investigation.panel.closeIssue', 'Close Issue')
+            }
+          </Button>
+        </div>
+      )}
+
       {/* Header: severity + timestamp */}
       <div className="flex items-center gap-2">
         <Badge className={SEVERITY_COLORS[report.severity] ?? SEVERITY_COLORS.medium}>
@@ -271,6 +306,32 @@ export function InvestigationPanel({
               : t('investigation.panel.postToGitHub', 'Post to GitHub')
             }
           </Button>
+        </div>
+      )}
+
+      {/* Activity Log */}
+      {activityLog && activityLog.length > 0 && (
+        <div className="border-t pt-2">
+          <button
+            type="button"
+            onClick={() => setActivityOpen(!activityOpen)}
+            className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {activityOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            <Clock className="h-3 w-3" />
+            {t('investigation.activityLog.title', 'Activity')}
+          </button>
+          {activityOpen && (
+            <ul className="mt-1.5 space-y-1">
+              {activityLog.map((entry, i) => (
+                <li key={i} className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <span className="h-1 w-1 rounded-full bg-muted-foreground shrink-0" />
+                  <span>{entry.event}</span>
+                  <span className="ml-auto text-[10px]">{new Date(entry.timestamp).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

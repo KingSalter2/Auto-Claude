@@ -74,6 +74,8 @@ export interface IssueListItemProps {
   linkedTaskId?: string;
   /** Handler to navigate to the linked task */
   onViewTask?: (taskId: string) => void;
+  /** Whether the issue is stale (no longer exists in GitHub) */
+  isStale?: boolean;
 }
 
 export interface IssueDetailProps {
@@ -151,6 +153,8 @@ export interface IssueDetailProps {
   onRejectLabel?: (label: SuggestedLabel) => void;
   /** Whether posting to GitHub is in progress */
   isPostingToGitHub?: boolean;
+  /** Activity log entries for the investigation lifecycle */
+  investigationActivityLog?: Array<{ event: string; timestamp: string }>;
 }
 
 /** @deprecated Removed in F9. Use InvestigateButton + InvestigationPanel instead. */
@@ -212,6 +216,8 @@ export interface IssueListHeaderProps {
   onToggleShowDismissed?: () => void;
   /** Count of active investigations */
   activeInvestigationCount?: number;
+  /** Cancel all active investigations for this project */
+  onCancelAllInvestigations?: () => void;
 }
 
 export interface IssueListProps {
@@ -230,7 +236,7 @@ export interface IssueListProps {
   onToggleSelect?: (issueNumber: number) => void;
   compact?: boolean;
   /** Investigation states keyed by issue number */
-  investigationStates?: Record<string, { state: InvestigationState; progress?: number; linkedTaskId?: string }>;
+  investigationStates?: Record<string, { state: InvestigationState; progress?: number; linkedTaskId?: string; isStale?: boolean }>;
   /** Handler to navigate to a linked task */
   onViewTask?: (taskId: string) => void;
 }
