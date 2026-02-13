@@ -628,6 +628,36 @@ export function registerInvestigationHandlers(
   );
 
   // ============================================
+  // 2b. Cancel all investigations for a project
+  // ============================================
+  ipcMain.on(
+    IPC_CHANNELS.GITHUB_INVESTIGATION_CANCEL_ALL,
+    (_, projectId: string) => {
+      debugLog('cancelAllInvestigations handler called', { projectId });
+
+      // Remove all queued investigations for this project
+      for (let i = investigationQueue.length - 1; i >= 0; i--) {
+        if (investigationQueue[i].projectId === projectId) {
+          investigationQueue.splice(i, 1);
+        }
+      }
+
+      // Kill all active investigations for this project
+      for (const [processKey, proc] of activeInvestigations.entries()) {
+        if (processKey.startsWith(`${projectId}:`)) {
+          if (!proc.killed) {
+            killProcessGracefully(proc);
+            debugLog('Investigation process killed (cancel all)', { processKey });
+          }
+          activeInvestigations.delete(processKey);
+        }
+      }
+
+      broadcastQueuePositions(getMainWindow);
+    },
+  );
+
+  // ============================================
   // 3. Create task from investigation
   // ============================================
   ipcMain.handle(
@@ -638,11 +668,13 @@ export function registerInvestigationHandlers(
       try {
         const result = await withProjectOrNull(projectId, async (project) => {
           // Read investigation report from persistence
+          // Reports are stored at .auto-claude/issues/{issueNumber}/investigation_report.json
           const reportPath = path.join(
-            getGitHubDir(project.path),
-            'investigations',
+            project.path,
+            '.auto-claude',
+            'issues',
             `${issueNumber}`,
-            'report.json',
+            'investigation_report.json',
           );
 
           if (!fs.existsSync(reportPath)) {
@@ -652,21 +684,22 @@ export function registerInvestigationHandlers(
           const reportData = JSON.parse(fs.readFileSync(reportPath, 'utf-8'));
 
           // Build task description from investigation report
-          const summary = reportData.summary || `Investigation of issue #${issueNumber}`;
-          const fixAdvice = reportData.fixAdvice;
+          // Report fields use snake_case (Pydantic model_dump output)
+          const summary = reportData.ai_summary || `Investigation of issue #${issueNumber}`;
+          const fixAdvice = reportData.fix_advice;
           const taskDescription = [
             `# GitHub Issue #${issueNumber}`,
             '',
             `## Summary`,
             summary,
             '',
-            fixAdvice?.suggestedApproaches?.length
+            fixAdvice?.approaches?.length
               ? [
                   '## Suggested Approach',
-                  fixAdvice.suggestedApproaches[fixAdvice.recommendedApproach || 0]?.description || '',
+                  fixAdvice.approaches[fixAdvice.recommended_approach || 0]?.description || '',
                   '',
                   '### Files to Modify',
-                  ...(fixAdvice.suggestedApproaches[fixAdvice.recommendedApproach || 0]?.filesToModify?.map(
+                  ...(fixAdvice.approaches[fixAdvice.recommended_approach || 0]?.files_affected?.map(
                     (f: string) => `- ${f}`,
                   ) || []),
                 ].join('\n')
@@ -678,7 +711,7 @@ export function registerInvestigationHandlers(
             ? `https://github.com/${config.repo}/issues/${issueNumber}`
             : '';
 
-          const labels = reportData.suggestedLabels
+          const labels = reportData.suggested_labels
             ?.filter((l: { accepted?: boolean }) => l.accepted !== false)
             .map((l: { name: string }) => l.name) ?? [];
 
@@ -725,6 +758,51 @@ export function registerInvestigationHandlers(
             reason,
             dismissedAt: new Date().toISOString(),
           }, { indent: 2 });
+
+          // Also close the issue on GitHub with a comment
+          try {
+            const config = getGitHubConfig(project);
+            if (config) {
+              const reasonLabels: Record<string, string> = {
+                wont_fix: "Won't Fix",
+                duplicate: 'Duplicate',
+                cannot_reproduce: 'Cannot Reproduce',
+                out_of_scope: 'Out of Scope',
+              };
+              const reasonLabel = reasonLabels[reason] ?? reason;
+              const commentBody = `Dismissed by Auto-Claude: ${reasonLabel}`;
+
+              // Post a comment with the dismiss reason
+              await githubFetch(
+                config.token,
+                `/repos/${config.repo}/issues/${issueNumber}/comments`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ body: commentBody }),
+                },
+              );
+
+              // Close the issue
+              await githubFetch(
+                config.token,
+                `/repos/${config.repo}/issues/${issueNumber}`,
+                {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ state: 'closed' }),
+                },
+              );
+
+              debugLog('Issue closed on GitHub after dismiss', { issueNumber, reason });
+            }
+          } catch (ghError) {
+            // GitHub API failure should not crash the dismiss flow
+            debugLog('Failed to close issue on GitHub after dismiss', {
+              issueNumber,
+              error: ghError instanceof Error ? ghError.message : String(ghError),
+            });
+          }
 
           return { success: true };
         });

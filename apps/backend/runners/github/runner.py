@@ -337,6 +337,70 @@ async def cmd_followup_review_pr(args) -> int:
         return 1
 
 
+async def cmd_investigate(args) -> int:
+    """Run AI investigation on a GitHub issue."""
+    import sys
+
+    # Force unbuffered output so Electron sees it in real-time
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(line_buffering=True)
+
+    config = get_config(args)
+    orchestrator = GitHubOrchestrator(
+        project_dir=args.project,
+        config=config,
+        progress_callback=print_progress,
+    )
+
+    result = await orchestrator.investigate_issue(args.issue_number)
+
+    # Output JSON for the Electron frontend to parse
+    safe_print(f"\nJSON Output")
+    safe_print(f"{'=' * 60}")
+    safe_print(json.dumps(result, indent=2))
+
+    return 0
+
+
+async def cmd_post_investigation(args) -> int:
+    """Post investigation results to GitHub as a comment."""
+    from services.investigation_persistence import load_investigation_report
+    from services.investigation_report_builder import build_github_comment
+
+    config = get_config(args)
+    orchestrator = GitHubOrchestrator(
+        project_dir=args.project,
+        config=config,
+        progress_callback=print_progress,
+    )
+
+    # Load investigation report from .auto-claude/issues/{issueNumber}/investigation_report.json
+    report = load_investigation_report(args.project, args.issue_number)
+    if report is None:
+        safe_print(
+            f"Error: No investigation report found for issue #{args.issue_number}. "
+            "Run investigation first."
+        )
+        return 1
+
+    # Build the GitHub comment from the report
+    comment_body = build_github_comment(report)
+
+    # Post it to GitHub
+    await orchestrator._post_issue_comment(args.issue_number, comment_body)
+
+    safe_print(f"Posted investigation results to issue #{args.issue_number}")
+
+    # Output JSON for the Electron frontend to parse
+    safe_print(f"\nJSON Output")
+    safe_print(f"{'=' * 60}")
+    safe_print(json.dumps({"success": True, "issueNumber": args.issue_number}))
+
+    return 0
+
+
 async def cmd_enrich(args) -> int:
     """Enrich a single issue with deep AI analysis."""
     config = get_config(args)
@@ -759,6 +823,16 @@ def main():
     )
     followup_parser.add_argument("pr_number", type=int, help="PR number to review")
 
+    # investigate command
+    investigate_parser = subparsers.add_parser("investigate", help="Run AI investigation on a GitHub issue")
+    investigate_parser.add_argument("issue_number", type=int, help="Issue number to investigate")
+
+    # post-investigation command
+    post_investigation_parser = subparsers.add_parser(
+        "post-investigation", help="Post investigation results to GitHub"
+    )
+    post_investigation_parser.add_argument("issue_number", type=int, help="Issue number to post results for")
+
     # enrich command
     enrich_parser = subparsers.add_parser("enrich", help="Enrich a single issue with deep AI analysis")
     enrich_parser.add_argument("issue_number", type=int, help="Issue number to enrich")
@@ -859,6 +933,8 @@ def main():
     commands = {
         "review-pr": cmd_review_pr,
         "followup-review-pr": cmd_followup_review_pr,
+        "investigate": cmd_investigate,
+        "post-investigation": cmd_post_investigation,
         "enrich": cmd_enrich,
         "split": cmd_split,
         "triage": cmd_triage,
