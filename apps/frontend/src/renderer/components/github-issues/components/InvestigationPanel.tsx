@@ -58,10 +58,10 @@ const AGENT_ICONS = {
 } as const;
 
 const AGENT_LABELS = {
-  root_cause: 'investigation.agent.rootCause',
-  impact: 'investigation.agent.impact',
-  fix_advisor: 'investigation.agent.fixAdvisor',
-  reproducer: 'investigation.agent.reproducer',
+  root_cause: 'investigation.agents.rootCause',
+  impact: 'investigation.agents.impact',
+  fix_advisor: 'investigation.agents.fixAdvisor',
+  reproducer: 'investigation.agents.reproducer',
 } as const;
 
 const AGENT_DEFAULTS: Record<string, string> = {
@@ -92,7 +92,7 @@ function AgentSection({ agent, defaultOpen }: { agent: InvestigationAgentResult;
         <Icon className="h-4 w-4 text-muted-foreground" />
         <span>{t(labelKey, defaultLabel)}</span>
         <span className="ml-auto text-xs text-muted-foreground">
-          {agent.confidence}% confidence
+          {agent.confidence}% {t('investigation.panel.confidence', 'confidence')}
         </span>
       </button>
       {isOpen && (
@@ -187,7 +187,7 @@ export function InvestigationPanel({
       {/* Header: severity + timestamp */}
       <div className="flex items-center gap-2">
         <Badge className={SEVERITY_COLORS[report.severity] ?? SEVERITY_COLORS.medium}>
-          {report.severity.toUpperCase()}
+          {t(`investigation.severity.${report.severity}`, report.severity).toUpperCase()}
         </Badge>
         {report.likelyResolved && (
           <Badge variant="outline" className="border-green-500/50 text-green-600 dark:text-green-400">
@@ -269,7 +269,7 @@ export function InvestigationPanel({
                       type="button"
                       onClick={() => onAcceptLabel(label)}
                       className="text-green-600 hover:text-green-700 dark:text-green-400"
-                      aria-label={`Accept label ${label.name}`}
+                      aria-label={t('investigation.panel.acceptLabel', { name: label.name })}
                     >
                       <Check className="h-3 w-3" />
                     </button>
@@ -277,7 +277,7 @@ export function InvestigationPanel({
                       type="button"
                       onClick={() => onRejectLabel(label)}
                       className="text-red-600 hover:text-red-700 dark:text-red-400"
-                      aria-label={`Reject label ${label.name}`}
+                      aria-label={t('investigation.panel.rejectLabel', { name: label.name })}
                     >
                       <X className="h-3 w-3" />
                     </button>

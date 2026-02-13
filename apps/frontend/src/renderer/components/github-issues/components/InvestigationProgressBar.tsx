@@ -69,7 +69,7 @@ export const InvestigationProgressBar = memo(function InvestigationProgressBar({
           className="flex items-center gap-0.5 text-[10px] text-primary hover:underline"
         >
           <ExternalLink className="h-2.5 w-2.5" />
-          {t('common:task', 'Task')}
+          {t('phase5.viewTask', 'View Task')}
         </button>
       )}
     </div>

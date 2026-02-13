@@ -447,6 +447,7 @@
     "conversionErrorDescription": "Une erreur s'est produite lors de la conversion de l'idée"
   },
   "issues": {
+    "noIssues": "Aucune issue trouvée",
     "loadingMore": "Chargement...",
     "scrollForMore": "Défiler pour plus",
     "allLoaded": "Toutes les issues chargées",
@@ -1038,6 +1039,7 @@
       "bulkInvestigateConfirm": "Lancer l'investigation pour {{count}} issues sélectionnées ?"
     },
     "panel": {
+      "title": "Résultats de l'investigation",
       "findings": "Résultats",
       "codeReferences": "Références de code",
       "likelyResolved": "Probablement résolu",
@@ -1070,7 +1072,9 @@
       "suggestedTests": "Tests suggérés",
       "reproducible": "Reproductible",
       "notReproducible": "Non reproductible",
-      "reproUnknown": "Inconnu"
+      "reproUnknown": "Inconnu",
+      "acceptLabel": "Accepter le label {{name}}",
+      "rejectLabel": "Rejeter le label {{name}}"
     },
     "batchStaging": {
       "title": "Créations de tâches en attente",

@@ -447,6 +447,7 @@
     "conversionErrorDescription": "An error occurred while converting the idea"
   },
   "issues": {
+    "noIssues": "No issues found",
     "loadingMore": "Loading more...",
     "scrollForMore": "Scroll for more",
     "allLoaded": "All issues loaded",
@@ -1038,6 +1039,7 @@
       "bulkInvestigateConfirm": "Start investigation for {{count}} selected issues?"
     },
     "panel": {
+      "title": "Investigation Results",
       "findings": "Findings",
       "codeReferences": "Code References",
       "likelyResolved": "Likely Resolved",
@@ -1070,7 +1072,9 @@
       "suggestedTests": "Suggested Tests",
       "reproducible": "Reproducible",
       "notReproducible": "Not Reproducible",
-      "reproUnknown": "Unknown"
+      "reproUnknown": "Unknown",
+      "acceptLabel": "Accept label {{name}}",
+      "rejectLabel": "Reject label {{name}}"
     },
     "batchStaging": {
       "title": "Pending Task Creations",

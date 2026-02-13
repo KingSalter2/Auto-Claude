@@ -58,7 +58,7 @@ export const IssueListItem = memo(function IssueListItem({
             }}
             onClick={(e) => e.stopPropagation()}
             className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-            aria-label={`Select issue #${issue.number}`}
+            aria-label={t('phase5.selectIssue', { number: issue.number })}
           />
         )}
         <div className="flex-1 min-w-0">
