@@ -7,8 +7,9 @@ import { EmptyState } from './EmptyStates';
 import type { IssueListProps } from '../types';
 import { useTranslation } from 'react-i18next';
 
-const ITEM_HEIGHT_NORMAL = 80;
-const ITEM_HEIGHT_COMPACT = 56;
+const ITEM_GAP = 6;
+const ITEM_HEIGHT_NORMAL = 80 + ITEM_GAP;
+const ITEM_HEIGHT_COMPACT = 56 + ITEM_GAP;
 
 export function IssueList({
   issues,
@@ -99,6 +100,7 @@ export function IssueList({
                 left: 0,
                 width: '100%',
                 transform: `translateY(${virtualRow.start}px)`,
+                paddingBottom: `${ITEM_GAP}px`,
               }}
             >
               <IssueListItem
