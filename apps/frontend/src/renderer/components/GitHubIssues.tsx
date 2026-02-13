@@ -236,6 +236,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     async (logins: string[]) => { if (selectedIssue) await mutations.removeAssignees(selectedIssue.number, logins); },
     [selectedIssue, mutations],
   );
+  const handleCreateSpec = useCallback(
+    async (): Promise<{ specNumber: string } | null> => {
+      if (!selectedIssue || !selectedProject?.id) return null;
+      const result = await window.electronAPI.github.createSpecFromIssue(selectedProject.id, selectedIssue.number);
+      if (result.success && result.data) return { specNumber: result.data.specNumber ?? String(selectedIssue.number) };
+      return null;
+    },
+    [selectedIssue, selectedProject?.id],
+  );
 
   // Fetch repo labels & collaborators for mutation UI
   const [repoLabels, setRepoLabels] = useState<Array<{ name: string; color: string }>>([]);
@@ -449,6 +458,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               isDepsLoading={isDepsLoading}
               depsError={depsError}
               onNavigateDependency={selectIssue}
+              onCreateSpec={handleCreateSpec}
             />
           ) : (
             <EmptyState message="Select an issue to view details" />
@@ -469,6 +479,9 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               onImproveIssue={() => aiTriage.runEnrichment(selectedIssue.number)}
               onSplitIssue={() => aiTriage.runSplitSuggestion(selectedIssue.number)}
               isAIBusy={aiTriage.isTriaging}
+              dependencies={dependencies}
+              isDepsLoading={isDepsLoading}
+              depsError={depsError}
               metrics={metrics}
               metricsTimeWindow={metricsTimeWindow}
               isMetricsLoading={isMetricsLoading}
