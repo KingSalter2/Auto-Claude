@@ -230,16 +230,21 @@ class ParallelAgentOrchestrator:
         self,
         tasks: list[asyncio.Task | Any],
         orchestrator_name: str = "ParallelOrchestrator",
+        retry_tasks: list[Any] | None = None,
     ) -> list[Any]:
         """Run pre-built async tasks in parallel and collect results.
 
-        This is a thin wrapper around asyncio.gather() that handles
-        exceptions and logging. Subclasses create the task list with
-        their domain-specific _run_specialist_session calls.
+        Failed specialists are retried once before being discarded.
+        If retry_tasks is provided, it should be a list of callables
+        (0-arg coroutine factories) that can recreate the coroutine
+        for a retry attempt.
 
         Args:
             tasks: List of coroutines/tasks to run in parallel
             orchestrator_name: Name for logging
+            retry_tasks: Optional list of 0-arg callables that recreate
+                        the coroutine for each task (same order as tasks).
+                        If None, failed tasks are not retried.
 
         Returns:
             List of results (exceptions are logged and filtered out)
@@ -251,15 +256,45 @@ class ParallelAgentOrchestrator:
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Filter out exceptions
+        # Separate successes from failures
         valid_results = []
-        for result in results:
+        failed_indices: list[int] = []
+        for i, result in enumerate(results):
             if isinstance(result, Exception):
                 logger.error(
                     f"[{orchestrator_name}] Specialist task failed: {result}"
                 )
+                failed_indices.append(i)
             else:
                 valid_results.append(result)
+
+        # Retry failed specialists once if retry factories are provided
+        if failed_indices and retry_tasks:
+            retryable = [
+                (idx, retry_tasks[idx])
+                for idx in failed_indices
+                if idx < len(retry_tasks) and retry_tasks[idx] is not None
+            ]
+            if retryable:
+                safe_print(
+                    f"[{orchestrator_name}] Retrying {len(retryable)} failed specialist(s)...",
+                    flush=True,
+                )
+                retry_coroutines = [factory() for _, factory in retryable]
+                retry_results = await asyncio.gather(
+                    *retry_coroutines, return_exceptions=True
+                )
+                for (idx, _), retry_result in zip(retryable, retry_results):
+                    if isinstance(retry_result, Exception):
+                        logger.error(
+                            f"[{orchestrator_name}] Retry also failed for specialist {idx}: {retry_result}"
+                        )
+                    else:
+                        safe_print(
+                            f"[{orchestrator_name}] Retry succeeded for specialist {idx}",
+                            flush=True,
+                        )
+                        valid_results.append(retry_result)
 
         safe_print(
             f"[{orchestrator_name}] All specialists complete. "

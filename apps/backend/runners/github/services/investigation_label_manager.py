@@ -5,17 +5,24 @@ Investigation Label Manager
 Manages GitHub lifecycle labels for issue investigations.
 Labels are synced one-way (app -> GitHub) with graceful error handling
 so label failures never crash the investigation pipeline.
+
+Includes debounce logic (5s) on set_investigation_label() to avoid
+rapid-fire GitHub API calls during fast state transitions.
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..gh_client import GHClient
 
 logger = logging.getLogger(__name__)
+
+# Debounce window in seconds for label changes per issue
+_LABEL_DEBOUNCE_SECONDS = 5.0
 
 
 class InvestigationLabelManager:
@@ -55,6 +62,10 @@ class InvestigationLabelManager:
 
     # All managed label names for easy lookup
     ALL_LABEL_NAMES = [label["name"] for label in LABELS.values()]
+
+    def __init__(self) -> None:
+        # Track last label-change timestamp per issue for debounce
+        self._last_label_time: dict[int, float] = {}
 
     # Map investigation states to label keys
     _STATE_MAP: dict[str, str] = {
@@ -103,6 +114,9 @@ class InvestigationLabelManager:
     ) -> None:
         """Set the lifecycle label for an issue, removing old ones first.
 
+        Includes a debounce window to avoid rapid-fire GitHub API calls
+        when state transitions happen in quick succession.
+
         Args:
             gh_client: GitHub CLI client
             issue_number: The issue number
@@ -115,12 +129,26 @@ class InvestigationLabelManager:
             )
             return
 
+        # Debounce: skip if we changed labels for this issue too recently
+        now = time.monotonic()
+        last_time = self._last_label_time.get(issue_number, 0.0)
+        if now - last_time < _LABEL_DEBOUNCE_SECONDS:
+            logger.debug(
+                "Debounced label change for issue #%d (%.1fs since last change)",
+                issue_number,
+                now - last_time,
+            )
+            # Still update the timestamp so the final state wins
+            self._last_label_time[issue_number] = now
+            return
+
         try:
             # Remove all existing auto-claude: labels first
             await self.remove_all_investigation_labels(gh_client, issue_number)
 
             # Add the new label
             await gh_client.issue_add_labels(issue_number, [label_name])
+            self._last_label_time[issue_number] = now
             logger.info(
                 "Set label %s on issue #%d", label_name, issue_number
             )

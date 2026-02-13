@@ -105,7 +105,23 @@ def handle_build_command(
             print("\nError: --issue-number is required with --issue-workflow")
             sys.exit(1)
 
+        pipeline_mode = _get_investigation_pipeline_mode(project_dir)
         _inject_issue_workflow_context(project_dir, spec_dir, issue_number)
+
+        # pipelineMode controls which phases to skip:
+        # - "full": run complete spec + planning + coding + QA pipeline (default)
+        # - "skip_to_planning": skip spec creation, go to planning (investigation = spec)
+        # - "minimal": skip spec + planning, go straight to coding
+        if pipeline_mode == "skip_to_planning":
+            # Investigation report serves as the spec; bypass approval since
+            # the investigation was already reviewed.
+            force_bypass_approval = True
+        elif pipeline_mode == "minimal":
+            # Skip everything: create a minimal plan so the planner is bypassed
+            # and the coder starts immediately from the investigation context.
+            force_bypass_approval = True
+            skip_qa = True
+            _create_minimal_plan_for_issue(spec_dir, issue_number)
 
     # Get the resolved model for the planning phase (first phase of build)
     # This respects task_metadata.json phase configuration from the UI
@@ -497,6 +513,95 @@ def _handle_build_interrupt(
         content.append(muted("Your build is in a separate workspace and is safe."))
     print(box(content, width=70, style="light"))
     print()
+
+
+def _create_minimal_plan_for_issue(spec_dir: Path, issue_number: int) -> None:
+    """Create a minimal implementation plan so the planner phase is skipped.
+
+    Used in "minimal" pipeline mode where the investigation context is
+    sufficient and we want the coder to start immediately.
+
+    Args:
+        spec_dir: Spec directory path
+        issue_number: GitHub issue number for context
+    """
+    import json
+    from datetime import datetime
+
+    plan_file = spec_dir / "implementation_plan.json"
+    if plan_file.exists():
+        # Don't overwrite an existing plan (e.g. if resuming)
+        return
+
+    plan = {
+        "phases": [
+            {
+                "phase": 1,
+                "name": "Implementation",
+                "description": f"Implement fix for issue #{issue_number} based on investigation findings",
+                "depends_on": [],
+                "subtasks": [
+                    {
+                        "id": "subtask-1-1",
+                        "description": (
+                            f"Implement the fix for issue #{issue_number}. "
+                            "Follow the investigation context in HUMAN_INPUT.md "
+                            "for root cause analysis, recommended fix approach, "
+                            "and files to modify."
+                        ),
+                        "service": "main",
+                        "status": "pending",
+                        "files_to_create": [],
+                        "files_to_modify": [],
+                        "patterns_from": [],
+                        "verification": {
+                            "type": "manual",
+                            "run": "Verify the fix resolves the issue",
+                        },
+                    }
+                ],
+            }
+        ],
+        "metadata": {
+            "created_at": datetime.now().isoformat(),
+            "complexity": "simple",
+            "estimated_sessions": 1,
+            "pipeline_mode": "minimal",
+            "source_issue": issue_number,
+        },
+    }
+
+    plan_file.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+    print(f"  Pipeline mode: minimal (skipping planner, created single-subtask plan)")
+
+
+def _get_investigation_pipeline_mode(project_dir: Path) -> str:
+    """Read the pipelineMode from investigation settings.
+
+    Reads from .auto-claude/github/config.json -> investigation_settings.pipelineMode.
+    Defaults to "full" if not configured.
+
+    Args:
+        project_dir: Project root directory
+
+    Returns:
+        Pipeline mode string: "full", "skip_to_planning", or "minimal"
+    """
+    import json
+
+    config_path = project_dir / ".auto-claude" / "github" / "config.json"
+    if not config_path.exists():
+        return "full"
+
+    try:
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        settings = data.get("investigation_settings", {})
+        mode = settings.get("pipelineMode", "full")
+        if mode in ("full", "skip_to_planning", "minimal"):
+            return mode
+        return "full"
+    except (json.JSONDecodeError, OSError):
+        return "full"
 
 
 def _inject_issue_workflow_context(

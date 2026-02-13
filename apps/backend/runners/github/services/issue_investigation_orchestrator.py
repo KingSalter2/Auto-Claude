@@ -312,30 +312,38 @@ Use Read, Grep, and Glob tools to explore the codebase.
         Returns:
             Dict mapping specialist name → stream result dict
         """
-        # Create coroutines for all specialists
-        coroutines = []
-        for config in INVESTIGATION_SPECIALISTS:
-            prompt = self._build_specialist_prompt(config, issue_context, project_root)
-            schema_class = _SPECIALIST_SCHEMAS.get(config.name)
-            output_schema = schema_class.model_json_schema() if schema_class else None
-
-            coroutines.append(
-                self._run_specialist_session(
-                    config=config,
-                    prompt=prompt,
+        # Build coroutine factories so failed specialists can be retried
+        def _make_specialist_factory(cfg: SpecialistConfig):
+            """Create a 0-arg callable that returns a fresh coroutine."""
+            def factory():
+                _prompt = self._build_specialist_prompt(cfg, issue_context, project_root)
+                _schema_class = _SPECIALIST_SCHEMAS.get(cfg.name)
+                _output_schema = _schema_class.model_json_schema() if _schema_class else None
+                return self._run_specialist_session(
+                    config=cfg,
+                    prompt=_prompt,
                     project_root=project_root,
                     model=model,
                     thinking_budget=thinking_budget,
-                    output_schema=output_schema,
+                    output_schema=_output_schema,
                     agent_type="investigation_specialist",
-                    context_name=f"Investigation:{config.name}",
+                    context_name=f"Investigation:{cfg.name}",
                 )
-            )
+            return factory
 
-        # Run all in parallel
+        # Create initial coroutines and retry factories
+        coroutines = []
+        retry_factories = []
+        for config in INVESTIGATION_SPECIALISTS:
+            factory = _make_specialist_factory(config)
+            coroutines.append(factory())
+            retry_factories.append(factory)
+
+        # Run all in parallel (with retry-once on failure)
         valid_results = await self._run_parallel_specialists(
             tasks=coroutines,
             orchestrator_name="IssueInvestigation",
+            retry_tasks=retry_factories,
         )
 
         # Map results back to specialist names
