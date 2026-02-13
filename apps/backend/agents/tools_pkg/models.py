@@ -305,7 +305,7 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],
         "auto_claude_tools": [],
-        "thinking_default": "high",
+        "thinking_default": "medium",
     },
     # ═══════════════════════════════════════════════════════════════════════
     # ANALYSIS PHASES

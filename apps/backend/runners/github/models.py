@@ -1027,6 +1027,10 @@ class GitHubRunnerConfig:
             "model": self.model,
             "thinking_level": self.thinking_level,
             "fast_mode": self.fast_mode,
+            "investigation_auto_post": self.investigation_auto_post,
+            "investigation_auto_close": self.investigation_auto_close,
+            "investigation_max_parallel": self.investigation_max_parallel,
+            "investigation_pipeline_mode": self.investigation_pipeline_mode,
         }
 
     def save_settings(self, github_dir: Path) -> None:

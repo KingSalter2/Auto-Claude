@@ -22,6 +22,14 @@ _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
         ".issue_investigation_orchestrator",
         "IssueInvestigationOrchestrator",
     ),
+    "build_github_comment": (
+        ".investigation_report_builder",
+        "build_github_comment",
+    ),
+    "build_summary": (
+        ".investigation_report_builder",
+        "build_summary",
+    ),
     "RootCauseAnalysis": (".investigation_models", "RootCauseAnalysis"),
     "ImpactAssessment": (".investigation_models", "ImpactAssessment"),
     "FixAdvice": (".investigation_models", "FixAdvice"),
@@ -49,6 +57,8 @@ __all__ = [
     "InvestigationReport",
     "InvestigationState",
     "IssueInvestigationOrchestrator",
+    "build_github_comment",
+    "build_summary",
     "RootCauseAnalysis",
     "ImpactAssessment",
     "FixAdvice",
