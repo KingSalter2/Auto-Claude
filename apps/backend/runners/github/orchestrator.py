@@ -1518,18 +1518,14 @@ class GitHubOrchestrator:
         from datetime import datetime, timezone
 
         try:
-            from .services.investigation_models import InvestigationState
             from .services.investigation_persistence import (
-                load_investigation_report,
                 save_investigation_state,
             )
             from .services.issue_investigation_orchestrator import (
                 IssueInvestigationOrchestrator,
             )
         except (ImportError, ValueError, SystemError):
-            from services.investigation_models import InvestigationState
             from services.investigation_persistence import (
-                load_investigation_report,
                 save_investigation_state,
             )
             from services.issue_investigation_orchestrator import (
@@ -1547,9 +1543,7 @@ class GitHubOrchestrator:
         issue = await self._fetch_issue_data(issue_number)
         issue_title = issue.get("title", f"Issue #{issue_number}")
         issue_body = issue.get("body", "")
-        issue_labels = [
-            label.get("name", "") for label in issue.get("labels", [])
-        ]
+        issue_labels = [label.get("name", "") for label in issue.get("labels", [])]
 
         # Fetch comments
         issue_comments = []
@@ -1581,9 +1575,7 @@ class GitHubOrchestrator:
                 self.gh_client, issue_number, "investigating"
             )
         except Exception as e:
-            safe_print(
-                f"[Investigation] Label sync warning: {e}", flush=True
-            )
+            safe_print(f"[Investigation] Label sync warning: {e}", flush=True)
 
         working_dir = project_root or self.project_dir
 
@@ -1625,9 +1617,7 @@ class GitHubOrchestrator:
                     self.gh_client, issue_number, "findings_ready"
                 )
             except Exception as e:
-                safe_print(
-                    f"[Investigation] Label sync warning: {e}", flush=True
-                )
+                safe_print(f"[Investigation] Label sync warning: {e}", flush=True)
 
             return report.model_dump(mode="json")
 
@@ -1690,18 +1680,14 @@ class GitHubOrchestrator:
         from datetime import datetime, timezone
 
         try:
-            from .services.investigation_models import InvestigationReport
             from .services.investigation_persistence import (
-                load_investigation_report,
                 save_investigation_state,
             )
             from .services.issue_investigation_orchestrator import (
                 IssueInvestigationOrchestrator,
             )
         except (ImportError, ValueError, SystemError):
-            from services.investigation_models import InvestigationReport
             from services.investigation_persistence import (
-                load_investigation_report,
                 save_investigation_state,
             )
             from services.issue_investigation_orchestrator import (
@@ -1727,9 +1713,7 @@ class GitHubOrchestrator:
                 self.gh_client, issue_number, "investigating"
             )
         except Exception as e:
-            safe_print(
-                f"[Investigation] Label sync warning: {e}", flush=True
-            )
+            safe_print(f"[Investigation] Label sync warning: {e}", flush=True)
 
         try:
             orchestrator = IssueInvestigationOrchestrator(
@@ -1767,9 +1751,7 @@ class GitHubOrchestrator:
                     self.gh_client, issue_number, "findings_ready"
                 )
             except Exception as e:
-                safe_print(
-                    f"[Investigation] Label sync warning: {e}", flush=True
-                )
+                safe_print(f"[Investigation] Label sync warning: {e}", flush=True)
 
             return report
 
@@ -1820,7 +1802,9 @@ class GitHubOrchestrator:
             Dict matching AIEnrichmentResult interface
         """
         self._report_progress(
-            "fetching", 10, f"Fetching issue #{issue_number}...",
+            "fetching",
+            10,
+            f"Fetching issue #{issue_number}...",
             issue_number=issue_number,
         )
 
@@ -1828,7 +1812,9 @@ class GitHubOrchestrator:
         result = await self.enrichment_engine.enrich_single_issue(issue)
 
         self._report_progress(
-            "complete", 100, "Enrichment complete!",
+            "complete",
+            100,
+            "Enrichment complete!",
             issue_number=issue_number,
         )
         return result
@@ -1848,7 +1834,9 @@ class GitHubOrchestrator:
             Dict matching SplitSuggestion interface
         """
         self._report_progress(
-            "fetching", 10, f"Fetching issue #{issue_number}...",
+            "fetching",
+            10,
+            f"Fetching issue #{issue_number}...",
             issue_number=issue_number,
         )
 
@@ -1856,7 +1844,9 @@ class GitHubOrchestrator:
         result = await self.split_engine.suggest_split(issue)
 
         self._report_progress(
-            "complete", 100, "Split analysis complete!",
+            "complete",
+            100,
+            "Split analysis complete!",
             issue_number=issue_number,
         )
         return result

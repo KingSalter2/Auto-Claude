@@ -72,9 +72,17 @@ def save_investigation_state(
     """
     issue_path = get_issue_dir(project_dir, issue_number)
     state_file = issue_path / "investigation_state.json"
-    data = state.model_dump(mode="json") if isinstance(state, InvestigationState) else state
+    data = (
+        state.model_dump(mode="json")
+        if isinstance(state, InvestigationState)
+        else state
+    )
     write_json_atomic(state_file, data)
-    status = state.status if isinstance(state, InvestigationState) else state.get("status", "?")
+    status = (
+        state.status
+        if isinstance(state, InvestigationState)
+        else state.get("status", "?")
+    )
     logger.debug(f"Saved investigation state for issue #{issue_number}: {status}")
     return state_file
 
@@ -100,7 +108,9 @@ def load_investigation_state(
         data = json.loads(state_file.read_text(encoding="utf-8"))
         return InvestigationState.model_validate(data)
     except Exception as e:
-        logger.error(f"Failed to load investigation state for issue #{issue_number}: {e}")
+        logger.error(
+            f"Failed to load investigation state for issue #{issue_number}: {e}"
+        )
         return None
 
 
@@ -152,7 +162,9 @@ def load_investigation_report(
         data = json.loads(report_file.read_text(encoding="utf-8"))
         return InvestigationReport.model_validate(data)
     except Exception as e:
-        logger.error(f"Failed to load investigation report for issue #{issue_number}: {e}")
+        logger.error(
+            f"Failed to load investigation report for issue #{issue_number}: {e}"
+        )
         return None
 
 
@@ -239,7 +251,9 @@ def load_github_comment_id(
     try:
         return int(comment_file.read_text(encoding="utf-8").strip())
     except (ValueError, OSError) as e:
-        logger.warning(f"Failed to load GitHub comment ID for issue #{issue_number}: {e}")
+        logger.warning(
+            f"Failed to load GitHub comment ID for issue #{issue_number}: {e}"
+        )
         return None
 
 
@@ -286,7 +300,9 @@ def load_suggested_labels(
         data = json.loads(labels_file.read_text(encoding="utf-8"))
         return data if isinstance(data, list) else []
     except Exception as e:
-        logger.warning(f"Failed to load suggested labels for issue #{issue_number}: {e}")
+        logger.warning(
+            f"Failed to load suggested labels for issue #{issue_number}: {e}"
+        )
         return []
 
 

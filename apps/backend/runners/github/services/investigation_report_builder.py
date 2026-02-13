@@ -99,7 +99,9 @@ def build_github_comment(report: InvestigationReport) -> str:
     lines.append("")
 
     for i, approach in enumerate(report.fix_advice.approaches):
-        recommended = " **(recommended)**" if i == report.fix_advice.recommended_approach else ""
+        recommended = (
+            " **(recommended)**" if i == report.fix_advice.recommended_approach else ""
+        )
         lines.append(f"**Approach {i + 1}:** {approach.description}{recommended}")
         lines.append(f"- Complexity: {approach.complexity}")
         if approach.pros:

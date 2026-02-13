@@ -73,6 +73,9 @@ const investigationQueue: QueuedInvestigation[] = [];
 /** Maximum number of investigations to auto-resume on restart */
 const MAX_AUTO_RESUME = 3;
 
+/** Delay before auto-resuming interrupted investigations on startup */
+const AUTO_RESUME_DELAY_MS = 3000;
+
 /**
  * Get the max parallel investigations setting for a project.
  * Reads from the project's GitHub config on disk (same source as the settings handler).
@@ -227,10 +230,10 @@ async function autoCreateTaskFromInvestigation(
       fixAdvice?.approaches?.length
         ? [
             '## Suggested Approach',
-            fixAdvice.approaches[fixAdvice.recommended_approach || 0]?.description || '',
+            fixAdvice.approaches[fixAdvice.recommended_approach ?? 0]?.description || '',
             '',
             '### Files to Modify',
-            ...(fixAdvice.approaches[fixAdvice.recommended_approach || 0]?.files_affected?.map(
+            ...(fixAdvice.approaches[fixAdvice.recommended_approach ?? 0]?.files_affected?.map(
               (f: string) => `- ${f}`,
             ) || []),
           ].join('\n')
@@ -896,10 +899,10 @@ export function registerInvestigationHandlers(
             fixAdvice?.approaches?.length
               ? [
                   '## Suggested Approach',
-                  fixAdvice.approaches[fixAdvice.recommended_approach || 0]?.description || '',
+                  fixAdvice.approaches[fixAdvice.recommended_approach ?? 0]?.description || '',
                   '',
                   '### Files to Modify',
-                  ...(fixAdvice.approaches[fixAdvice.recommended_approach || 0]?.files_affected?.map(
+                  ...(fixAdvice.approaches[fixAdvice.recommended_approach ?? 0]?.files_affected?.map(
                     (f: string) => `- ${f}`,
                   ) || []),
                 ].join('\n')
@@ -999,6 +1002,12 @@ export function registerInvestigationHandlers(
     IPC_CHANNELS.GITHUB_INVESTIGATION_DISMISS,
     async (_, projectId: string, issueNumber: number, reason: InvestigationDismissReason) => {
       debugLog('dismissIssue handler called', { projectId, issueNumber, reason });
+
+      // Validate dismiss reason at runtime to guard against unexpected values
+      const validReasons: ReadonlySet<string> = new Set(['wont_fix', 'duplicate', 'cannot_reproduce', 'out_of_scope']);
+      if (!validReasons.has(reason)) {
+        return { success: false, error: `Invalid dismiss reason: ${reason}` };
+      }
 
       try {
         const result = await withProjectOrNull(projectId, async (project) => {
@@ -1323,21 +1332,16 @@ export function registerInvestigationHandlers(
               issues: interruptedIssues,
             });
             setTimeout(() => {
-              const maxParallel = getMaxParallel(projectId);
               for (const issueNum of interruptedIssues) {
                 debugLog('Auto-resuming interrupted investigation', { projectId, issueNumber: issueNum });
-                if (activeInvestigations.size < maxParallel) {
-                  runInvestigation(projectId, issueNum, getMainWindow, agentManager);
-                } else {
-                  investigationQueue.push({
-                    projectId,
-                    issueNumber: issueNum,
-                    queuedAt: new Date().toISOString(),
-                  });
-                }
+                investigationQueue.push({
+                  projectId,
+                  issueNumber: issueNum,
+                  queuedAt: new Date().toISOString(),
+                });
               }
-              broadcastQueuePositions(getMainWindow);
-            }, 3000);
+              processQueue(getMainWindow, agentManager);
+            }, AUTO_RESUME_DELAY_MS);
           }
 
           return { success: true, data: persisted };

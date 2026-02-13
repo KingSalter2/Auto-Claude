@@ -72,7 +72,9 @@ class EnrichmentEngine:
         issue_number = issue["number"]
 
         self._report_progress(
-            "analyzing", 20, f"Analyzing issue #{issue_number}...",
+            "analyzing",
+            20,
+            f"Analyzing issue #{issue_number}...",
             issue_number=issue_number,
         )
 
@@ -105,7 +107,9 @@ class EnrichmentEngine:
                                 response_text += block.text
 
                 self._report_progress(
-                    "generating", 80, "Parsing enrichment result...",
+                    "generating",
+                    80,
+                    "Parsing enrichment result...",
                     issue_number=issue_number,
                 )
 
@@ -127,9 +131,7 @@ class EnrichmentEngine:
 
     def _build_enrichment_context(self, issue: dict) -> str:
         """Build context string for enrichment analysis."""
-        labels = ", ".join(
-            label["name"] for label in issue.get("labels", [])
-        ) or "None"
+        labels = ", ".join(label["name"] for label in issue.get("labels", [])) or "None"
 
         comments_text = ""
         comments = issue.get("comments", {})

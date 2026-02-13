@@ -357,7 +357,7 @@ async def cmd_investigate(args) -> int:
     result = await orchestrator.investigate_issue(args.issue_number)
 
     # Output JSON for the Electron frontend to parse
-    safe_print(f"\nJSON Output")
+    safe_print("\nJSON Output")
     safe_print(f"{'=' * 60}")
     safe_print(json.dumps(result, indent=2))
 
@@ -394,7 +394,7 @@ async def cmd_post_investigation(args) -> int:
     safe_print(f"Posted investigation results to issue #{args.issue_number}")
 
     # Output JSON for the Electron frontend to parse
-    safe_print(f"\nJSON Output")
+    safe_print("\nJSON Output")
     safe_print(f"{'=' * 60}")
     safe_print(json.dumps({"success": True, "issueNumber": args.issue_number}))
 
@@ -413,7 +413,7 @@ async def cmd_enrich(args) -> int:
     result = await orchestrator.enrich_issue(args.issue_number)
 
     # Output JSON for the Electron frontend to parse
-    safe_print(f"\nJSON Output")
+    safe_print("\nJSON Output")
     safe_print(f"{'=' * 60}")
     safe_print(json.dumps(result, indent=2))
 
@@ -432,7 +432,7 @@ async def cmd_split(args) -> int:
     result = await orchestrator.split_issue(args.issue_number)
 
     # Output JSON for the Electron frontend to parse
-    safe_print(f"\nJSON Output")
+    safe_print("\nJSON Output")
     safe_print(f"{'=' * 60}")
     safe_print(json.dumps(result, indent=2))
 
@@ -824,22 +824,34 @@ def main():
     followup_parser.add_argument("pr_number", type=int, help="PR number to review")
 
     # investigate command
-    investigate_parser = subparsers.add_parser("investigate", help="Run AI investigation on a GitHub issue")
-    investigate_parser.add_argument("issue_number", type=int, help="Issue number to investigate")
+    investigate_parser = subparsers.add_parser(
+        "investigate", help="Run AI investigation on a GitHub issue"
+    )
+    investigate_parser.add_argument(
+        "issue_number", type=int, help="Issue number to investigate"
+    )
 
     # post-investigation command
     post_investigation_parser = subparsers.add_parser(
         "post-investigation", help="Post investigation results to GitHub"
     )
-    post_investigation_parser.add_argument("issue_number", type=int, help="Issue number to post results for")
+    post_investigation_parser.add_argument(
+        "issue_number", type=int, help="Issue number to post results for"
+    )
 
     # enrich command
-    enrich_parser = subparsers.add_parser("enrich", help="Enrich a single issue with deep AI analysis")
+    enrich_parser = subparsers.add_parser(
+        "enrich", help="Enrich a single issue with deep AI analysis"
+    )
     enrich_parser.add_argument("issue_number", type=int, help="Issue number to enrich")
 
     # split command
-    split_parser = subparsers.add_parser("split", help="Suggest how to split an issue into sub-issues")
-    split_parser.add_argument("issue_number", type=int, help="Issue number to analyze for splitting")
+    split_parser = subparsers.add_parser(
+        "split", help="Suggest how to split an issue into sub-issues"
+    )
+    split_parser.add_argument(
+        "issue_number", type=int, help="Issue number to analyze for splitting"
+    )
 
     # triage command
     triage_parser = subparsers.add_parser("triage", help="Triage issues")

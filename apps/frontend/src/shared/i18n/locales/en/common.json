@@ -112,8 +112,10 @@
     "manage": "Manage labels",
     "add": "Add label",
     "remove": "Remove label",
+    "removeNamed": "Remove label {{name}}",
     "search": "Search labels...",
     "filter": "Filter labels...",
+    "available": "Available labels",
     "noMatch": "No matching labels",
     "limit": "Maximum of {{limit}} labels reached"
   },

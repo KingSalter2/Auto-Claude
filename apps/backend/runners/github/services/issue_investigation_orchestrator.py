@@ -36,13 +36,8 @@ try:
         save_agent_log,
         save_investigation_report,
     )
-    from .io_utils import safe_print
     from .parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
 except (ImportError, ValueError, SystemError):
-    from phase_config import (
-        get_thinking_budget,
-        resolve_model_id,
-    )
     from investigation_models import (
         FixAdvice,
         ImpactAssessment,
@@ -54,8 +49,11 @@ except (ImportError, ValueError, SystemError):
         save_agent_log,
         save_investigation_report,
     )
-    from io_utils import safe_print
     from parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+    from phase_config import (
+        get_thinking_budget,
+        resolve_model_id,
+    )
 
 
 logger = logging.getLogger(__name__)
@@ -312,13 +310,19 @@ Use Read, Grep, and Glob tools to explore the codebase.
         Returns:
             Dict mapping specialist name → stream result dict
         """
+
         # Build coroutine factories so failed specialists can be retried
         def _make_specialist_factory(cfg: SpecialistConfig):
             """Create a 0-arg callable that returns a fresh coroutine."""
+
             def factory():
-                _prompt = self._build_specialist_prompt(cfg, issue_context, project_root)
+                _prompt = self._build_specialist_prompt(
+                    cfg, issue_context, project_root
+                )
                 _schema_class = _SPECIALIST_SCHEMAS.get(cfg.name)
-                _output_schema = _schema_class.model_json_schema() if _schema_class else None
+                _output_schema = (
+                    _schema_class.model_json_schema() if _schema_class else None
+                )
                 return self._run_specialist_session(
                     config=cfg,
                     prompt=_prompt,
@@ -329,6 +333,7 @@ Use Read, Grep, and Glob tools to explore the codebase.
                     agent_type="investigation_specialist",
                     context_name=f"Investigation:{cfg.name}",
                 )
+
             return factory
 
         # Create initial coroutines and retry factories
@@ -503,9 +508,7 @@ Use Read, Grep, and Glob tools to explore the codebase.
             )
 
         if impact:
-            parts.append(
-                f"Severity: {impact.severity}. {impact.user_impact}"
-            )
+            parts.append(f"Severity: {impact.severity}. {impact.user_impact}")
 
         if fix_advice and fix_advice.approaches:
             rec_idx = fix_advice.recommended_approach
@@ -518,4 +521,8 @@ Use Read, Grep, and Glob tools to explore the codebase.
         if reproduction:
             parts.append(f"Reproducible: {reproduction.reproducible}.")
 
-        return " ".join(parts) if parts else "Investigation completed but no specialist produced results."
+        return (
+            " ".join(parts)
+            if parts
+            else "Investigation completed but no specialist produced results."
+        )

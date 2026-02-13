@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import i18next from 'i18next';
 import type {
   GitHubInvestigationStatus,
   GitHubInvestigationResult,
@@ -118,7 +119,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     const existing = state.investigations[key];
     const now = new Date().toISOString();
     const event = existing?.report ? 're-investigation started' : 'investigation started';
-    const log = [...(existing?.activityLog ?? []), { event, timestamp: now }];
+    const log = [...(existing?.activityLog ?? []), { event, timestamp: now }].slice(-50);
     return {
       investigations: {
         ...state.investigations,
@@ -171,7 +172,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   setResult: (projectId: string, result: InvestigationResult) => set((state) => {
     const key = `${projectId}:${result.issueNumber}`;
     const existing = state.investigations[key];
-    const log = [...(existing?.activityLog ?? []), { event: 'investigation completed', timestamp: result.completedAt }];
+    const log = [...(existing?.activityLog ?? []), { event: 'investigation completed', timestamp: result.completedAt }].slice(-50);
     return {
       investigations: {
         ...state.investigations,
@@ -198,7 +199,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   setError: (projectId: string, issueNumber: number, error: string) => set((state) => {
     const key = `${projectId}:${issueNumber}`;
     const existing = state.investigations[key];
-    const log = [...(existing?.activityLog ?? []), { event: 'investigation failed', timestamp: new Date().toISOString() }];
+    const log = [...(existing?.activityLog ?? []), { event: 'investigation failed', timestamp: new Date().toISOString() }].slice(-50);
     return {
       investigations: {
         ...state.investigations,
@@ -226,7 +227,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     const key = `${projectId}:${issueNumber}`;
     const existing = state.investigations[key];
     if (!existing) return state;
-    const log = [...(existing.activityLog ?? []), { event: `dismissed: ${reason}`, timestamp: new Date().toISOString() }];
+    const log = [...(existing.activityLog ?? []), { event: `dismissed: ${reason}`, timestamp: new Date().toISOString() }].slice(-50);
     return {
       investigations: {
         ...state.investigations,
@@ -299,7 +300,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     const key = `${projectId}:${issueNumber}`;
     const existing = state.investigations[key];
     if (!existing) return state;
-    const log = [...(existing.activityLog ?? []), { event: 'linked task deleted', timestamp: new Date().toISOString() }];
+    const log = [...(existing.activityLog ?? []), { event: 'linked task deleted', timestamp: new Date().toISOString() }].slice(-50);
     return {
       investigations: {
         ...state.investigations,
@@ -351,13 +352,16 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   cancelAllInvestigations: (projectId: string) => set((state) => {
     const updated = { ...state.investigations };
     let changed = false;
+    const now = new Date().toISOString();
     for (const [key, inv] of Object.entries(updated)) {
       if (inv.projectId !== projectId || !inv.isInvestigating) continue;
+      const log = [...(inv.activityLog ?? []), { event: 'cancelled (cancel all)', timestamp: now }].slice(-50);
       updated[key] = {
         ...inv,
         isInvestigating: false,
         progress: null,
         error: 'Investigation cancelled',
+        activityLog: log,
       };
       changed = true;
     }
@@ -459,7 +463,7 @@ export function initializeInvestigationListeners(): void {
     (projectId: string, result: InvestigationResult) => {
       store.setResult(projectId, result);
       toast({
-        title: `Investigation complete for Issue #${result.issueNumber}`,
+        title: i18next.t('common:investigation.toast.investigationComplete', { issueNumber: result.issueNumber }),
       });
     }
   );
@@ -475,7 +479,7 @@ export function initializeInvestigationListeners(): void {
         // Target the specific investigation that failed
         store.setError(projectId, issueNum, errorMsg);
         toast({
-          title: `Investigation failed for Issue #${issueNum}`,
+          title: i18next.t('common:investigation.toast.investigationFailed', { issueNumber: issueNum }),
           variant: 'destructive',
         });
       } else {
@@ -484,7 +488,7 @@ export function initializeInvestigationListeners(): void {
         for (const inv of active) {
           store.setError(projectId, inv.issueNumber, errorMsg);
           toast({
-            title: `Investigation failed for Issue #${inv.issueNumber}`,
+            title: i18next.t('common:investigation.toast.investigationFailed', { issueNumber: inv.issueNumber }),
             variant: 'destructive',
           });
         }

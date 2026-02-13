@@ -102,9 +102,7 @@ class InvestigationLabelManager:
                 )
             except Exception as e:
                 # 422 = label already exists, which is fine
-                logger.debug(
-                    "Label ensure for %s: %s (may already exist)", key, e
-                )
+                logger.debug("Label ensure for %s: %s (may already exist)", key, e)
 
     async def set_investigation_label(
         self,
@@ -124,9 +122,7 @@ class InvestigationLabelManager:
         """
         label_name = self._state_to_label(state)
         if label_name is None:
-            logger.warning(
-                "Unknown investigation state %r, skipping label sync", state
-            )
+            logger.warning("Unknown investigation state %r, skipping label sync", state)
             return
 
         # Debounce: skip if we changed labels for this issue too recently
@@ -149,9 +145,7 @@ class InvestigationLabelManager:
             # Add the new label
             await gh_client.issue_add_labels(issue_number, [label_name])
             self._last_label_time[issue_number] = now
-            logger.info(
-                "Set label %s on issue #%d", label_name, issue_number
-            )
+            logger.info("Set label %s on issue #%d", label_name, issue_number)
         except Exception as e:
             logger.warning(
                 "Failed to set label %s on issue #%d: %s",
@@ -167,9 +161,7 @@ class InvestigationLabelManager:
     ) -> None:
         """Remove all auto-claude: lifecycle labels from an issue."""
         try:
-            await gh_client.issue_remove_labels(
-                issue_number, self.ALL_LABEL_NAMES
-            )
+            await gh_client.issue_remove_labels(issue_number, self.ALL_LABEL_NAMES)
         except Exception as e:
             logger.debug(
                 "Failed to remove investigation labels from #%d: %s",

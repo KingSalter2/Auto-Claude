@@ -26,7 +26,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 # =============================================================================
 # Shared Sub-Models
 # =============================================================================
@@ -37,8 +36,12 @@ class CodePath(BaseModel):
 
     file: str = Field(description="File path relative to project root")
     start_line: int = Field(description="Start line number")
-    end_line: int | None = Field(None, description="End line number (None if single line)")
-    description: str = Field(description="What this code location does / why it matters")
+    end_line: int | None = Field(
+        None, description="End line number (None if single line)"
+    )
+    description: str = Field(
+        description="What this code location does / why it matters"
+    )
 
 
 class SuggestedLabel(BaseModel):
@@ -119,12 +122,8 @@ class ImpactAssessment(BaseModel):
     blast_radius: str = Field(
         description="Description of how far-reaching the impact is"
     )
-    user_impact: str = Field(
-        description="How end users are affected by this issue"
-    )
-    regression_risk: str = Field(
-        description="Risk of regression if fixing this issue"
-    )
+    user_impact: str = Field(description="How end users are affected by this issue")
+    regression_risk: str = Field(description="Risk of regression if fixing this issue")
 
 
 # =============================================================================
@@ -245,15 +244,9 @@ class InvestigationReport(BaseModel):
     timestamp: str = Field(description="ISO 8601 timestamp of investigation completion")
 
     # Agent results
-    root_cause: RootCauseAnalysis = Field(
-        description="Root cause analysis results"
-    )
-    impact: ImpactAssessment = Field(
-        description="Impact assessment results"
-    )
-    fix_advice: FixAdvice = Field(
-        description="Fix advice results"
-    )
+    root_cause: RootCauseAnalysis = Field(description="Root cause analysis results")
+    impact: ImpactAssessment = Field(description="Impact assessment results")
+    fix_advice: FixAdvice = Field(description="Fix advice results")
     reproduction: ReproductionAnalysis = Field(
         description="Reproduction analysis results"
     )
@@ -310,9 +303,7 @@ class InvestigationState(BaseModel):
     completed_at: str | None = Field(
         None, description="ISO 8601 timestamp when investigation completed"
     )
-    error: str | None = Field(
-        None, description="Error message if investigation failed"
-    )
+    error: str | None = Field(None, description="Error message if investigation failed")
     linked_spec_id: str | None = Field(
         None, description="Spec ID of the kanban task created from this investigation"
     )

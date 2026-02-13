@@ -525,7 +525,6 @@ def _create_minimal_plan_for_issue(spec_dir: Path, issue_number: int) -> None:
         spec_dir: Spec directory path
         issue_number: GitHub issue number for context
     """
-    import json
     from datetime import datetime
 
     plan_file = spec_dir / "implementation_plan.json"
@@ -571,8 +570,10 @@ def _create_minimal_plan_for_issue(spec_dir: Path, issue_number: int) -> None:
         },
     }
 
-    plan_file.write_text(json.dumps(plan, indent=2), encoding="utf-8")
-    print(f"  Pipeline mode: minimal (skipping planner, created single-subtask plan)")
+    from core.file_utils import write_json_atomic
+
+    write_json_atomic(plan_file, plan)
+    print("  Pipeline mode: minimal (skipping planner, created single-subtask plan)")
 
 
 def _get_investigation_pipeline_mode(project_dir: Path) -> str:
@@ -623,7 +624,6 @@ def _inject_issue_workflow_context(
         spec_dir: Spec directory path
         issue_number: GitHub issue number
     """
-    import json
 
     # Use try/except for imports matching the codebase pattern
     try:
@@ -670,7 +670,9 @@ def _inject_issue_workflow_context(
         context_parts.append("### Code Paths")
         for cp in report.root_cause.code_paths:
             end = cp.end_line if cp.end_line else cp.start_line
-            context_parts.append(f"- `{cp.file}:{cp.start_line}-{end}`: {cp.description}")
+            context_parts.append(
+                f"- `{cp.file}:{cp.start_line}-{end}`: {cp.description}"
+            )
         context_parts.append("")
 
     # Fix advice

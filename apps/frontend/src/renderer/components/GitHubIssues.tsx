@@ -7,6 +7,7 @@ import {
   useInvestigationStore,
   startIssueInvestigation,
   cancelIssueInvestigation,
+  cancelAllIssueInvestigations,
   loadPersistedInvestigations,
 } from "../stores/github";
 import { loadTasks } from "../stores/task-store";
@@ -432,7 +433,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     const updated = { ...(current ?? { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [] as string[], labelExcludeFilter: [] as string[] }), labelConsentGiven: true };
     investigationStore.setSettings(selectedProject.id, updated);
     if (window.electronAPI?.github?.saveInvestigationSettings) {
-      window.electronAPI.github.saveInvestigationSettings(selectedProject.id, updated).catch(() => {});
+      window.electronAPI.github.saveInvestigationSettings(selectedProject.id, updated).catch((err) => console.warn('Failed to persist label consent:', err));
     }
   }, [selectedProject?.id, investigationStore]);
 
@@ -554,6 +555,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         showDismissed={showDismissed}
         onToggleShowDismissed={() => setShowDismissed(!showDismissed)}
         activeInvestigationCount={activeInvestigations.length}
+        onCancelAllInvestigations={selectedProject?.id ? () => cancelAllIssueInvestigations(selectedProject.id) : undefined}
       />
 
       {/* Bulk Action Bar */}

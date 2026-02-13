@@ -16,9 +16,7 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import logging
-import shutil
 from pathlib import Path
 
 try:
@@ -100,7 +98,9 @@ def _build_spec_md(report: InvestigationReport) -> str:
     # Title
     lines.append(f"# Fix: {report.issue_title}")
     lines.append("")
-    lines.append(f"> Generated from investigation of GitHub issue #{report.issue_number}")
+    lines.append(
+        f"> Generated from investigation of GitHub issue #{report.issue_number}"
+    )
     lines.append("")
 
     # Summary
@@ -160,7 +160,9 @@ def _build_spec_md(report: InvestigationReport) -> str:
     # Testing
     lines.append("## Testing")
     lines.append("")
-    lines.append(f"**Suggested approach:** {report.reproduction.suggested_test_approach}")
+    lines.append(
+        f"**Suggested approach:** {report.reproduction.suggested_test_approach}"
+    )
     lines.append("")
 
     if report.reproduction.test_coverage.test_files:
@@ -205,13 +207,15 @@ def _build_requirements(report: InvestigationReport) -> dict:
         requirements.append(req)
 
     # Add testing requirement
-    requirements.append({
-        "id": f"REQ-{len(requirements) + 1:03d}",
-        "description": f"Add tests: {report.reproduction.suggested_test_approach}",
-        "priority": "must",
-        "complexity": "moderate",
-        "files": report.reproduction.related_test_files,
-    })
+    requirements.append(
+        {
+            "id": f"REQ-{len(requirements) + 1:03d}",
+            "description": f"Add tests: {report.reproduction.suggested_test_approach}",
+            "priority": "must",
+            "complexity": "moderate",
+            "files": report.reproduction.related_test_files,
+        }
+    )
 
     return {
         "issue_number": report.issue_number,

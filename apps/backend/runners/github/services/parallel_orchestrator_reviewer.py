@@ -17,7 +17,6 @@ Key Design:
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 import os
@@ -585,6 +584,7 @@ Report findings with specific file paths, line numbers, and code evidence.
         Returns:
             Tuple of (all_findings, agents_invoked)
         """
+
         # Build coroutine factories so failed specialists can be retried
         def _make_pr_specialist_factory(cfg: SpecialistConfig):
             def factory():
@@ -595,6 +595,7 @@ Report findings with specific file paths, line numbers, and code evidence.
                     model=model,
                     thinking_budget=thinking_budget,
                 )
+
             return factory
 
         coroutines = []

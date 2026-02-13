@@ -71,7 +71,9 @@ class SplitEngine:
         issue_number = issue["number"]
 
         self._report_progress(
-            "analyzing", 20, f"Analyzing issue #{issue_number} for splitting...",
+            "analyzing",
+            20,
+            f"Analyzing issue #{issue_number} for splitting...",
             issue_number=issue_number,
         )
 
@@ -104,7 +106,9 @@ class SplitEngine:
                                 response_text += block.text
 
                 self._report_progress(
-                    "suggesting", 80, "Parsing split suggestion...",
+                    "suggesting",
+                    80,
+                    "Parsing split suggestion...",
                     issue_number=issue_number,
                 )
 
@@ -121,9 +125,7 @@ class SplitEngine:
 
     def _build_split_context(self, issue: dict) -> str:
         """Build context string for split analysis."""
-        labels = ", ".join(
-            label["name"] for label in issue.get("labels", [])
-        ) or "None"
+        labels = ", ".join(label["name"] for label in issue.get("labels", [])) or "None"
 
         lines = [
             f"## Issue #{issue['number']}",
@@ -197,11 +199,13 @@ Output ONLY a JSON block:
 
                 sub_issues = []
                 for sub in data.get("subIssues", []):
-                    sub_issues.append({
-                        "title": sub.get("title", ""),
-                        "body": sub.get("body", ""),
-                        "labels": sub.get("labels", []),
-                    })
+                    sub_issues.append(
+                        {
+                            "title": sub.get("title", ""),
+                            "body": sub.get("body", ""),
+                            "labels": sub.get("labels", []),
+                        }
+                    )
 
                 return {
                     "issueNumber": issue_number,

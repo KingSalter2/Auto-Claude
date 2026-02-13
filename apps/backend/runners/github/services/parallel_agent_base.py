@@ -265,9 +265,7 @@ class ParallelAgentOrchestrator:
         failed_indices: list[int] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                logger.error(
-                    f"[{orchestrator_name}] Specialist task failed: {result}"
-                )
+                logger.error(f"[{orchestrator_name}] Specialist task failed: {result}")
                 failed_indices.append(i)
             else:
                 result_map[i] = result

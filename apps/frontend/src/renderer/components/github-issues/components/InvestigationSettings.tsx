@@ -374,7 +374,7 @@ function LabelFilterDropdown({
                 type="button"
                 className="ml-0.5 opacity-70 hover:opacity-100"
                 onClick={() => onRemove(label)}
-                aria-label={`Remove label ${label}`}
+                aria-label={t('common:labels.removeNamed', { name: label })}
                 style={textColor ? { color: textColor } : undefined}
               >
                 <X className="h-3 w-3" />
@@ -409,9 +409,9 @@ function LabelFilterDropdown({
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('labels.filter')}
               className="w-full px-2 py-1 text-xs border-b border-border bg-transparent focus:outline-none"
-              aria-label="Filter labels"
+              aria-label={t('common:labels.filter')}
             />
-            <div role="listbox" aria-label="Available labels">
+            <div role="listbox" aria-label={t('common:labels.available')}>
               {filteredLabels.map((label) => {
                 const isSelected = selectedLabels.includes(label.name);
                 return (
