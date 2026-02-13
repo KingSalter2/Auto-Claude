@@ -291,6 +291,7 @@ const browserMockAPI: ElectronAPI = {
 
     applyTriageResults: () => {},
     onApplyResultsProgress: () => () => {},
+    onApplyResultsError: () => () => {},
     onApplyResultsComplete: () => () => {},
 
     savePendingReview: async () => true,

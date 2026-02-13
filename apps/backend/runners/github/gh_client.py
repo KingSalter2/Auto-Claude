@@ -331,7 +331,11 @@ class GHClient:
         args = self._add_repo_flag(args)
 
         result = await self.run(args)
-        return json.loads(result.stdout)
+        try:
+            return json.loads(result.stdout) if result.stdout.strip() else []
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse PR list response: {result.stdout[:200]}")
+            return []
 
     async def pr_get(
         self, pr_number: int, json_fields: list[str] | None = None
@@ -371,7 +375,11 @@ class GHClient:
         args = self._add_repo_flag(args)
 
         result = await self.run(args)
-        return json.loads(result.stdout)
+        try:
+            return json.loads(result.stdout) if result.stdout.strip() else {}
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse PR #{pr_number} response: {result.stdout[:200]}")
+            return {}
 
     async def pr_diff(self, pr_number: int) -> str:
         """
@@ -478,7 +486,11 @@ class GHClient:
         ]
 
         result = await self.run(args)
-        return json.loads(result.stdout)
+        try:
+            return json.loads(result.stdout) if result.stdout.strip() else []
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse issue list response: {result.stdout[:200]}")
+            return []
 
     async def issue_get(
         self, issue_number: int, json_fields: list[str] | None = None
@@ -515,7 +527,11 @@ class GHClient:
         ]
 
         result = await self.run(args)
-        return json.loads(result.stdout)
+        try:
+            return json.loads(result.stdout) if result.stdout.strip() else {}
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse issue #{issue_number} response: {result.stdout[:200]}")
+            return {}
 
     async def issue_comment(self, issue_number: int, body: str) -> None:
         """
@@ -587,7 +603,11 @@ class GHClient:
                 args.extend(["-f", f"{key}={value}"])
 
         result = await self.run(args)
-        return json.loads(result.stdout)
+        try:
+            return json.loads(result.stdout) if result.stdout.strip() else {}
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse API response for {endpoint}: {result.stdout[:200]}")
+            return {}
 
     async def pr_merge(
         self,
@@ -625,6 +645,23 @@ class GHClient:
         """
         args = ["pr", "comment", str(pr_number), "--body", body]
         args = self._add_repo_flag(args)
+        await self.run(args)
+
+    async def pr_comment_reply(
+        self, pr_number: int, comment_id: int, body: str
+    ) -> None:
+        """
+        Reply to a specific review comment on a pull request.
+
+        Uses: POST /repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies
+
+        Args:
+            pr_number: PR number (used for the API endpoint)
+            comment_id: The ID of the review comment to reply to
+            body: Reply body text
+        """
+        endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/comments/{comment_id}/replies"
+        args = ["api", "--method", "POST", endpoint, "-f", f"body={body}"]
         await self.run(args)
 
     async def pr_get_assignees(self, pr_number: int) -> list[str]:
@@ -686,7 +723,11 @@ class GHClient:
         args = ["api", endpoint]
 
         result = await self.run(args, timeout=60.0)  # Longer timeout for large diffs
-        return json.loads(result.stdout)
+        try:
+            return json.loads(result.stdout) if result.stdout.strip() else {}
+        except json.JSONDecodeError:
+            logger.warning(f"Failed to parse commit comparison response: {result.stdout[:200]}")
+            return {}
 
     async def get_comments_since(
         self, pr_number: int, since_timestamp: str

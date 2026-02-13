@@ -298,14 +298,14 @@ export function registerAITriageHandlers(
       const mainWindow = getMainWindow();
       if (!mainWindow) return;
 
-      const { sendProgress, sendError: _sendError, sendComplete } = createIPCCommunicators<
+      const { sendProgress, sendError, sendComplete } = createIPCCommunicators<
         ApplyResultsProgress,
         { succeeded: number; failed: number; skipped: number }
       >(
         mainWindow,
         {
           progress: IPC_CHANNELS.GITHUB_TRIAGE_APPLY_RESULTS_PROGRESS,
-          error: IPC_CHANNELS.GITHUB_TRIAGE_APPLY_RESULTS_PROGRESS,
+          error: IPC_CHANNELS.GITHUB_TRIAGE_APPLY_RESULTS_ERROR,
           complete: IPC_CHANNELS.GITHUB_TRIAGE_APPLY_RESULTS_COMPLETE,
         },
         projectId,
@@ -416,6 +416,7 @@ export function registerAITriageHandlers(
         });
       } catch (error) {
         debugLog('applyTriageResults failed', { error: error instanceof Error ? error.message : error });
+        sendError(error instanceof Error ? error.message : 'Failed to apply triage results');
       }
     },
   );

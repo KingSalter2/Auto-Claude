@@ -8,7 +8,10 @@ Handles automatic issue fixing workflow including permissions and state manageme
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 try:
     from ..models import AutoFixState, AutoFixStatus, GitHubRunnerConfig
@@ -145,7 +148,14 @@ class AutoFixProcessor:
 
         except Exception as e:
             if state:
-                state.status = AutoFixStatus.FAILED
+                try:
+                    state.update_status(AutoFixStatus.FAILED)
+                except ValueError:
+                    # Last resort: force-set if transition is invalid
+                    logger.warning(
+                        f"Invalid transition {state.status.value} -> failed, forcing"
+                    )
+                    state.status = AutoFixStatus.FAILED
                 state.error = str(e)
                 await state.save(self.github_dir)
             raise

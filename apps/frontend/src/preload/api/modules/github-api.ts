@@ -390,6 +390,7 @@ export interface GitHubAPI {
 
   applyTriageResults: (projectId: string, items: TriageReviewItem[]) => void;
   onApplyResultsProgress: (callback: (projectId: string, progress: ApplyResultsProgress) => void) => IpcListenerCleanup;
+  onApplyResultsError: (callback: (projectId: string, error: { error: string }) => void) => IpcListenerCleanup;
   onApplyResultsComplete: (callback: (projectId: string, results: { succeeded: number; failed: number; skipped: number }) => void) => IpcListenerCleanup;
 
   savePendingReview: (projectId: string, items: TriageReviewItem[]) => Promise<boolean>;
@@ -988,6 +989,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   onApplyResultsProgress: (callback: (projectId: string, progress: ApplyResultsProgress) => void): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_TRIAGE_APPLY_RESULTS_PROGRESS, callback),
+
+  onApplyResultsError: (callback: (projectId: string, error: { error: string }) => void): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_TRIAGE_APPLY_RESULTS_ERROR, callback),
 
   onApplyResultsComplete: (callback: (projectId: string, results: { succeeded: number; failed: number; skipped: number }) => void): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_TRIAGE_APPLY_RESULTS_COMPLETE, callback),
