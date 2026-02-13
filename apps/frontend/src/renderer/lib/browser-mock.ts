@@ -198,6 +198,7 @@ const browserMockAPI: ElectronAPI = {
     postInvestigationToGitHub: async () => ({ success: true, data: { commentId: 0 } }),
     getInvestigationSettings: async () => ({ success: true, data: { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [], labelExcludeFilter: [] } }),
     saveInvestigationSettings: async () => ({ success: true }),
+    loadPersistedInvestigations: async () => ({ success: true, data: [] }),
     onInvestigationProgress: () => () => {},
     onInvestigationComplete: () => () => {},
     onInvestigationError: () => () => {},

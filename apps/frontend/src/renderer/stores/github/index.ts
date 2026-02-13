@@ -38,6 +38,7 @@ export {
   startIssueInvestigation,
   cancelIssueInvestigation,
   investigateGitHubIssue,
+  loadPersistedInvestigations,
   type IssueInvestigationState
 } from './investigation-store';
 import { initializeInvestigationListeners as _initInvestigationListeners } from './investigation-store';

@@ -4,6 +4,7 @@
  * Handles the full investigation lifecycle:
  * - Start investigation (spawn Python orchestrator subprocess)
  * - Cancel investigation (kill running subprocess)
+ * - Queue management for parallel investigation limits
  * - Create task from investigation report
  * - Dismiss issue
  * - Post investigation results to GitHub
@@ -54,6 +55,52 @@ const { debug: debugLog } = createContextLogger('Investigation');
 
 // Track active investigation subprocesses, keyed by `${projectId}:${issueNumber}`
 const activeInvestigations = new Map<string, ChildProcess>();
+
+// ============================================
+// Investigation Queue
+// ============================================
+
+interface QueuedInvestigation {
+  projectId: string;
+  issueNumber: number;
+  queuedAt: string;
+}
+
+/** FIFO queue for investigations waiting to start */
+const investigationQueue: QueuedInvestigation[] = [];
+
+/**
+ * Get the max parallel investigations setting for a project.
+ * Reads from the project's GitHub config on disk (same source as the settings handler).
+ */
+function getMaxParallel(projectId: string): number {
+  const DEFAULT_MAX = 3;
+  try {
+    const project = projectStore.getProject(projectId);
+    if (!project) return DEFAULT_MAX;
+    const configPath = path.join(project.path, '.auto-claude', 'github', 'config.json');
+    const data = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    const settings = data.investigation_settings as InvestigationSettings | undefined;
+    return settings?.maxParallelInvestigations ?? DEFAULT_MAX;
+  } catch {
+    return DEFAULT_MAX;
+  }
+}
+
+/**
+ * Remove an investigation from the queue (e.g. on cancel).
+ * Returns true if the item was found and removed.
+ */
+function removeFromQueue(projectId: string, issueNumber: number): boolean {
+  const index = investigationQueue.findIndex(
+    (q) => q.projectId === projectId && q.issueNumber === issueNumber,
+  );
+  if (index !== -1) {
+    investigationQueue.splice(index, 1);
+    return true;
+  }
+  return false;
+}
 
 /**
  * Get GitHub Issues model and thinking settings from app settings
@@ -275,6 +322,206 @@ function registerLegacyInvestigateIssue(
 // ============================================
 
 /**
+ * Run a single investigation subprocess for a given project/issue.
+ * This is extracted from the start handler so it can be called both
+ * directly (when under the parallel limit) and from processQueue().
+ *
+ * After completion (success, error, or exception), it calls processQueue()
+ * to start the next queued investigation.
+ */
+async function runInvestigation(
+  projectId: string,
+  issueNumber: number,
+  getMainWindow: () => BrowserWindow | null,
+): Promise<void> {
+  const mainWindow = getMainWindow();
+  if (!mainWindow) return;
+
+  const { sendProgress, sendError, sendComplete } = createIPCCommunicators<
+    InvestigationProgress,
+    InvestigationResult
+  >(
+    mainWindow,
+    {
+      progress: IPC_CHANNELS.GITHUB_INVESTIGATION_PROGRESS,
+      error: IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR,
+      complete: IPC_CHANNELS.GITHUB_INVESTIGATION_COMPLETE,
+    },
+    projectId,
+  );
+
+  const processKey = `${projectId}:${issueNumber}`;
+
+  try {
+    await withProjectOrNull(projectId, async (project) => {
+      const validation = await validateGitHubModule(project);
+      if (!validation.valid) {
+        sendError(validation.error ?? 'GitHub module not available');
+        return;
+      }
+
+      const backendPath = validation.backendPath ?? '';
+      const { model, thinkingLevel } = getGitHubIssuesSettings();
+
+      const args = buildRunnerArgs(
+        getRunnerPath(backendPath),
+        project.path,
+        'investigate',
+        [String(issueNumber)],
+        { model, thinkingLevel },
+      );
+
+      const startedAt = new Date().toISOString();
+
+      sendProgress({
+        issueNumber,
+        phase: 'starting',
+        progress: 5,
+        message: 'Starting investigation...',
+        agentStatuses: [
+          { agentType: 'root_cause', status: 'pending', progress: 0 },
+          { agentType: 'impact', status: 'pending', progress: 0 },
+          { agentType: 'fix_advisor', status: 'pending', progress: 0 },
+          { agentType: 'reproducer', status: 'pending', progress: 0 },
+        ],
+        startedAt,
+      });
+
+      const subprocessEnv = await getRunnerEnv();
+      const { process: childProcess, promise } = runPythonSubprocess<InvestigationResult>({
+        pythonPath: getPythonPath(backendPath),
+        args,
+        cwd: backendPath,
+        env: subprocessEnv,
+        onProgress: (percent, message, data) => {
+          // Parse agent status updates from progress data if available
+          const progressUpdate: InvestigationProgress = {
+            issueNumber,
+            phase: percent < 90 ? 'investigating' : 'finalizing',
+            progress: percent,
+            message,
+            agentStatuses: (data as InvestigationProgress | undefined)?.agentStatuses ?? [],
+            startedAt,
+          };
+          sendProgress(progressUpdate);
+        },
+        onComplete: (stdout) => parseJSONFromOutput<InvestigationResult>(stdout),
+        onStdout: (line) => debugLog('STDOUT:', line),
+        onStderr: (line) => debugLog('STDERR:', line),
+        onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
+          const win = getMainWindow();
+          if (win) {
+            win.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+          }
+        },
+      });
+
+      activeInvestigations.set(processKey, childProcess);
+
+      let result;
+      try {
+        result = await promise;
+      } finally {
+        activeInvestigations.delete(processKey);
+      }
+
+      if (!result.success) {
+        sendError(result.error ?? 'Investigation failed');
+        return;
+      }
+
+      const investigationResult = result.data as InvestigationResult;
+      sendComplete(investigationResult);
+    });
+  } catch (error) {
+    sendError(error instanceof Error ? error.message : 'Failed to start investigation');
+  } finally {
+    // Always try to start the next queued investigation after this one finishes
+    processQueue(getMainWindow);
+  }
+}
+
+/**
+ * Send a "queued" progress update to the renderer for a queued investigation,
+ * including the 1-based queue position.
+ */
+function sendQueuedProgress(
+  mainWindow: BrowserWindow,
+  projectId: string,
+  issueNumber: number,
+  position: number,
+): void {
+  const { sendProgress } = createIPCCommunicators<InvestigationProgress, InvestigationResult>(
+    mainWindow,
+    {
+      progress: IPC_CHANNELS.GITHUB_INVESTIGATION_PROGRESS,
+      error: IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR,
+      complete: IPC_CHANNELS.GITHUB_INVESTIGATION_COMPLETE,
+    },
+    projectId,
+  );
+
+  sendProgress({
+    issueNumber,
+    phase: 'queued',
+    progress: 0,
+    message: `Queued (position ${position})`,
+    agentStatuses: [],
+    startedAt: new Date().toISOString(),
+  });
+}
+
+/**
+ * Update queue position progress for all currently queued investigations.
+ */
+function broadcastQueuePositions(getMainWindow: () => BrowserWindow | null): void {
+  const mainWindow = getMainWindow();
+  if (!mainWindow) return;
+
+  for (let i = 0; i < investigationQueue.length; i++) {
+    const queued = investigationQueue[i];
+    sendQueuedProgress(mainWindow, queued.projectId, queued.issueNumber, i + 1);
+  }
+}
+
+/**
+ * Process the investigation queue: start as many queued investigations as
+ * allowed by the maxParallelInvestigations limit.
+ */
+function processQueue(getMainWindow: () => BrowserWindow | null): void {
+  if (investigationQueue.length === 0) return;
+
+  // Process items from the front of the queue (FIFO).
+  while (investigationQueue.length > 0) {
+    const next = investigationQueue[0];
+    const maxParallel = getMaxParallel(next.projectId);
+
+    if (activeInvestigations.size >= maxParallel) {
+      debugLog('Queue: at parallel limit, waiting', {
+        active: activeInvestigations.size,
+        maxParallel,
+        queued: investigationQueue.length,
+      });
+      break;
+    }
+
+    // Dequeue and start
+    investigationQueue.shift();
+    debugLog('Queue: starting queued investigation', {
+      projectId: next.projectId,
+      issueNumber: next.issueNumber,
+      remainingInQueue: investigationQueue.length,
+    });
+
+    // Fire-and-forget: runInvestigation will call processQueue again when it finishes
+    runInvestigation(next.projectId, next.issueNumber, getMainWindow);
+
+    // Update queue positions for remaining items
+    broadcastQueuePositions(getMainWindow);
+  }
+}
+
+/**
  * Register all investigation-related handlers
  */
 export function registerInvestigationHandlers(
@@ -287,7 +534,7 @@ export function registerInvestigationHandlers(
   registerLegacyInvestigateIssue(agentManager, getMainWindow);
 
   // ============================================
-  // 1. Start investigation
+  // 1. Start investigation (with queue management)
   // ============================================
   ipcMain.on(
     IPC_CHANNELS.GITHUB_INVESTIGATION_START,
@@ -296,20 +543,16 @@ export function registerInvestigationHandlers(
       const mainWindow = getMainWindow();
       if (!mainWindow) return;
 
-      const { sendProgress, sendError, sendComplete } = createIPCCommunicators<
-        InvestigationProgress,
-        InvestigationResult
-      >(
-        mainWindow,
-        {
-          progress: IPC_CHANNELS.GITHUB_INVESTIGATION_PROGRESS,
-          error: IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR,
-          complete: IPC_CHANNELS.GITHUB_INVESTIGATION_COMPLETE,
-        },
-        projectId,
-      );
-
       if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+        const { sendError } = createIPCCommunicators<InvestigationProgress, InvestigationResult>(
+          mainWindow,
+          {
+            progress: IPC_CHANNELS.GITHUB_INVESTIGATION_PROGRESS,
+            error: IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR,
+            complete: IPC_CHANNELS.GITHUB_INVESTIGATION_COMPLETE,
+          },
+          projectId,
+        );
         sendError('Invalid issue number');
         return;
       }
@@ -323,97 +566,55 @@ export function registerInvestigationHandlers(
         activeInvestigations.delete(processKey);
       }
 
-      try {
-        await withProjectOrNull(projectId, async (project) => {
-          const validation = await validateGitHubModule(project);
-          if (!validation.valid) {
-            sendError(validation.error ?? 'GitHub module not available');
-            return;
-          }
+      // Also remove from queue if already queued (re-start scenario)
+      removeFromQueue(projectId, issueNumber);
 
-          const backendPath = validation.backendPath ?? '';
-          const { model, thinkingLevel } = getGitHubIssuesSettings();
-
-          const args = buildRunnerArgs(
-            getRunnerPath(backendPath),
-            project.path,
-            'investigate',
-            [String(issueNumber)],
-            { model, thinkingLevel },
-          );
-
-          const startedAt = new Date().toISOString();
-
-          sendProgress({
-            issueNumber,
-            phase: 'starting',
-            progress: 5,
-            message: 'Starting investigation...',
-            agentStatuses: [
-              { agentType: 'root_cause', status: 'pending', progress: 0 },
-              { agentType: 'impact', status: 'pending', progress: 0 },
-              { agentType: 'fix_advisor', status: 'pending', progress: 0 },
-              { agentType: 'reproducer', status: 'pending', progress: 0 },
-            ],
-            startedAt,
-          });
-
-          const subprocessEnv = await getRunnerEnv();
-          const { process: childProcess, promise } = runPythonSubprocess<InvestigationResult>({
-            pythonPath: getPythonPath(backendPath),
-            args,
-            cwd: backendPath,
-            env: subprocessEnv,
-            onProgress: (percent, message, data) => {
-              // Parse agent status updates from progress data if available
-              const progressUpdate: InvestigationProgress = {
-                issueNumber,
-                phase: percent < 90 ? 'investigating' : 'finalizing',
-                progress: percent,
-                message,
-                agentStatuses: (data as InvestigationProgress | undefined)?.agentStatuses ?? [],
-                startedAt,
-              };
-              sendProgress(progressUpdate);
-            },
-            onComplete: (stdout) => parseJSONFromOutput<InvestigationResult>(stdout),
-            onStdout: (line) => debugLog('STDOUT:', line),
-            onStderr: (line) => debugLog('STDERR:', line),
-            onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
-              mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
-            },
-          });
-
-          activeInvestigations.set(processKey, childProcess);
-
-          let result;
-          try {
-            result = await promise;
-          } finally {
-            activeInvestigations.delete(processKey);
-          }
-
-          if (!result.success) {
-            sendError(result.error ?? 'Investigation failed');
-            return;
-          }
-
-          const investigationResult = result.data as InvestigationResult;
-          sendComplete(investigationResult);
+      // Check whether we are at the parallel limit
+      const maxParallel = getMaxParallel(projectId);
+      if (activeInvestigations.size >= maxParallel) {
+        // Enqueue and send "queued" progress
+        investigationQueue.push({
+          projectId,
+          issueNumber,
+          queuedAt: new Date().toISOString(),
         });
-      } catch (error) {
-        sendError(error instanceof Error ? error.message : 'Failed to start investigation');
+
+        const position = investigationQueue.length;
+        debugLog('Investigation queued', {
+          projectId,
+          issueNumber,
+          position,
+          active: activeInvestigations.size,
+          maxParallel,
+        });
+
+        sendQueuedProgress(mainWindow, projectId, issueNumber, position);
+        return;
       }
+
+      // Under the limit — start immediately
+      runInvestigation(projectId, issueNumber, getMainWindow);
     },
   );
 
   // ============================================
-  // 2. Cancel investigation
+  // 2. Cancel investigation (also removes from queue)
   // ============================================
   ipcMain.on(
     IPC_CHANNELS.GITHUB_INVESTIGATION_CANCEL,
     (_, projectId: string, issueNumber: number) => {
       debugLog('cancelInvestigation handler called', { projectId, issueNumber });
+
+      // First, try to remove from the queue (not yet started)
+      const wasQueued = removeFromQueue(projectId, issueNumber);
+      if (wasQueued) {
+        debugLog('Investigation removed from queue', { projectId, issueNumber });
+        // Update queue positions for remaining items
+        broadcastQueuePositions(getMainWindow);
+        return;
+      }
+
+      // Otherwise, kill the running subprocess
       const processKey = `${projectId}:${issueNumber}`;
       const proc = activeInvestigations.get(processKey);
 
@@ -673,6 +874,116 @@ export function registerInvestigationHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to save settings',
+        };
+      }
+    },
+  );
+
+  // ============================================
+  // 8. Load persisted investigations from disk
+  // ============================================
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_INVESTIGATION_LOAD_PERSISTED,
+    async (_, projectId: string) => {
+      debugLog('loadPersistedInvestigations handler called', { projectId });
+
+      try {
+        const result = await withProjectOrNull(projectId, async (project) => {
+          const issuesDir = path.join(project.path, '.auto-claude', 'issues');
+
+          if (!fs.existsSync(issuesDir)) {
+            return { success: true, data: [] };
+          }
+
+          const entries = fs.readdirSync(issuesDir, { withFileTypes: true });
+          const persisted: Array<{
+            issueNumber: number;
+            status: string;
+            report?: unknown;
+            completedAt?: string;
+            specId?: string;
+            githubCommentId?: number;
+            wasInterrupted?: boolean;
+          }> = [];
+
+          for (const entry of entries) {
+            if (!entry.isDirectory()) continue;
+
+            const issueNumber = parseInt(entry.name, 10);
+            if (isNaN(issueNumber)) continue;
+
+            const issueDir = path.join(issuesDir, entry.name);
+            const stateFile = path.join(issueDir, 'investigation_state.json');
+
+            if (!fs.existsSync(stateFile)) continue;
+
+            try {
+              const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+              const status = stateData.status;
+
+              // If the investigation was in-progress when the app shut down, mark it as failed
+              if (status === 'investigating') {
+                const item: (typeof persisted)[number] = {
+                  issueNumber,
+                  status: 'failed',
+                  completedAt: stateData.completed_at ?? undefined,
+                  specId: stateData.spec_id ?? stateData.linked_spec_id ?? undefined,
+                  githubCommentId: stateData.github_comment_id ?? undefined,
+                  wasInterrupted: true,
+                };
+
+                // Try to load partial report if one exists
+                const reportFile = path.join(issueDir, 'investigation_report.json');
+                if (fs.existsSync(reportFile)) {
+                  try {
+                    item.report = JSON.parse(fs.readFileSync(reportFile, 'utf-8'));
+                  } catch {
+                    // Ignore corrupt report files
+                  }
+                }
+
+                persisted.push(item);
+                continue;
+              }
+
+              // Skip cancelled investigations
+              if (status === 'cancelled') continue;
+
+              // For completed states, load the report
+              const reportFile = path.join(issueDir, 'investigation_report.json');
+              let report: unknown | undefined;
+
+              if (fs.existsSync(reportFile)) {
+                try {
+                  report = JSON.parse(fs.readFileSync(reportFile, 'utf-8'));
+                } catch {
+                  // Ignore corrupt report files
+                }
+              }
+
+              persisted.push({
+                issueNumber,
+                status,
+                report,
+                completedAt: stateData.completed_at ?? undefined,
+                specId: stateData.spec_id ?? stateData.linked_spec_id ?? undefined,
+                githubCommentId: stateData.github_comment_id ?? undefined,
+                wasInterrupted: false,
+              });
+            } catch {
+              // Skip issues with corrupt state files
+              debugLog('Skipping corrupt investigation state', { issueNumber });
+            }
+          }
+
+          return { success: true, data: persisted };
+        });
+
+        return result ?? { success: true, data: [] };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to load persisted investigations',
         };
       }
     },

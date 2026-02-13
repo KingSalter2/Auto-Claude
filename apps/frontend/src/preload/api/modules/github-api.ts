@@ -14,7 +14,8 @@ import type {
   InvestigationProgress,
   InvestigationResult,
   InvestigationDismissReason,
-  InvestigationSettings
+  InvestigationSettings,
+  PersistedInvestigationState,
 } from '../../../shared/types';
 import type { EnrichmentFile, IssueEnrichment, WorkflowState, Resolution } from '../../../shared/types/enrichment';
 import type { LabelSyncConfig, LabelSyncResult } from '../../../shared/types/label-sync';
@@ -237,6 +238,7 @@ export interface GitHubAPI {
   postInvestigationToGitHub: (projectId: string, issueNumber: number) => Promise<IPCResult<{ commentId: number }>>;
   getInvestigationSettings: (projectId: string) => Promise<IPCResult<InvestigationSettings>>;
   saveInvestigationSettings: (projectId: string, settings: Partial<InvestigationSettings>) => Promise<IPCResult>;
+  loadPersistedInvestigations: (projectId: string) => Promise<IPCResult<PersistedInvestigationState[]>>;
 
   // Investigation event listeners (new system)
   onInvestigationProgress: (
@@ -727,6 +729,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   saveInvestigationSettings: (projectId: string, settings: Partial<InvestigationSettings>): Promise<IPCResult> =>
     invokeIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_SAVE_SETTINGS, projectId, settings),
+
+  loadPersistedInvestigations: (projectId: string): Promise<IPCResult<PersistedInvestigationState[]>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_INVESTIGATION_LOAD_PERSISTED, projectId),
 
   // Investigation event listeners (new system)
   onInvestigationProgress: (

@@ -274,6 +274,7 @@ export const IPC_CHANNELS = {
   GITHUB_INVESTIGATION_POST_GITHUB: 'github:investigation:postGitHub',
   GITHUB_INVESTIGATION_GET_SETTINGS: 'github:investigation:getSettings',
   GITHUB_INVESTIGATION_SAVE_SETTINGS: 'github:investigation:saveSettings',
+  GITHUB_INVESTIGATION_LOAD_PERSISTED: 'github:investigation:loadPersisted',
 
   // GitHub Investigation events (main -> renderer)
   GITHUB_INVESTIGATION_PROGRESS: 'github:investigationProgress',
