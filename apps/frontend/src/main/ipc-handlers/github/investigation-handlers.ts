@@ -490,7 +490,7 @@ async function runInvestigation(
     await withProjectOrNull(projectId, async (project) => {
       const validation = await validateGitHubModule(project);
       if (!validation.valid) {
-        sendError(validation.error ?? 'GitHub module not available');
+        sendError({ error: validation.error ?? 'GitHub module not available', issueNumber });
         return;
       }
 
@@ -694,14 +694,20 @@ function broadcastQueuePositions(getMainWindow: () => BrowserWindow | null): voi
 function processQueue(getMainWindow: () => BrowserWindow | null, agentManager?: AgentManager): void {
   if (investigationQueue.length === 0) return;
 
+  // Track how many we fire-and-forget in this synchronous loop, since
+  // runInvestigation adds to activeInvestigations asynchronously (after
+  // the first await), so activeInvestigations.size alone would under-count.
+  let startedThisLoop = 0;
+
   // Process items from the front of the queue (FIFO).
   while (investigationQueue.length > 0) {
     const next = investigationQueue[0];
     const maxParallel = getMaxParallel(next.projectId);
 
-    if (activeInvestigations.size >= maxParallel) {
+    if (activeInvestigations.size + startedThisLoop >= maxParallel) {
       debugLog('Queue: at parallel limit, waiting', {
         active: activeInvestigations.size,
+        launching: startedThisLoop,
         maxParallel,
         queued: investigationQueue.length,
       });
@@ -710,6 +716,7 @@ function processQueue(getMainWindow: () => BrowserWindow | null, agentManager?: 
 
     // Dequeue and start
     investigationQueue.shift();
+    startedThisLoop++;
     debugLog('Queue: starting queued investigation', {
       projectId: next.projectId,
       issueNumber: next.issueNumber,
@@ -1333,6 +1340,16 @@ export function registerInvestigationHandlers(
             });
             setTimeout(() => {
               for (const issueNum of interruptedIssues) {
+                // Skip if already active or already queued (e.g. user manually started during delay)
+                const processKey = `${projectId}:${issueNum}`;
+                if (activeInvestigations.has(processKey)) {
+                  debugLog('Auto-resume: skipping already-active investigation', { projectId, issueNumber: issueNum });
+                  continue;
+                }
+                if (investigationQueue.some((q) => q.projectId === projectId && q.issueNumber === issueNum)) {
+                  debugLog('Auto-resume: skipping already-queued investigation', { projectId, issueNumber: issueNum });
+                  continue;
+                }
                 debugLog('Auto-resuming interrupted investigation', { projectId, issueNumber: issueNum });
                 investigationQueue.push({
                   projectId,
