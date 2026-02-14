@@ -9,4 +9,5 @@ export { useLabelSync } from './useLabelSync';
 export { useDependencies } from './useDependencies';
 export { useMetrics } from './useMetrics';
 export { useAnalyzePreview } from './useAnalyzePreview';
+export { useIssueListFiltering } from './useIssueListFiltering';
 // useTriageMode — removed in F9, replaced by investigation system
