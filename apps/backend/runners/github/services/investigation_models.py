@@ -103,8 +103,8 @@ class AffectedComponent(BaseModel):
 
     file: str = Field(description="File path of the affected component")
     component: str = Field(description="Component or module name")
-    impact_type: Literal["direct", "indirect", "dependency"] = Field(
-        description="How this component is affected"
+    impact_type: str = Field(
+        description="How this component is affected (e.g. direct, indirect, dependency)"
     )
     description: str = Field(description="Description of the impact on this component")
 

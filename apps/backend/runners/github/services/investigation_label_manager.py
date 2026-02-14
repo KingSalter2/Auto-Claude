@@ -106,10 +106,27 @@ class InvestigationLabelManager:
     async def ensure_labels_exist(self, gh_client: GHClient) -> None:
         """Create labels in the repo if they don't already exist (idempotent).
 
-        Called once when an investigation starts. Uses the GitHub API
-        to create each label; existing labels are silently skipped.
+        Called once when an investigation starts. Fetches existing labels
+        first to avoid 422 errors from attempting to create duplicates.
         """
+        # Fetch existing labels to avoid noisy 422 errors
+        existing_names: set[str] = set()
+        try:
+            import json
+
+            result = await gh_client.run(
+                ["api", "--method", "GET", "repos/{owner}/{repo}/labels", "--paginate"],
+                raise_on_error=False,
+            )
+            if result.returncode == 0:
+                for label in json.loads(result.stdout):
+                    existing_names.add(label.get("name", ""))
+        except Exception:
+            pass  # If fetch fails, try creating all labels anyway
+
         for key, label_def in self.labels.items():
+            if label_def["name"] in existing_names:
+                continue
             try:
                 await gh_client.run(
                     [
@@ -127,7 +144,6 @@ class InvestigationLabelManager:
                     raise_on_error=False,
                 )
             except Exception as e:
-                # 422 = label already exists, which is fine
                 logger.debug("Label ensure for %s: %s (may already exist)", key, e)
 
     async def set_investigation_label(

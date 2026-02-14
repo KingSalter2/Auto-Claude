@@ -551,6 +551,27 @@ class GHClient:
         args = self._add_repo_flag(args)
         await self.run(args)
 
+    async def issue_comments(self, issue_number: int) -> list[dict]:
+        """
+        Fetch comments on an issue.
+
+        Args:
+            issue_number: Issue number
+
+        Returns:
+            List of comment dicts from the GitHub API
+        """
+        endpoint = f"repos/{{owner}}/{{repo}}/issues/{issue_number}/comments"
+        args = ["api", "--method", "GET", endpoint]
+        result = await self.run(args, raise_on_error=False)
+
+        if result.returncode == 0:
+            try:
+                return json.loads(result.stdout)
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse comments for issue #{issue_number}")
+        return []
+
     async def issue_add_labels(self, issue_number: int, labels: list[str]) -> None:
         """
         Add labels to an issue.
