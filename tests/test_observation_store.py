@@ -77,6 +77,23 @@ class TestCRUD:
         reloaded = store.get(obs.id)
         assert reloaded.content == "modified"
 
+    def test_update_redacts_secrets(self, store):
+        obs = _make_obs(content="clean content", context="clean context")
+        store.save(obs)
+        updated = store.update(obs.id, {
+            "content": "has password=secret123 inside",
+            "context": "api_key=AKIAIOSFODNN7EXAMPLE here",
+        })
+        assert updated is not None
+        assert "secret123" not in updated.content
+        assert "[REDACTED]" in updated.content
+        assert "AKIAIOSFODNN7EXAMPLE" not in updated.context
+        assert "[REDACTED]" in updated.context
+        # Verify persistence
+        reloaded = store.get(obs.id)
+        assert "secret123" not in reloaded.content
+        assert "AKIAIOSFODNN7EXAMPLE" not in reloaded.context
+
     def test_update_nonexistent_returns_none(self, store):
         assert store.update("no-such-id", {"content": "x"}) is None
 

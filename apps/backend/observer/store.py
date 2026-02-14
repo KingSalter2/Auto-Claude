@@ -256,6 +256,11 @@ class ObservationStore:
             logger.warning("Invalid update fields for %s: %s", obs_id, e)
             return None
 
+        # Redact secrets before writing (matches save() pattern)
+        updated.content = redact_secrets(updated.content)
+        if updated.context:
+            updated.context = redact_secrets(updated.context)
+
         self._atomic_write(self._obs_path(obs_id), updated.to_dict())
         return updated
 
