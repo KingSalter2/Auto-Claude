@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  CheckCircle, Circle, CircleDot, Loader2, XCircle,
-  Send, FileText, X, RotateCcw, RefreshCw,
+  CheckCircle, Circle, CircleDot, Loader2, XCircle, ChevronDown,
+  Send, FileText, X, RotateCcw, RefreshCw, EyeOff,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Progress } from '../../ui/progress';
@@ -346,8 +346,9 @@ export function InvestigationNeedsAttention({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm">
-                <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                <EyeOff className="h-3.5 w-3.5 mr-1.5" />
                 {t('investigation.button.dismiss', 'Dismiss')}
+                <ChevronDown className="h-3 w-3 ml-1 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
