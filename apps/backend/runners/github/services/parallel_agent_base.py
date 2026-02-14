@@ -45,6 +45,30 @@ except (ImportError, ValueError, SystemError):
 
 logger = logging.getLogger(__name__)
 
+# Import investigation Bash safety hook (lazy - only used when Bash is in tools)
+_investigation_bash_guard = None
+
+
+def _get_investigation_bash_guard():
+    """Lazy-import the investigation Bash guard to avoid circular imports."""
+    global _investigation_bash_guard
+    if _investigation_bash_guard is None:
+        try:
+            from .investigation_hooks import investigation_bash_guard
+
+            _investigation_bash_guard = investigation_bash_guard
+        except (ImportError, ValueError, SystemError):
+            try:
+                from services.investigation_hooks import investigation_bash_guard
+
+                _investigation_bash_guard = investigation_bash_guard
+            except (ImportError, ModuleNotFoundError):
+                from investigation_hooks import investigation_bash_guard
+
+                _investigation_bash_guard = investigation_bash_guard
+    return _investigation_bash_guard
+
+
 # Check if debug mode is enabled
 DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ("true", "1", "yes")
 
@@ -183,6 +207,25 @@ class ParallelAgentOrchestrator:
                     "type": "json_schema",
                     "schema": output_schema,
                 }
+
+            # Add investigation Bash safety hook if agent has Bash access
+            if "Bash" in config.tools:
+                try:
+                    from claude_agent_sdk.types import HookMatcher
+
+                    bash_guard = _get_investigation_bash_guard()
+                    existing_hooks = client_kwargs.get("hooks", {})
+                    pre_tool_hooks = existing_hooks.get("PreToolUse", [])
+                    pre_tool_hooks.append(
+                        HookMatcher(matcher="Bash", hooks=[bash_guard])
+                    )
+                    existing_hooks["PreToolUse"] = pre_tool_hooks
+                    client_kwargs["hooks"] = existing_hooks
+                except ImportError:
+                    logger.warning(
+                        f"[{log_name}] Could not import HookMatcher — "
+                        "Bash access will be unguarded"
+                    )
 
             client = create_client(**client_kwargs)
 

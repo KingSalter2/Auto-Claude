@@ -80,7 +80,7 @@ INVESTIGATION_SPECIALISTS: list[SpecialistConfig] = [
     SpecialistConfig(
         name="root_cause",
         prompt_file="investigation_root_cause.md",
-        tools=["Read", "Grep", "Glob"],
+        tools=["Read", "Grep", "Glob", "Bash"],
         description="Trace the bug/issue to its source code paths and identify the root cause",
         max_turns=40,
         thinking_budget_multiplier=1.5,
@@ -88,7 +88,7 @@ INVESTIGATION_SPECIALISTS: list[SpecialistConfig] = [
     SpecialistConfig(
         name="impact",
         prompt_file="investigation_impact.md",
-        tools=["Read", "Grep", "Glob"],
+        tools=["Read", "Grep", "Glob", "Bash"],
         description="Determine blast radius, affected components, and user impact",
         max_turns=25,
         thinking_budget_multiplier=1.0,
@@ -96,7 +96,7 @@ INVESTIGATION_SPECIALISTS: list[SpecialistConfig] = [
     SpecialistConfig(
         name="fix_advisor",
         prompt_file="investigation_fix_advice.md",
-        tools=["Read", "Grep", "Glob"],
+        tools=["Read", "Grep", "Glob", "Bash"],
         description="Suggest concrete fix approaches with files to modify and patterns to follow",
         max_turns=30,
         thinking_budget_multiplier=1.0,
@@ -104,7 +104,7 @@ INVESTIGATION_SPECIALISTS: list[SpecialistConfig] = [
     SpecialistConfig(
         name="reproducer",
         prompt_file="investigation_reproduction.md",
-        tools=["Read", "Grep", "Glob"],
+        tools=["Read", "Grep", "Glob", "Bash"],
         description="Determine reproducibility, check test coverage, and suggest test approaches",
         max_turns=35,
         thinking_budget_multiplier=1.0,
