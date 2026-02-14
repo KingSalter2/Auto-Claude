@@ -469,7 +469,8 @@
     "emptyList": "Aucune issue trouvée",
     "notConnected": "GitHub non connecté",
     "configureToken": "Configurez votre token GitHub et le dépôt dans les paramètres du projet pour synchroniser les issues.",
-    "openSettings": "Ouvrir les paramètres"
+    "openSettings": "Ouvrir les paramètres",
+    "selectToView": "Sélectionnez une issue pour voir les détails"
   },
   "enrichment": {
     "title": "Enrichissement",
@@ -549,6 +550,7 @@
     "complete": "{{succeeded}} réussis, {{failed}} échoués",
     "retryFailed": "Réessayer {{count}} échoués",
     "dismiss": "Fermer",
+    "details": "Détails",
     "actions": "Actions groupées",
     "actionClose": "Fermer",
     "actionReopen": "Rouvrir",
@@ -560,6 +562,13 @@
     "confirmMessage": "{{action}} {{count}} issues ?",
     "confirm": "Confirmer",
     "cancel": "Annuler"
+  },
+  "autoFix": {
+    "label": "Auto Fix",
+    "specCreated": "Spec créée à partir de l'issue",
+    "failed": "Échec de l'auto-fix",
+    "retry": "Réessayer Auto Fix",
+    "processing": "Traitement..."
   },
   "spec": {
     "createFromIssue": "Créer une spec",
@@ -1226,7 +1235,7 @@
       "retry": "Réessayer",
       "rerun": "Ré-investiguer",
       "errorOccurred": "Erreur : {{message}}",
-      "showMore": "Voir plus",
+      "showMore": "Voir plus ({{count}} de plus)",
       "showLess": "Voir moins",
       "logEntries": "{{count}} entrées de log"
     }

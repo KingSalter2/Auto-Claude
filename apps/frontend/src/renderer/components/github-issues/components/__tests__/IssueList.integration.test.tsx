@@ -131,10 +131,10 @@ describe('IssueList investigation integration', () => {
         selectedIssueNumbers={new Set([2])}
       />,
     );
-    const checkboxes = screen.getAllByRole('checkbox') as HTMLInputElement[];
-    expect(checkboxes[0].checked).toBe(false); // issue 1
-    expect(checkboxes[1].checked).toBe(true);  // issue 2
-    expect(checkboxes[2].checked).toBe(false); // issue 3
+    const checkboxes = screen.getAllByRole('checkbox');
+    expect(checkboxes[0].getAttribute('aria-checked')).toBe('false'); // issue 1
+    expect(checkboxes[1].getAttribute('aria-checked')).toBe('true');  // issue 2
+    expect(checkboxes[2].getAttribute('aria-checked')).toBe('false'); // issue 3
   });
 });
 

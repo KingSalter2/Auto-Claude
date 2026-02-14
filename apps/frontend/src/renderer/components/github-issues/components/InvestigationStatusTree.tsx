@@ -100,7 +100,7 @@ function AgentLogEntries({
           className="text-xs text-muted-foreground hover:text-foreground transition-colors"
           onClick={() => setExpanded(true)}
         >
-          {t('investigation.statusTree.showMore')} ({entries.length - maxVisible} more)
+          {t('investigation.statusTree.showMore', { count: entries.length - maxVisible })}
         </button>
       )}
       {visibleEntries.map((entry, i) => (

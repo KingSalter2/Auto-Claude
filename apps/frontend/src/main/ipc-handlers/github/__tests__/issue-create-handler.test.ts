@@ -39,6 +39,11 @@ vi.mock('../../../../shared/constants', () => ({
   },
 }));
 
+// Mock cli-tool-manager
+vi.mock('../../../cli-tool-manager', () => ({
+  getToolPath: (tool: string) => tool,
+}));
+
 // Mock fs
 vi.mock('fs', () => ({
   default: {

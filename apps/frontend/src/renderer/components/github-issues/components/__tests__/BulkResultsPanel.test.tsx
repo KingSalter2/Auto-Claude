@@ -40,8 +40,7 @@ describe('BulkResultsPanel', () => {
         onDismiss={vi.fn()}
       />,
     );
-    expect(screen.getByText('2 succeeded')).toBeDefined();
-    expect(screen.getByText('1 failed')).toBeDefined();
+    expect(screen.getByText('bulk.complete')).toBeDefined();
   });
 
   it('success items show checkmark', () => {
@@ -53,7 +52,7 @@ describe('BulkResultsPanel', () => {
       />,
     );
     // Expand details
-    fireEvent.click(screen.getByText('Details'));
+    fireEvent.click(screen.getByText('bulk.details'));
     const checkmarks = screen.getAllByLabelText('Success');
     expect(checkmarks.length).toBe(2);
   });
@@ -66,7 +65,7 @@ describe('BulkResultsPanel', () => {
         onDismiss={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByText('Details'));
+    fireEvent.click(screen.getByText('bulk.details'));
     expect(screen.getByText('Permission denied')).toBeDefined();
     expect(screen.getByLabelText('Failed')).toBeDefined();
   });
@@ -80,7 +79,7 @@ describe('BulkResultsPanel', () => {
         onDismiss={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByText('Retry 1 failed'));
+    fireEvent.click(screen.getByText('bulk.retryFailed'));
     expect(onRetry).toHaveBeenCalledWith(resultWithFailures);
   });
 
@@ -93,7 +92,7 @@ describe('BulkResultsPanel', () => {
         onDismiss={onDismiss}
       />,
     );
-    fireEvent.click(screen.getByText('Dismiss'));
+    fireEvent.click(screen.getByText('bulk.dismiss'));
     expect(onDismiss).toHaveBeenCalled();
   });
 

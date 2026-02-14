@@ -12,8 +12,10 @@ import os from 'os';
 import path from 'path';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import { getAugmentedEnv } from '../../env-utils';
+import { getToolPath } from '../../cli-tool-manager';
 import { createContextLogger } from './utils/logger';
 import { withProject } from './utils/project-middleware';
+import { validateLabel, validateLogin } from '../../../shared/utils/mutation-validation';
 import type { CreateIssueParams, CreateIssueResult } from '../../../shared/types/ai-triage';
 
 const { debug: debugLog } = createContextLogger('Issue Create');
@@ -75,6 +77,26 @@ export function registerIssueCreateHandler(
           throw new Error(`Title too long (max ${MAX_TITLE_LENGTH} characters)`);
         }
 
+        // Validate labels
+        if (params.labels && params.labels.length > 0) {
+          for (const label of params.labels) {
+            const labelValidation = validateLabel(label);
+            if (!labelValidation.valid) {
+              throw new Error(labelValidation.error);
+            }
+          }
+        }
+
+        // Validate assignees
+        if (params.assignees && params.assignees.length > 0) {
+          for (const assignee of params.assignees) {
+            const loginValidation = validateLogin(assignee);
+            if (!loginValidation.valid) {
+              throw new Error(loginValidation.error);
+            }
+          }
+        }
+
         const tmpPath = writeTempFile('gh-create-body', params.body || '');
         try {
           const { execFileSync } = await import('child_process');
@@ -89,7 +111,7 @@ export function registerIssueCreateHandler(
             ghArgs.push('--assignee', params.assignees.join(','));
           }
 
-          const output = execFileSync('gh', ghArgs, {
+          const output = execFileSync(getToolPath('gh'), ghArgs, {
             cwd: project.path,
             env: getAugmentedEnv(),
           });

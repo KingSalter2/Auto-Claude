@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, X, ChevronDown, ChevronRight } from 'lucide-react';
 import type { BulkOperationResult } from '@shared/types/mutations';
 
@@ -13,6 +14,7 @@ export function BulkResultsPanel({
   onRetry,
   onDismiss,
 }: BulkResultsPanelProps) {
+  const { t } = useTranslation('common');
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -23,10 +25,7 @@ export function BulkResultsPanel({
       {/* Summary */}
       <div className="flex items-center gap-3 text-sm">
         <span className="text-emerald-600 dark:text-emerald-400">
-          {result.succeeded} succeeded
-        </span>
-        <span className="text-destructive">
-          {result.failed} failed
+          {t('bulk.complete', { succeeded: result.succeeded, failed: result.failed })}
         </span>
       </div>
 
@@ -41,7 +40,7 @@ export function BulkResultsPanel({
         ) : (
           <ChevronRight className="h-3 w-3" />
         )}
-        Details
+        {t('bulk.details')}
       </button>
 
       {expanded && (
@@ -73,7 +72,7 @@ export function BulkResultsPanel({
             className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent"
             onClick={() => onRetry(result)}
           >
-            Retry {result.failed} failed
+            {t('bulk.retryFailed', { count: result.failed })}
           </button>
         )}
         <button
@@ -81,7 +80,7 @@ export function BulkResultsPanel({
           className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent"
           onClick={onDismiss}
         >
-          Dismiss
+          {t('bulk.dismiss')}
         </button>
       </div>
     </section>

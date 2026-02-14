@@ -469,7 +469,8 @@
     "emptyList": "No issues found",
     "notConnected": "GitHub Not Connected",
     "configureToken": "Configure your GitHub token and repository in project settings to sync issues.",
-    "openSettings": "Open Settings"
+    "openSettings": "Open Settings",
+    "selectToView": "Select an issue to view details"
   },
   "enrichment": {
     "title": "Enrichment",
@@ -549,6 +550,7 @@
     "complete": "{{succeeded}} succeeded, {{failed}} failed",
     "retryFailed": "Retry {{count}} failed",
     "dismiss": "Dismiss",
+    "details": "Details",
     "actions": "Bulk actions",
     "actionClose": "Close",
     "actionReopen": "Reopen",
@@ -560,6 +562,13 @@
     "confirmMessage": "{{action}} {{count}} issues?",
     "confirm": "Confirm",
     "cancel": "Cancel"
+  },
+  "autoFix": {
+    "label": "Auto Fix",
+    "specCreated": "Spec created from issue",
+    "failed": "Auto-fix failed",
+    "retry": "Retry Auto Fix",
+    "processing": "Processing..."
   },
   "spec": {
     "createFromIssue": "Create Spec",
@@ -1226,7 +1235,7 @@
       "retry": "Retry",
       "rerun": "Re-investigate",
       "errorOccurred": "Error: {{message}}",
-      "showMore": "Show more",
+      "showMore": "Show more ({{count}} more)",
       "showLess": "Show less",
       "logEntries": "{{count}} log entries"
     }

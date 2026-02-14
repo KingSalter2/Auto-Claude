@@ -46,6 +46,11 @@ vi.mock('../utils/logger', () => ({
   createContextLogger: () => ({ debug: vi.fn() }),
 }));
 
+// Mock cli-tool-manager
+vi.mock('../../../cli-tool-manager', () => ({
+  getToolPath: (tool: string) => tool,
+}));
+
 import { ipcMain } from 'electron';
 import { registerMutationHandlers } from '../mutation-handlers';
 import { readEnrichmentFile, writeEnrichmentFile, appendTransition } from '../enrichment-persistence';

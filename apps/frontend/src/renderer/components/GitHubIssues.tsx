@@ -649,7 +649,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
                 investigationActivityLog={selectedIssueEntry?.activityLog}
               />
             ) : (
-              <EmptyState message="Select an issue to view details" />
+              <EmptyState message={t('issues.selectToView')} />
             )}
           </section>
         }

@@ -32,6 +32,7 @@ import {
 } from './enrichment-persistence';
 import { withProject } from './utils/project-middleware';
 import { getAugmentedEnv } from '../../env-utils';
+import { getToolPath } from '../../cli-tool-manager';
 import { createContextLogger } from './utils/logger';
 
 const logger = createContextLogger('GitHub Mutations');
@@ -164,7 +165,7 @@ export function registerMutationHandlers(
 
       return withProject(projectId, async (project) => {
         try {
-          execFileSync('gh', ['issue', 'edit', String(issueNumber), '--title', title], {
+          execFileSync(getToolPath('gh'), ['issue', 'edit', String(issueNumber), '--title', title], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -198,7 +199,7 @@ export function registerMutationHandlers(
         // Null body means clear the body
         if (body === null) {
           try {
-            execFileSync('gh', ['issue', 'edit', String(issueNumber), '--body', ''], {
+            execFileSync(getToolPath('gh'), ['issue', 'edit', String(issueNumber), '--body', ''], {
               cwd: project.path,
               env: getAugmentedEnv(),
             });
@@ -215,7 +216,7 @@ export function registerMutationHandlers(
         // Use temp file for body content
         const tmpPath = writeTempFile('gh-body', body);
         try {
-          execFileSync('gh', ['issue', 'edit', String(issueNumber), '--body-file', tmpPath], {
+          execFileSync(getToolPath('gh'), ['issue', 'edit', String(issueNumber), '--body-file', tmpPath], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -251,7 +252,7 @@ export function registerMutationHandlers(
 
       return withProject(projectId, async (project) => {
         try {
-          execFileSync('gh', ['issue', 'edit', String(issueNumber), '--add-label', labels.join(',')], {
+          execFileSync(getToolPath('gh'), ['issue', 'edit', String(issueNumber), '--add-label', labels.join(',')], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -285,7 +286,7 @@ export function registerMutationHandlers(
 
       return withProject(projectId, async (project) => {
         try {
-          execFileSync('gh', ['issue', 'edit', String(issueNumber), '--remove-label', labels.join(',')], {
+          execFileSync(getToolPath('gh'), ['issue', 'edit', String(issueNumber), '--remove-label', labels.join(',')], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -319,7 +320,7 @@ export function registerMutationHandlers(
 
       return withProject(projectId, async (project) => {
         try {
-          execFileSync('gh', ['issue', 'edit', String(issueNumber), '--add-assignee', assignees.join(',')], {
+          execFileSync(getToolPath('gh'), ['issue', 'edit', String(issueNumber), '--add-assignee', assignees.join(',')], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -353,7 +354,7 @@ export function registerMutationHandlers(
 
       return withProject(projectId, async (project) => {
         try {
-          execFileSync('gh', ['issue', 'edit', String(issueNumber), '--remove-assignee', assignees.join(',')], {
+          execFileSync(getToolPath('gh'), ['issue', 'edit', String(issueNumber), '--remove-assignee', assignees.join(',')], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -380,7 +381,7 @@ export function registerMutationHandlers(
 
       return withProject(projectId, async (project) => {
         try {
-          execFileSync('gh', ['issue', 'close', String(issueNumber)], {
+          execFileSync(getToolPath('gh'), ['issue', 'close', String(issueNumber)], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -411,7 +412,7 @@ export function registerMutationHandlers(
 
       return withProject(projectId, async (project) => {
         try {
-          execFileSync('gh', ['issue', 'reopen', String(issueNumber)], {
+          execFileSync(getToolPath('gh'), ['issue', 'reopen', String(issueNumber)], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });
@@ -451,7 +452,7 @@ export function registerMutationHandlers(
       return withProject(projectId, async (project) => {
         const tmpPath = writeTempFile('gh-comment', body);
         try {
-          execFileSync('gh', ['issue', 'comment', String(issueNumber), '--body-file', tmpPath], {
+          execFileSync(getToolPath('gh'), ['issue', 'comment', String(issueNumber), '--body-file', tmpPath], {
             cwd: project.path,
             env: getAugmentedEnv(),
           });

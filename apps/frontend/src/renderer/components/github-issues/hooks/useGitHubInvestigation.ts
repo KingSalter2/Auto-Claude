@@ -66,8 +66,18 @@ export function useGitHubInvestigation(projectId: string | undefined, issueNumbe
 
   const postToGitHub = useCallback(async () => {
     if (!projectId || issueNumber == null) return;
-    await window.electronAPI.github.postInvestigationToGitHub(projectId, issueNumber);
-  }, [projectId, issueNumber]);
+    try {
+      const result = await window.electronAPI.github.postInvestigationToGitHub(projectId, issueNumber);
+      if (result?.success) {
+        const commentId = result.data?.commentId ?? Date.now();
+        store.setGithubCommentId(projectId, issueNumber, commentId);
+      } else {
+        console.error('[useGitHubInvestigation] Failed to post to GitHub:', result?.error);
+      }
+    } catch (err) {
+      console.error('[useGitHubInvestigation] Error posting to GitHub:', err);
+    }
+  }, [projectId, issueNumber, store]);
 
   // --- Backwards-compat shims (consumed by GitHubIssues.tsx until F5/F6 rewires it) ---
   /** @deprecated Use investigationState instead. Will be removed in F6. */

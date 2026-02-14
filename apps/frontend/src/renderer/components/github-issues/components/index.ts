@@ -37,6 +37,7 @@ export { CompletenessBreakdown } from './CompletenessBreakdown';
 export { InvestigateButton } from './InvestigateButton';
 export { InvestigationPanel } from './InvestigationPanel';
 export { InvestigationProgressBar } from './InvestigationProgressBar';
+export { InvestigationStatusTree } from './InvestigationStatusTree';
 
 // Investigation System (F7)
 export { BatchStagingBanner } from './BatchStagingBanner';

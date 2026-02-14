@@ -1115,20 +1115,26 @@ function broadcastQueuePositions(getMainWindow: () => BrowserWindow | null): voi
 function processQueue(getMainWindow: () => BrowserWindow | null, agentManager?: AgentManager): void {
   if (investigationQueue.length === 0) return;
 
-  // Track how many we fire-and-forget in this synchronous loop, since
-  // runInvestigation adds to activeInvestigations asynchronously (after
+  // Track how many we fire-and-forget in this synchronous loop per project,
+  // since runInvestigation adds to activeInvestigations asynchronously (after
   // the first await), so activeInvestigations.size alone would under-count.
-  let startedThisLoop = 0;
+  const startedPerProject = new Map<string, number>();
 
   // Process items from the front of the queue (FIFO).
   while (investigationQueue.length > 0) {
     const next = investigationQueue[0];
     const maxParallel = getMaxParallel(next.projectId);
 
-    if (activeInvestigations.size + startedThisLoop >= maxParallel) {
+    // Count active investigations for this specific project
+    const activeForProject = [...activeInvestigations.keys()]
+      .filter((key) => key.startsWith(`${next.projectId}:`)).length;
+    const launchingForProject = startedPerProject.get(next.projectId) ?? 0;
+
+    if (activeForProject + launchingForProject >= maxParallel) {
       debugLog('Queue: at parallel limit, waiting', {
-        active: activeInvestigations.size,
-        launching: startedThisLoop,
+        projectId: next.projectId,
+        activeForProject,
+        launchingForProject,
         maxParallel,
         queued: investigationQueue.length,
       });
@@ -1137,7 +1143,7 @@ function processQueue(getMainWindow: () => BrowserWindow | null, agentManager?: 
 
     // Dequeue and start
     investigationQueue.shift();
-    startedThisLoop++;
+    startedPerProject.set(next.projectId, launchingForProject + 1);
     debugLog('Queue: starting queued investigation', {
       projectId: next.projectId,
       issueNumber: next.issueNumber,
@@ -1184,7 +1190,7 @@ export function registerInvestigationHandlers(
           },
           projectId,
         );
-        sendError('Invalid issue number');
+        sendError({ error: 'Invalid issue number', issueNumber });
         return;
       }
 
@@ -1200,9 +1206,11 @@ export function registerInvestigationHandlers(
       // Also remove from queue if already queued (re-start scenario)
       removeFromQueue(projectId, issueNumber);
 
-      // Check whether we are at the parallel limit
+      // Check whether we are at the parallel limit for this project
       const maxParallel = getMaxParallel(projectId);
-      if (activeInvestigations.size >= maxParallel) {
+      const activeForProject = [...activeInvestigations.keys()]
+        .filter((key) => key.startsWith(`${projectId}:`)).length;
+      if (activeForProject >= maxParallel) {
         // Enqueue and send "queued" progress
         investigationQueue.push({
           projectId,
@@ -1215,7 +1223,7 @@ export function registerInvestigationHandlers(
           projectId,
           issueNumber,
           position,
-          active: activeInvestigations.size,
+          activeForProject,
           maxParallel,
         });
 
