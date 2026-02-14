@@ -28,6 +28,14 @@ export interface ProjectSettings {
   useClaudeMd?: boolean;
   /** Maximum parallel tasks allowed (default: 3) */
   maxParallelTasks?: number;
+  /** Enable observer memory system (default: false) */
+  observerEnabled?: boolean;
+  /** Model for observer analysis (default: 'haiku') */
+  observerModel?: string;
+  /** Maximum observer calls per agent session (default: 5) */
+  observerMaxCalls?: number;
+  /** Observer timeout in seconds (default: 30) */
+  observerTimeout?: number;
 }
 
 export interface NotificationSettings {
