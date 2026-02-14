@@ -212,9 +212,11 @@ class ParallelAgentOrchestrator:
                     "schema": output_schema,
                 }
 
+            client = create_client(**client_kwargs)
+
             # Resume previous session if session ID provided
             if resume_session_id:
-                client_kwargs["resume"] = resume_session_id
+                client.options.resume = resume_session_id
                 safe_print(f"[{log_name}] Resuming session: {resume_session_id[:20]}...")
 
             # Add investigation Bash safety hook if agent has Bash access
@@ -223,20 +225,18 @@ class ParallelAgentOrchestrator:
                     from claude_agent_sdk.types import HookMatcher
 
                     bash_guard = _get_investigation_bash_guard()
-                    existing_hooks = client_kwargs.get("hooks", {})
+                    existing_hooks = client.options.hooks or {}
                     pre_tool_hooks = existing_hooks.get("PreToolUse", [])
                     pre_tool_hooks.append(
                         HookMatcher(matcher="Bash", hooks=[bash_guard])
                     )
                     existing_hooks["PreToolUse"] = pre_tool_hooks
-                    client_kwargs["hooks"] = existing_hooks
+                    client.options.hooks = existing_hooks
                 except ImportError:
                     logger.warning(
                         f"[{log_name}] Could not import HookMatcher — "
                         "Bash access will be unguarded"
                     )
-
-            client = create_client(**client_kwargs)
 
             async with client:
                 await client.query(prompt)
