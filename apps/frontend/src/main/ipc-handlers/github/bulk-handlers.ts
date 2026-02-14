@@ -50,9 +50,6 @@ function buildGhArgs(
       return ['issue', 'edit', num, '--add-assignee', (payload?.assignees ?? []).join(',')];
     case 'remove-assignee':
       return ['issue', 'edit', num, '--remove-assignee', (payload?.assignees ?? []).join(',')];
-    case 'transition':
-      // Transition is handled via enrichment store, not gh CLI
-      return [];
     default:
       return [];
   }

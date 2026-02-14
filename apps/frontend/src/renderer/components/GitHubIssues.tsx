@@ -552,8 +552,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         autoFixRunning={isBatchRunning}
         autoFixProcessing={batchProgress?.totalIssues}
         onAutoFixToggle={toggleAutoFix}
-        onAnalyzeAndGroup={openWizard}
-        isAnalyzing={isAnalyzing}
         investigationStateFilter={investigationStateFilter}
         onInvestigationStateFilterChange={setInvestigationStateFilter}
         investigationStateCounts={investigationStateCounts}
@@ -636,8 +634,12 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
                 investigationState={selectedIssueInvestigationState}
                 investigationReport={selectedIssueEntry?.report ?? null}
                 investigationProgress={selectedIssueEntry?.progress?.progress}
+                investigationProgressData={selectedIssueEntry?.progress ?? null}
                 isInvestigating={selectedIssueEntry?.isInvestigating ?? false}
                 investigationError={selectedIssueEntry?.error ?? null}
+                investigationStartedAt={selectedIssueEntry?.startedAt ?? null}
+                investigationCompletedAt={selectedIssueEntry?.completedAt ?? null}
+                investigationSpecId={selectedIssueEntry?.specId ?? null}
                 onCancelInvestigation={handleCancelInvestigation}
                 onCreateTask={handleCreateTask}
                 onDismissIssue={handleDismissIssue}

@@ -46,5 +46,4 @@ export const BULK_ACTION_LABELS: Record<BulkActionType, string> = {
   'remove-label': 'Remove Label',
   'add-assignee': 'Assign',
   'remove-assignee': 'Unassign',
-  transition: 'Change State',
 };

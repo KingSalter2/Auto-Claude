@@ -8,11 +8,7 @@ export { AutoFixButton } from './AutoFixButton';
 export { BatchReviewWizard } from './BatchReviewWizard';
 
 // Phase 1 — Foundation
-export { WorkflowStateBadge } from './WorkflowStateBadge';
 export { CompletenessIndicator } from './CompletenessIndicator';
-export { WorkflowFilter } from './WorkflowFilter';
-export { WorkflowStateDropdown } from './WorkflowStateDropdown';
-export { EnrichmentPanel } from './EnrichmentPanel';
 
 // Phase 2 — Mutations
 export { InlineEditor } from './InlineEditor';
@@ -36,8 +32,6 @@ export { DependencyList } from './DependencyList';
 export { MetricsDashboard } from './MetricsDashboard';
 export { CompletenessBreakdown } from './CompletenessBreakdown';
 
-// Phase 5 — Integration
-export { TriageSidebar } from './TriageSidebar';
 
 // Investigation System (F4 — Core UI)
 export { InvestigateButton } from './InvestigateButton';

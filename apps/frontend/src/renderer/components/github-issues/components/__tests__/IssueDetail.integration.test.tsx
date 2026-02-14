@@ -55,26 +55,6 @@ describe('IssueDetail integration', () => {
     expect(screen.getByText('Sub A')).toBeDefined();
   });
 
-  it('passes AI triage callbacks to EnrichmentPanel', () => {
-    const onAITriage = vi.fn();
-    const enrichment = {
-      issueNumber: 42,
-      triageState: 'new' as const,
-      completenessScore: 30,
-      enrichment: { problem: '', goal: '', scopeIn: [], scopeOut: [], acceptanceCriteria: [], technicalContext: '' },
-    };
-    render(
-      <IssueDetail
-        {...baseProps}
-        enrichment={enrichment as never}
-        onTransition={vi.fn()}
-        onAITriage={onAITriage}
-      />,
-    );
-    // The EnrichmentPanel should render the AI Triage button since currentState is 'new'
-    expect(screen.getByText('aiTriage.enrichButton')).toBeDefined();
-  });
-
   it('renders CommentForm when onComment provided', () => {
     render(<IssueDetail {...baseProps} onComment={vi.fn()} />);
     expect(screen.getByText('phase5.addComment')).toBeDefined();

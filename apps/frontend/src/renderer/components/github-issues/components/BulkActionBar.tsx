@@ -22,7 +22,6 @@ const BULK_ACTIONS: Array<{ action: BulkActionType; labelKey: string }> = [
   { action: 'remove-label', labelKey: 'bulk.actionRemoveLabel' },
   { action: 'add-assignee', labelKey: 'bulk.actionAssign' },
   { action: 'remove-assignee', labelKey: 'bulk.actionUnassign' },
-  { action: 'transition', labelKey: 'bulk.actionTransition' },
 ];
 
 export function BulkActionBar({

@@ -271,3 +271,38 @@ export interface BatchStagingItem {
   approved?: boolean;
   createdAt: string;
 }
+
+// ============================================
+// Investigation Logs (Live Agent Output)
+// ============================================
+
+/**
+ * Single log entry from an investigation agent's stdout.
+ */
+export interface InvestigationLogEntry {
+  timestamp: string;
+  type: 'text' | 'tool_start' | 'tool_end' | 'error' | 'info';
+  content: string;
+  agentType: InvestigationAgentType | 'orchestrator';
+  source?: string;
+  detail?: string;
+}
+
+/**
+ * Log entries and status for a single investigation agent.
+ */
+export interface InvestigationAgentLog {
+  agentType: InvestigationAgentType | 'orchestrator';
+  status: 'pending' | 'active' | 'completed' | 'failed';
+  entries: InvestigationLogEntry[];
+}
+
+/**
+ * Complete investigation logs for an issue, containing per-agent log streams.
+ */
+export interface InvestigationLogs {
+  issueNumber: number;
+  createdAt: string;
+  updatedAt: string;
+  agents: Record<InvestigationAgentType | 'orchestrator', InvestigationAgentLog>;
+}

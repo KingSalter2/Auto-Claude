@@ -14,8 +14,7 @@ export type BulkActionType =
   | 'add-label'
   | 'remove-label'
   | 'add-assignee'
-  | 'remove-assignee'
-  | 'transition';
+  | 'remove-assignee';
 
 // ============================================
 // Result Interfaces

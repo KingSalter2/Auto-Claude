@@ -1201,6 +1201,34 @@
       "title": "Label Creation Notice",
       "body": "The first investigation will create up to 5 auto-claude:* labels on your GitHub repository to categorize investigation results. These labels are used for filtering and organization.",
       "confirm": "Continue"
+    },
+    "statusTree": {
+      "inProgress": "AI Investigation in Progress",
+      "findingsReady": "Findings Ready",
+      "failed": "Investigation Failed",
+      "taskCreated": "Task Created",
+      "building": "Building",
+      "done": "Complete",
+      "started": "Investigation Started",
+      "analysisComplete": "Analysis Complete",
+      "rootCause": "Root Cause Analysis",
+      "impact": "Impact Assessment",
+      "fixAdvisor": "Fix Advice",
+      "reproducer": "Reproduction Analysis",
+      "orchestrator": "Orchestrator",
+      "postToGitHub": "Post to GitHub",
+      "postedToGitHub": "Posted to GitHub",
+      "createTask": "Create Task",
+      "running": "Analyzing...",
+      "complete": "Complete",
+      "agentFailed": "Failed",
+      "pending": "Pending",
+      "retry": "Retry",
+      "rerun": "Re-investigate",
+      "errorOccurred": "Error: {{message}}",
+      "showMore": "Show more",
+      "showLess": "Show less",
+      "logEntries": "{{count}} log entries"
     }
   }
 }

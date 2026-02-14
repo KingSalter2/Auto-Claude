@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Github, RefreshCw, Search, Filter, Wand2, Loader2, Layers, EyeOff, Eye, XCircle } from 'lucide-react';
+import { Github, RefreshCw, Search, Filter, Wand2, Loader2, EyeOff, Eye, XCircle } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
@@ -18,7 +18,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../ui/tooltip';
-import { WorkflowFilter } from './WorkflowFilter';
 import type { IssueListHeaderProps } from '../types';
 import type { InvestigationState } from '@shared/types';
 
@@ -70,14 +69,6 @@ export function IssueListHeader({
   autoFixRunning,
   autoFixProcessing,
   onAutoFixToggle,
-  onAnalyzeAndGroup,
-  isAnalyzing,
-  workflowFilter,
-  onWorkflowFilterChange,
-  stateCounts,
-  onToggleTriageMode,
-  isTriageModeEnabled,
-  isTriageModeAvailable,
   // Investigation system (F5)
   investigationStateFilter,
   onInvestigationStateFilterChange,
@@ -139,28 +130,6 @@ export function IssueListHeader({
               )}
             </>
           )}
-          {/* Legacy triage mode toggle — kept for backwards compat */}
-          {onToggleTriageMode && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={isTriageModeEnabled ? 'secondary' : 'ghost'}
-                    size="icon"
-                    onClick={onToggleTriageMode}
-                    disabled={!isTriageModeAvailable}
-                    aria-label={t('phase5.triageMode')}
-                    aria-pressed={isTriageModeEnabled}
-                  >
-                    <Layers className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>{t('phase5.triageModeTooltip')}</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
           {onToggleShowDismissed && (
             <TooltipProvider>
               <Tooltip>
@@ -198,33 +167,6 @@ export function IssueListHeader({
 
       {/* Issue Management Actions */}
       <div className="flex items-center gap-3 mb-4">
-        {/* Legacy Analyze & Group Button */}
-        {onAnalyzeAndGroup && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onAnalyzeAndGroup}
-                  disabled={isAnalyzing || isLoading}
-                  className="flex-1"
-                >
-                  {isAnalyzing ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Layers className="h-4 w-4 mr-2" />
-                  )}
-                  {t('issues.analyzeGroup')}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                <p>{t('issues.analyzeGroupTooltip')}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-
         {/* Auto-Fix Toggle */}
         {onAutoFixToggle && (
           <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border">
@@ -309,14 +251,6 @@ export function IssueListHeader({
             <SelectItem value="all">{t('issues.filterAll')}</SelectItem>
           </SelectContent>
         </Select>
-        {/* Legacy workflow filter — kept for backwards compat */}
-        {onWorkflowFilterChange && (
-          <WorkflowFilter
-            selectedStates={workflowFilter ?? []}
-            onChange={onWorkflowFilterChange}
-            stateCounts={stateCounts}
-          />
-        )}
       </div>
       {children}
     </div>

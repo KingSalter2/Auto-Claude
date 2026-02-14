@@ -21,7 +21,6 @@ export function IssueList({
   onSelectIssue,
   onInvestigate,
   onLoadMore,
-  enrichments,
   selectedIssueNumbers,
   onToggleSelect,
   compact,

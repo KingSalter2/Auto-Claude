@@ -1201,6 +1201,34 @@
       "title": "Avis de création de labels",
       "body": "La première investigation créera jusqu'à 5 labels auto-claude:* sur votre dépôt GitHub pour catégoriser les résultats d'investigation. Ces labels sont utilisés pour le filtrage et l'organisation.",
       "confirm": "Continuer"
+    },
+    "statusTree": {
+      "inProgress": "Investigation IA en cours",
+      "findingsReady": "Résultats prêts",
+      "failed": "Investigation échouée",
+      "taskCreated": "Tâche créée",
+      "building": "Construction",
+      "done": "Terminé",
+      "started": "Investigation démarrée",
+      "analysisComplete": "Analyse terminée",
+      "rootCause": "Analyse des causes",
+      "impact": "Évaluation d'impact",
+      "fixAdvisor": "Conseil de correction",
+      "reproducer": "Analyse de reproduction",
+      "orchestrator": "Orchestrateur",
+      "postToGitHub": "Publier sur GitHub",
+      "postedToGitHub": "Publié sur GitHub",
+      "createTask": "Créer une tâche",
+      "running": "Analyse en cours...",
+      "complete": "Terminé",
+      "agentFailed": "Échoué",
+      "pending": "En attente",
+      "retry": "Réessayer",
+      "rerun": "Ré-investiguer",
+      "errorOccurred": "Erreur : {{message}}",
+      "showMore": "Voir plus",
+      "showLess": "Voir moins",
+      "logEntries": "{{count}} entrées de log"
     }
   }
 }

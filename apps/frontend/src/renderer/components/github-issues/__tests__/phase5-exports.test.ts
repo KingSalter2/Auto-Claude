@@ -11,12 +11,11 @@ describe('Phase 5 Barrel Exports', () => {
       expect(exportNames).toContain('useAutoFix');
       expect(exportNames).toContain('useMutations');
       expect(exportNames).toContain('useBulkOperations');
-      expect(exportNames).toContain('useAITriage');
       expect(exportNames).toContain('useLabelSync');
       expect(exportNames).toContain('useDependencies');
       expect(exportNames).toContain('useMetrics');
       expect(exportNames).toContain('useAnalyzePreview');
-      expect(exportNames.length).toBeGreaterThanOrEqual(11);
+      expect(exportNames.length).toBeGreaterThanOrEqual(10);
     });
   });
 
@@ -26,11 +25,7 @@ describe('Phase 5 Barrel Exports', () => {
       const exportNames = Object.keys(components);
 
       // Phase 1
-      expect(exportNames).toContain('WorkflowStateBadge');
       expect(exportNames).toContain('CompletenessIndicator');
-      expect(exportNames).toContain('WorkflowFilter');
-      expect(exportNames).toContain('WorkflowStateDropdown');
-      expect(exportNames).toContain('EnrichmentPanel');
 
       // Phase 2
       expect(exportNames).toContain('InlineEditor');
@@ -65,7 +60,7 @@ describe('Phase 5 Barrel Exports', () => {
       expect(exportNames).toContain('EmptyState');
       expect(exportNames).toContain('NotConnectedState');
 
-      expect(exportNames.length).toBeGreaterThanOrEqual(27);
+      expect(exportNames.length).toBeGreaterThanOrEqual(22);
     });
   });
 

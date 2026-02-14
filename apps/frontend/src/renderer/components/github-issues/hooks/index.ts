@@ -5,7 +5,6 @@ export { useAutoFix } from './useAutoFix';
 
 export { useMutations } from './useMutations';
 export { useBulkOperations } from './useBulkOperations';
-export { useAITriage } from './useAITriage';
 export { useLabelSync } from './useLabelSync';
 export { useDependencies } from './useDependencies';
 export { useMetrics } from './useMetrics';

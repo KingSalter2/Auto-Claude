@@ -28,6 +28,9 @@ import type {
   InvestigationReport,
   InvestigationSettings,
   InvestigationDismissReason,
+  InvestigationAgentType,
+  InvestigationLogs,
+  InvestigationLogEntry,
 } from '../../../shared/types';
 import type { AuthFailureInfo } from '../../../shared/types/terminal';
 import type { AppSettings } from '../../../shared/types';
@@ -121,6 +124,203 @@ function loadActivityLog(projectPath: string, issueNumber: number): ActivityLogE
     return Array.isArray(data) ? data : [];
   } catch {
     return [];
+  }
+}
+
+// ============================================
+// Investigation Log Collection (Live Agent Output)
+// ============================================
+
+/**
+ * Known investigation agent types for mapping prefixes to agent buckets.
+ */
+const INVESTIGATION_AGENT_NAMES: Record<string, InvestigationAgentType> = {
+  root_cause: 'root_cause',
+  impact: 'impact',
+  fix_advisor: 'fix_advisor',
+  reproducer: 'reproducer',
+};
+
+/**
+ * Parse an investigation log line to extract agent type and content.
+ *
+ * The backend outputs lines in several prefix formats:
+ *   [Investigation:root_cause] ...   → specialist via process_sdk_stream context_name
+ *   [IssueInvestigation] ...         → orchestrator coordination messages
+ *   [Agent:root_cause] ...           → subagent Task tool results
+ *   [DEBUG Investigation:root_cause] → debug-mode lines (skipped)
+ *   [DEBUG IssueInvestigation] ...   → debug-mode orchestrator (skipped)
+ *
+ * All lines from sdk_utils.py follow `[context_name] content` format.
+ */
+function parseInvestigationLogLine(line: string): {
+  agentType: InvestigationAgentType | 'orchestrator';
+  content: string;
+  isError: boolean;
+  isTool: boolean;
+} | null {
+  // Skip debug-prefixed lines (noisy, not useful for UI)
+  if (line.startsWith('[DEBUG ')) return null;
+
+  // Generic bracket-prefix extraction: [PREFIX] CONTENT
+  const bracketMatch = line.match(/^\[([^\]]+)\]\s*(.*)$/);
+  if (!bracketMatch) return null;
+
+  const prefix = bracketMatch[1];
+  const content = bracketMatch[2];
+  const isError = /^ERROR\b/i.test(content) || /\bERROR:/i.test(content);
+  const isTool = /^Tool:\s/.test(content) || /^Invoking agent:/i.test(content);
+
+  // [Investigation:agent_type] — primary specialist prefix
+  const investigationMatch = prefix.match(/^Investigation:(root_cause|impact|fix_advisor|reproducer)$/);
+  if (investigationMatch) {
+    return {
+      agentType: investigationMatch[1] as InvestigationAgentType,
+      content,
+      isError,
+      isTool,
+    };
+  }
+
+  // [Agent:agent_name] — subagent Task tool results from sdk_utils.py
+  const agentMatch = prefix.match(/^Agent:(\w+)$/);
+  if (agentMatch) {
+    const agentType = INVESTIGATION_AGENT_NAMES[agentMatch[1]];
+    if (agentType) {
+      return { agentType, content, isError, isTool };
+    }
+  }
+
+  // [IssueInvestigation] — orchestrator
+  if (prefix === 'IssueInvestigation') {
+    return { agentType: 'orchestrator', content, isError, isTool };
+  }
+
+  return null;
+}
+
+/**
+ * Get the path where investigation logs are stored on disk.
+ */
+function getInvestigationLogsPath(projectPath: string, issueNumber: number): string {
+  return path.join(projectPath, '.auto-claude', 'issues', String(issueNumber), 'investigation_logs.json');
+}
+
+/**
+ * Collects investigation subprocess stdout, parses agent prefixes,
+ * and periodically saves logs to disk + pushes IPC events.
+ *
+ * Modeled after PRLogCollector in pr-handlers.ts.
+ */
+class InvestigationLogCollector {
+  private logs: InvestigationLogs;
+  private projectPath: string;
+  private entryCount = 0;
+  private saveInterval = 3;
+  private mainWindow: BrowserWindow | null;
+  private projectId: string;
+
+  constructor(
+    projectPath: string,
+    projectId: string,
+    issueNumber: number,
+    mainWindow: BrowserWindow | null,
+  ) {
+    this.projectPath = projectPath;
+    this.projectId = projectId;
+    this.mainWindow = mainWindow;
+
+    const now = new Date().toISOString();
+    this.logs = {
+      issueNumber,
+      createdAt: now,
+      updatedAt: now,
+      agents: {
+        orchestrator: { agentType: 'orchestrator', status: 'pending', entries: [] },
+        root_cause: { agentType: 'root_cause', status: 'pending', entries: [] },
+        impact: { agentType: 'impact', status: 'pending', entries: [] },
+        fix_advisor: { agentType: 'fix_advisor', status: 'pending', entries: [] },
+        reproducer: { agentType: 'reproducer', status: 'pending', entries: [] },
+      },
+    };
+
+    // Save initial empty structure so frontend can load it immediately
+    this.save();
+  }
+
+  processLine(line: string): void {
+    const parsed = parseInvestigationLogLine(line);
+    if (!parsed) return;
+
+    const agent = this.logs.agents[parsed.agentType];
+    const wasNotActive = agent.status !== 'active';
+
+    // Activate agent on first log entry
+    if (agent.status === 'pending') {
+      agent.status = 'active';
+    }
+
+    let entryType: 'text' | 'tool_start' | 'tool_end' | 'error' | 'info' = 'text';
+    if (parsed.isError) entryType = 'error';
+    else if (parsed.isTool) entryType = 'tool_start';
+
+    const entry: InvestigationLogEntry = {
+      timestamp: new Date().toISOString(),
+      type: entryType,
+      content: parsed.content,
+      agentType: parsed.agentType,
+      source: parsed.agentType,
+    };
+
+    agent.entries.push(entry);
+    this.entryCount++;
+
+    // Save immediately on agent activation, or every N entries
+    if (wasNotActive || this.entryCount % this.saveInterval === 0) {
+      this.save();
+    }
+  }
+
+  save(): void {
+    try {
+      this.logs.updatedAt = new Date().toISOString();
+      const logsPath = getInvestigationLogsPath(this.projectPath, this.logs.issueNumber);
+      const dir = path.dirname(logsPath);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(logsPath, JSON.stringify(this.logs, null, 2), 'utf-8');
+    } catch (err) {
+      debugLog('Failed to save investigation logs', {
+        issueNumber: this.logs.issueNumber,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+
+    // Push IPC event to renderer
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send(
+        IPC_CHANNELS.GITHUB_INVESTIGATION_LOGS_UPDATED,
+        this.projectId,
+        {
+          issueNumber: this.logs.issueNumber,
+          entryCount: this.entryCount,
+        },
+      );
+    }
+  }
+
+  finalize(success: boolean): void {
+    for (const agent of Object.values(this.logs.agents)) {
+      if (success) {
+        // A successful investigation means all agents completed their work.
+        // Mark all agents as completed regardless of current status, since
+        // some agents may not have emitted log lines we could parse.
+        agent.status = 'completed';
+      } else if (agent.status === 'active') {
+        agent.status = 'failed';
+      }
+      // On failure, pending agents stay pending (they never started)
+    }
+    this.save();
   }
 }
 
@@ -752,6 +952,9 @@ async function runInvestigation(
         startedAt,
       });
 
+      const mainWindow = getMainWindow();
+      const logCollector = new InvestigationLogCollector(project.path, projectId, issueNumber, mainWindow);
+
       const subprocessEnv = await getRunnerEnv();
       const { process: childProcess, promise } = runPythonSubprocess<InvestigationResult>({
         pythonPath: getPythonPath(backendPath),
@@ -771,7 +974,10 @@ async function runInvestigation(
           sendProgress(progressUpdate);
         },
         onComplete: (stdout) => parseJSONFromOutput<InvestigationResult>(stdout),
-        onStdout: (line) => debugLog('STDOUT:', line),
+        onStdout: (line) => {
+          debugLog('STDOUT:', line);
+          logCollector.processLine(line);
+        },
         onStderr: (line) => debugLog('STDERR:', line),
         onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
           const win = getMainWindow();
@@ -789,6 +995,8 @@ async function runInvestigation(
       } finally {
         activeInvestigations.delete(processKey);
       }
+
+      logCollector.finalize(!!result.success);
 
       if (!result.success) {
         appendActivityLogEntry(project.path, issueNumber, `Investigation failed: ${result.error ?? 'unknown error'}`);
@@ -1603,6 +1811,23 @@ export function registerInvestigationHandlers(
       }
     },
   );
+
+  // ============================================
+  // 9. Load investigation logs from disk
+  // ============================================
+  ipcMain.handle(IPC_CHANNELS.GITHUB_INVESTIGATION_GET_LOGS, (_event, projectId: string, issueNumber: number) => {
+    const project = projectStore.getProject(projectId);
+    if (!project) return null;
+
+    const logsPath = getInvestigationLogsPath(project.path, issueNumber);
+    try {
+      if (!fs.existsSync(logsPath)) return null;
+      const raw = fs.readFileSync(logsPath, 'utf-8');
+      return JSON.parse(raw) as InvestigationLogs;
+    } catch {
+      return null;
+    }
+  });
 
   debugLog('Investigation handlers registered');
 }

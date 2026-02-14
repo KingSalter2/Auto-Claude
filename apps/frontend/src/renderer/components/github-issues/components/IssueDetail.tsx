@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { ExternalLink, User, Clock, MessageCircle, CheckCircle2, Eye, X, RotateCcw, XCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../ui/dropdown-menu';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { ScrollArea } from '../../ui/scroll-area';
 import {
@@ -13,32 +14,23 @@ import {
 } from '@shared/constants';
 import { formatDate } from '../utils';
 import { AutoFixButton } from './AutoFixButton';
-import { EnrichmentPanel } from './EnrichmentPanel';
 import { DependencyList } from './DependencyList';
 import { CommentForm } from './CommentForm';
 import { InlineEditor } from './InlineEditor';
 import { LabelManager } from './LabelManager';
 import { AssigneeManager } from './AssigneeManager';
 import { InvestigateButton } from './InvestigateButton';
-import { InvestigationPanel } from './InvestigationPanel';
+import { InvestigationStatusTree } from './InvestigationStatusTree';
 import type { IssueDetailProps } from '../types';
-import type { InvestigationDismissReason } from '@shared/types';
 
 export function IssueDetail({
   issue,
   onInvestigate,
-  investigationResult,
   linkedTaskId,
   onViewTask,
   projectId,
   autoFixConfig,
   autoFixQueueItem,
-  enrichment,
-  onTransition,
-  onAITriage,
-  onImproveIssue,
-  onSplitIssue,
-  isAIBusy,
   onEditTitle,
   onEditBody,
   onAddLabels,
@@ -47,7 +39,6 @@ export function IssueDetail({
   onAddAssignees,
   onRemoveAssignees,
   collaborators,
-  onCreateSpec,
   onClose,
   onReopen,
   onComment,
@@ -55,15 +46,16 @@ export function IssueDetail({
   isDepsLoading,
   depsError,
   onNavigateDependency,
-  onPostEnrichmentComment,
-  onDismissEnrichmentComment,
-  hasExistingAIComment,
   // Investigation system (F5)
   investigationState,
   investigationReport,
   investigationProgress,
+  investigationProgressData,
   isInvestigating,
   investigationError,
+  investigationStartedAt,
+  investigationCompletedAt,
+  investigationSpecId,
   onCancelInvestigation,
   onCreateTask,
   onDismissIssue,
@@ -78,7 +70,6 @@ export function IssueDetail({
   const [isClosing, setIsClosing] = useState(false);
   const [isReopening, setIsReopening] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
-  const [showDismissMenu, setShowDismissMenu] = useState(false);
 
   // Use new investigation state if available, fall back to old
   const derivedState = investigationState ?? 'new';
@@ -110,19 +101,8 @@ export function IssueDetail({
     }
   };
 
-  const handleDismiss = (reason: InvestigationDismissReason) => {
-    onDismissIssue?.(reason);
-    setShowDismissMenu(false);
-  };
-
-  // Show investigation panel when report is available
-  const showInvestigationResults = investigationReport && (
-    derivedState === 'findings_ready'
-    || derivedState === 'resolved'
-    || derivedState === 'task_created'
-    || derivedState === 'building'
-    || derivedState === 'done'
-  );
+  // Show InvestigationStatusTree for any non-new investigation state
+  const showStatusTree = derivedState !== 'new';
 
   return (
     <ScrollArea className="flex-1">
@@ -240,7 +220,7 @@ export function IssueDetail({
               <Eye className="h-4 w-4 mr-2" />
               {t('phase5.viewTask')}
             </Button>
-          ) : (
+          ) : !showStatusTree ? (
             <InvestigateButton
               state={derivedState}
               progress={investigationProgress}
@@ -251,7 +231,7 @@ export function IssueDetail({
               onCreateTask={onCreateTask ?? (() => {})}
               disabled={isInvestigating && !onCancelInvestigation}
             />
-          )}
+          ) : null}
           {projectId && autoFixConfig?.enabled && !hasLinkedTask && (
             <AutoFixButton
               issue={issue}
@@ -262,48 +242,28 @@ export function IssueDetail({
           )}
           {/* Dismiss button */}
           {onDismissIssue && derivedState !== 'done' && (
-            <div className="relative">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowDismissMenu(!showDismissMenu)}
-              >
-                <XCircle className="h-4 w-4 mr-1" />
-                {t('investigation.button.dismiss', 'Dismiss')}
-              </Button>
-              {showDismissMenu && (
-                <div className="absolute right-0 top-full mt-1 z-10 bg-popover border rounded-md shadow-md py-1 min-w-[160px]">
-                  <button
-                    type="button"
-                    className="w-full px-3 py-1.5 text-sm text-left hover:bg-muted transition-colors"
-                    onClick={() => handleDismiss('wont_fix')}
-                  >
-                    {t('investigation.dismiss.wontFix', "Won't Fix")}
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-1.5 text-sm text-left hover:bg-muted transition-colors"
-                    onClick={() => handleDismiss('duplicate')}
-                  >
-                    {t('investigation.dismiss.duplicate', 'Duplicate')}
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-1.5 text-sm text-left hover:bg-muted transition-colors"
-                    onClick={() => handleDismiss('cannot_reproduce')}
-                  >
-                    {t('investigation.dismiss.cannotReproduce', 'Cannot Reproduce')}
-                  </button>
-                  <button
-                    type="button"
-                    className="w-full px-3 py-1.5 text-sm text-left hover:bg-muted transition-colors"
-                    onClick={() => handleDismiss('out_of_scope')}
-                  >
-                    {t('investigation.dismiss.outOfScope', 'Out of Scope')}
-                  </button>
-                </div>
-              )}
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <XCircle className="h-4 w-4 mr-1" />
+                  {t('investigation.button.dismiss', 'Dismiss')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onDismissIssue('wont_fix')}>
+                  {t('investigation.dismiss.wontFix', "Won't Fix")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDismissIssue('duplicate')}>
+                  {t('investigation.dismiss.duplicate', 'Duplicate')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDismissIssue('cannot_reproduce')}>
+                  {t('investigation.dismiss.cannotReproduce', 'Cannot Reproduce')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDismissIssue('out_of_scope')}>
+                  {t('investigation.dismiss.outOfScope', 'Out of Scope')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           {issue.state === 'open' && onClose && (
             <Button
@@ -329,40 +289,32 @@ export function IssueDetail({
           )}
         </div>
 
-        {/* Investigation Error */}
-        {investigationError && (
-          <Card className="border-destructive/30 bg-destructive/5">
-            <CardContent className="pt-4">
-              <p className="text-sm text-destructive">{investigationError}</p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Investigation Results Panel */}
-        {showInvestigationResults && investigationReport && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">
-                {t('investigation.panel.title', 'Investigation Results')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <InvestigationPanel
-                report={investigationReport}
-                state={derivedState}
-                showOriginal={showOriginal}
-                onToggleOriginal={() => setShowOriginal(!showOriginal)}
-                onPostToGitHub={onPostToGitHub}
-                onAcceptLabel={onAcceptLabel}
-                onRejectLabel={onRejectLabel}
-                isPostingToGitHub={isPostingToGitHub}
-                githubCommentId={githubCommentId}
-                activityLog={investigationActivityLog}
-                onCloseIssue={issue.state === 'open' && onClose ? handleClose : undefined}
-                isClosingIssue={isClosing}
-              />
-            </CardContent>
-          </Card>
+        {/* Investigation Status Tree — replaces separate error card + results card */}
+        {showStatusTree && projectId && (
+          <InvestigationStatusTree
+            state={derivedState}
+            progress={investigationProgressData ?? null}
+            report={investigationReport ?? null}
+            error={investigationError ?? null}
+            startedAt={investigationStartedAt ?? null}
+            completedAt={investigationCompletedAt ?? null}
+            githubCommentId={githubCommentId ?? null}
+            specId={investigationSpecId ?? null}
+            issueNumber={issue.number}
+            projectId={projectId}
+            onCancel={onCancelInvestigation ?? (() => {})}
+            onInvestigate={onInvestigate}
+            onCreateTask={onCreateTask ?? (() => {})}
+            onPostToGitHub={onPostToGitHub}
+            onAcceptLabel={onAcceptLabel}
+            onRejectLabel={onRejectLabel}
+            isPostingToGitHub={isPostingToGitHub}
+            activityLog={investigationActivityLog}
+            onCloseIssue={issue.state === 'open' && onClose ? handleClose : undefined}
+            isClosingIssue={isClosing}
+            showOriginal={showOriginal}
+            onToggleOriginal={() => setShowOriginal(!showOriginal)}
+          />
         )}
 
         {/* Task Linked Info */}
@@ -408,31 +360,6 @@ export function IssueDetail({
             )}
           </CardContent>
         </Card>
-
-        {/* Legacy Enrichment Panel (backwards compat until F9) */}
-        {enrichment !== undefined && onTransition && (
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">{t('enrichment.title')}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <EnrichmentPanel
-                enrichment={enrichment ?? null}
-                currentState={enrichment?.triageState ?? 'new'}
-                previousState={enrichment?.previousState}
-                isAgentLocked={enrichment?.agentLinks?.some(l => l.status === 'active')}
-                onTransition={onTransition}
-                completenessScore={enrichment?.completenessScore ?? 0}
-                onAITriage={isAIBusy ? undefined : onAITriage}
-                onImproveIssue={isAIBusy ? undefined : onImproveIssue}
-                onSplitIssue={isAIBusy ? undefined : onSplitIssue}
-                onPostComment={onPostEnrichmentComment}
-                onDismissComment={onDismissEnrichmentComment}
-                hasExistingAIComment={hasExistingAIComment}
-              />
-            </CardContent>
-          </Card>
-        )}
 
         {/* Dependencies */}
         {dependencies && (

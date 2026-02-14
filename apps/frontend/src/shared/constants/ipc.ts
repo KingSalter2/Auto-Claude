@@ -281,6 +281,10 @@ export const IPC_CHANNELS = {
   GITHUB_INVESTIGATION_PROGRESS: 'github:investigationProgress',
   GITHUB_INVESTIGATION_COMPLETE: 'github:investigationComplete',
   GITHUB_INVESTIGATION_ERROR: 'github:investigationError',
+  GITHUB_INVESTIGATION_LOGS_UPDATED: 'github:investigation:logsUpdated',
+
+  // GitHub Investigation logs (renderer -> main)
+  GITHUB_INVESTIGATION_GET_LOGS: 'github:investigation:getLogs',
 
 // GitLab integration
   GITLAB_GET_PROJECTS: 'gitlab:getProjects',

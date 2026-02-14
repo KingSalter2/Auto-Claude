@@ -42,38 +42,19 @@ describe('Phase 5 integration', () => {
     expect(exported.length).toBeGreaterThanOrEqual(11);
     // useTriageMode — removed in F9, replaced by investigation system
     expect(exported).toContain('useBulkOperations');
-    expect(exported).toContain('useAITriage');
     expect(exported).toContain('useMetrics');
   });
 
   it('barrel exports cover all components (30+)', { timeout: 15000 }, async () => {
     const components = await import('../components');
     const exported = Object.keys(components);
-    expect(exported.length).toBeGreaterThanOrEqual(28);
-    expect(exported).toContain('TriageSidebar');
+    expect(exported.length).toBeGreaterThanOrEqual(23);
     expect(exported).toContain('BulkActionBar');
     expect(exported).toContain('MetricsDashboard');
   });
 
-  it('IssueListProps includes enrichments in type', () => {
-    // Type-level check — if this compiles, the type has the enrichments field
-    type Check = import('../types').IssueListProps extends { enrichments?: unknown } ? true : false;
-    const valid: Check = true;
-    expect(valid).toBe(true);
-  });
-
   it('IssueDetailProps includes mutation callbacks in type', () => {
     type Check = import('../types').IssueDetailProps extends { onClose?: unknown; onReopen?: unknown; onComment?: unknown } ? true : false;
-    const valid: Check = true;
-    expect(valid).toBe(true);
-  });
-
-  it('TriageSidebarProps includes all triage panel data', () => {
-    type Check = import('../types').TriageSidebarProps extends {
-      enrichment: unknown;
-      onTransition: unknown;
-      completenessScore: unknown;
-    } ? true : false;
     const valid: Check = true;
     expect(valid).toBe(true);
   });

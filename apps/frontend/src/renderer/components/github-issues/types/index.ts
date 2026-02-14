@@ -1,8 +1,6 @@
-import type { GitHubIssue, GitHubInvestigationResult, InvestigationState, InvestigationReport, InvestigationDismissReason, SuggestedLabel } from '@shared/types';
+import type { GitHubIssue, GitHubInvestigationResult, InvestigationState, InvestigationReport, InvestigationProgress, InvestigationDismissReason, SuggestedLabel } from '@shared/types';
 import type { AutoFixConfig, AutoFixQueueItem } from '../../../../preload/api/modules/github-api';
-import type { WorkflowState, Resolution, IssueEnrichment } from '@shared/types/enrichment';
 import type { IssueDependencies } from '@shared/types/dependencies';
-import type { TriageMetrics, MetricsTimeWindow } from '@shared/types/metrics';
 
 export type FilterState = 'open' | 'closed' | 'all';
 
@@ -58,10 +56,6 @@ export interface IssueListItemProps {
   isSelected: boolean;
   onClick: () => void;
   onInvestigate: () => void;
-  /** @deprecated Use investigationState instead. Kept for F6 migration. */
-  triageState?: WorkflowState;
-  /** @deprecated Use investigationProgress instead. Kept for F6 migration. */
-  completenessScore?: number;
   isSelectable?: boolean;
   isChecked?: boolean;
   onToggleSelect?: () => void;
@@ -81,8 +75,6 @@ export interface IssueListItemProps {
 export interface IssueDetailProps {
   issue: GitHubIssue;
   onInvestigate: () => void;
-  /** @deprecated Use investigationReport instead. Kept for F6 migration. */
-  investigationResult?: GitHubInvestigationResult | null;
   /** ID of existing task linked to this issue (from metadata.githubIssueNumber) */
   linkedTaskId?: string;
   /** Handler to navigate to view the linked task */
@@ -93,18 +85,6 @@ export interface IssueDetailProps {
   autoFixConfig?: AutoFixConfig | null;
   /** Auto-fix queue item for this issue */
   autoFixQueueItem?: AutoFixQueueItem | null;
-  /** @deprecated Legacy enrichment — no longer wired in F6+. Will be deleted in a future pass. */
-  enrichment?: IssueEnrichment | null;
-  /** @deprecated Legacy workflow transition — no longer wired in F6+. */
-  onTransition?: (to: WorkflowState, resolution?: Resolution) => void;
-  /** @deprecated Legacy AI triage — replaced by investigation system. */
-  onAITriage?: () => void;
-  /** @deprecated Legacy improve issue — replaced by investigation system. */
-  onImproveIssue?: () => void;
-  /** @deprecated Legacy split issue — replaced by investigation system. */
-  onSplitIssue?: () => void;
-  /** @deprecated Legacy AI busy flag — no longer wired in F6+. */
-  isAIBusy?: boolean;
   onEditTitle?: (title: string) => Promise<void>;
   onEditBody?: (body: string) => Promise<void>;
   onAddLabels?: (labels: string[]) => Promise<void>;
@@ -113,8 +93,6 @@ export interface IssueDetailProps {
   onAddAssignees?: (logins: string[]) => Promise<void>;
   onRemoveAssignees?: (logins: string[]) => Promise<void>;
   collaborators?: string[];
-  /** @deprecated Legacy create spec — replaced by investigation system task creation. */
-  onCreateSpec?: () => Promise<{ specNumber: string } | null>;
   onClose?: (comment?: string) => Promise<void>;
   onReopen?: () => Promise<void>;
   onComment?: (body: string) => Promise<void>;
@@ -122,12 +100,6 @@ export interface IssueDetailProps {
   isDepsLoading?: boolean;
   depsError?: string | null;
   onNavigateDependency?: (issueNumber: number) => void;
-  /** @deprecated Legacy enrichment comment — replaced by investigation postToGitHub. */
-  onPostEnrichmentComment?: () => void;
-  /** @deprecated Legacy enrichment comment — replaced by investigation postToGitHub. */
-  onDismissEnrichmentComment?: () => void;
-  /** @deprecated Legacy enrichment comment — replaced by investigation postToGitHub. */
-  hasExistingAIComment?: boolean;
   // --- Investigation system (F5) ---
   /** Investigation derived state for this issue */
   investigationState?: InvestigationState;
@@ -135,10 +107,18 @@ export interface IssueDetailProps {
   investigationReport?: InvestigationReport | null;
   /** Investigation progress percentage (0-100) */
   investigationProgress?: number;
+  /** Full investigation progress object (for status tree agent statuses) */
+  investigationProgressData?: InvestigationProgress | null;
   /** Whether investigation is currently running */
   isInvestigating?: boolean;
   /** Investigation error message */
   investigationError?: string | null;
+  /** Timestamp when investigation started */
+  investigationStartedAt?: string | null;
+  /** Timestamp when investigation completed */
+  investigationCompletedAt?: string | null;
+  /** Spec ID from investigation (for task creation tracking) */
+  investigationSpecId?: string | null;
   /** Cancel ongoing investigation */
   onCancelInvestigation?: () => void;
   /** Create a kanban task from investigation results */
@@ -159,22 +139,6 @@ export interface IssueDetailProps {
   investigationActivityLog?: Array<{ event: string; timestamp: string }>;
 }
 
-/** @deprecated Removed in F9. Use InvestigateButton + InvestigationPanel instead. */
-export interface InvestigationDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  selectedIssue: GitHubIssue | null;
-  investigationStatus: {
-    phase: string;
-    progress: number;
-    message: string;
-    error?: string;
-  };
-  onStartInvestigation: (selectedCommentIds: number[]) => void;
-  onClose: () => void;
-  projectId?: string;
-}
-
 export interface IssueListHeaderProps {
   repoFullName: string;
   openIssuesCount: number;
@@ -189,22 +153,6 @@ export interface IssueListHeaderProps {
   autoFixRunning?: boolean;
   autoFixProcessing?: number; // Number of issues being processed
   onAutoFixToggle?: (enabled: boolean) => void;
-  /** @deprecated Legacy analyze/group — replaced by investigation system. */
-  onAnalyzeAndGroup?: () => void;
-  /** @deprecated Legacy analyze/group — replaced by investigation system. */
-  isAnalyzing?: boolean;
-  /** @deprecated Legacy workflow filter — replaced by investigationStateFilter. */
-  workflowFilter?: WorkflowState[];
-  /** @deprecated Legacy workflow filter — replaced by onInvestigationStateFilterChange. */
-  onWorkflowFilterChange?: (states: WorkflowState[]) => void;
-  /** @deprecated Legacy workflow state counts — replaced by investigationStateCounts. */
-  stateCounts?: Record<WorkflowState, number>;
-  /** @deprecated Legacy triage mode — replaced by investigation system. */
-  onToggleTriageMode?: () => void;
-  /** @deprecated Legacy triage mode — replaced by investigation system. */
-  isTriageModeEnabled?: boolean;
-  /** @deprecated Legacy triage mode — replaced by investigation system. */
-  isTriageModeAvailable?: boolean;
   // --- Investigation system (F5) ---
   /** Filter by investigation states */
   investigationStateFilter?: InvestigationState[];
@@ -234,8 +182,6 @@ export interface IssueListProps {
   onSelectIssue: (issueNumber: number) => void;
   onInvestigate: (issue: GitHubIssue) => void;
   onLoadMore?: () => void;
-  /** @deprecated Use investigationStates instead. Kept for F6 migration. */
-  enrichments?: Record<string, IssueEnrichment>;
   selectedIssueNumbers?: Set<number>;
   onToggleSelect?: (issueNumber: number) => void;
   compact?: boolean;
@@ -254,26 +200,4 @@ export interface EmptyStateProps {
 export interface NotConnectedStateProps {
   error: string | null;
   onOpenSettings?: () => void;
-}
-
-/** @deprecated Legacy triage sidebar props — replaced by investigation system. */
-export interface TriageSidebarProps {
-  enrichment: IssueEnrichment | null;
-  currentState: WorkflowState;
-  previousState?: WorkflowState | null;
-  isAgentLocked?: boolean;
-  onTransition: (to: WorkflowState, resolution?: Resolution) => void;
-  completenessScore: number;
-  onAITriage?: () => void;
-  onImproveIssue?: () => void;
-  onSplitIssue?: () => void;
-  isAIBusy?: boolean;
-  dependencies?: IssueDependencies;
-  isDepsLoading?: boolean;
-  depsError?: string | null;
-  metrics?: TriageMetrics;
-  metricsTimeWindow?: MetricsTimeWindow;
-  isMetricsLoading?: boolean;
-  onTimeWindowChange?: (tw: MetricsTimeWindow) => void;
-  onRefreshMetrics?: () => void;
 }

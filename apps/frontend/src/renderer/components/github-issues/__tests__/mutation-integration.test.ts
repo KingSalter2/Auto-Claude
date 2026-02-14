@@ -131,7 +131,7 @@ describe('constants consistency', () => {
   it('BULK_ACTION_LABELS has entry for every BulkActionType', () => {
     const allActions: BulkActionType[] = [
       'close', 'reopen', 'add-label', 'remove-label',
-      'add-assignee', 'remove-assignee', 'transition',
+      'add-assignee', 'remove-assignee',
     ];
 
     for (const action of allActions) {
