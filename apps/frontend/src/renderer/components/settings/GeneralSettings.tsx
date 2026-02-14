@@ -11,11 +11,16 @@ import {
   THINKING_LEVELS,
   DEFAULT_FEATURE_MODELS,
   DEFAULT_FEATURE_THINKING,
-  FEATURE_LABELS
+  FEATURE_LABELS,
+  DEFAULT_INVESTIGATION_MODELS,
+  DEFAULT_INVESTIGATION_THINKING,
+  INVESTIGATION_SPECIALIST_KEYS,
+  INVESTIGATION_SPECIALIST_LABELS
 } from '../../../shared/constants';
 import type {
   AppSettings,
   FeatureModelConfig,
+  InvestigationModelConfig,
   ModelTypeShort,
   ThinkingLevel,
   ToolDetectionResult
@@ -174,7 +179,10 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                 </p>
               </div>
 
-              {(Object.keys(FEATURE_LABELS) as Array<keyof FeatureModelConfig>).map((feature) => {
+              {/* Generic feature rows (excluding githubIssues — replaced by specialist section below) */}
+              {(Object.keys(FEATURE_LABELS) as Array<keyof FeatureModelConfig>)
+                .filter((feature) => feature !== 'githubIssues')
+                .map((feature) => {
                 const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
                 const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
 
@@ -237,6 +245,85 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                   </div>
                 );
               })}
+
+              {/* GitHub Issues — Investigation Specialist Agents */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-foreground">
+                    {t('general.investigationAgents.title')}
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {t('general.investigationAgents.description')}
+                  </span>
+                </div>
+
+                {/* Indented specialist sub-rows */}
+                <div className="pl-4 border-l-2 border-border space-y-3">
+                  {INVESTIGATION_SPECIALIST_KEYS.map((specialist) => {
+                    const invModels = settings.investigationModels || DEFAULT_INVESTIGATION_MODELS;
+                    const invThinking = settings.investigationThinking || DEFAULT_INVESTIGATION_THINKING;
+
+                    return (
+                      <div key={specialist} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-medium text-foreground">
+                            {INVESTIGATION_SPECIALIST_LABELS[specialist].label}
+                          </Label>
+                          <span className="text-xs text-muted-foreground">
+                            {INVESTIGATION_SPECIALIST_LABELS[specialist].description}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 max-w-md">
+                          {/* Model Select */}
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">{t('general.model')}</Label>
+                            <Select
+                              value={invModels[specialist]}
+                              onValueChange={(value) => {
+                                const newInvModels: InvestigationModelConfig = { ...invModels, [specialist]: value as ModelTypeShort };
+                                onSettingsChange({ ...settings, investigationModels: newInvModels });
+                              }}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {AVAILABLE_MODELS.map((m) => (
+                                  <SelectItem key={m.value} value={m.value}>
+                                    {m.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {/* Thinking Level Select */}
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">{t('general.thinkingLevel')}</Label>
+                            <Select
+                              value={invThinking[specialist]}
+                              onValueChange={(value) => {
+                                const newInvThinking = { ...invThinking, [specialist]: value as ThinkingLevel };
+                                onSettingsChange({ ...settings, investigationThinking: newInvThinking });
+                              }}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {THINKING_LEVELS.map((level) => (
+                                  <SelectItem key={level.value} value={level.value}>
+                                    {level.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </SettingsSection>
