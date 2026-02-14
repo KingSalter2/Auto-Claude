@@ -118,7 +118,7 @@ function AgentSection({ agent, defaultOpen }: { agent: InvestigationAgentResult;
               </h5>
               <div className="space-y-1">
                 {agent.codeReferences.map((ref, i) => (
-                  <div key={i} className="text-xs font-mono bg-muted/50 rounded px-2 py-1">
+                  <div key={i} className="text-xs font-mono bg-muted/50 rounded px-2 py-1 truncate">
                     <span className="text-primary">{ref.file}</span>
                     {ref.line && <span className="text-muted-foreground">:{ref.line}</span>}
                     {ref.endLine && <span className="text-muted-foreground">-{ref.endLine}</span>}
@@ -153,7 +153,7 @@ export function InvestigationPanel({
   const { t } = useTranslation('common');
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-4 space-y-4 w-full min-w-0">
       {/* Resolved suggestion banner */}
       {report.likelyResolved && onCloseIssue && state !== 'done' && (
         <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800">

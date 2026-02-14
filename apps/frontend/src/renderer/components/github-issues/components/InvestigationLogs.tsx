@@ -206,7 +206,7 @@ function AgentLogSection({ agentKey, agentLog, isExpanded, onToggle, isInvestiga
   };
 
   return (
-    <div className="rounded-lg border overflow-hidden">
+    <div className="rounded-lg border overflow-hidden w-full min-w-0">
       <button
         type="button"
         onClick={onToggle}
@@ -278,8 +278,8 @@ function AgentLogEntries({ agentLog, isActive, maxVisible = 20 }: AgentLogEntrie
   }, [entries.length, isActive]);
 
   return (
-    <div ref={scrollContainerRef} onScroll={handleScroll} className="border-t border-border/30 max-h-[300px] overflow-y-auto">
-      <div className="p-2 space-y-0.5">
+    <div ref={scrollContainerRef} onScroll={handleScroll} className="border-t border-border/30 max-h-[300px] overflow-y-auto overflow-x-hidden w-full">
+      <div className="p-2 space-y-0.5 w-full min-w-0">
         {hasMore && !showAll && (
           <button
             type="button"

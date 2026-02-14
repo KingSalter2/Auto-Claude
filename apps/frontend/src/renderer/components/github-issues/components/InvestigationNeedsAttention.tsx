@@ -299,7 +299,7 @@ export function InvestigationNeedsAttention({
 
               <div className="flex-1 min-w-0">
                 <span className={cn(
-                  'text-sm font-medium truncate max-w-full',
+                  'text-sm font-medium block truncate',
                   step.status === 'completed' && 'text-foreground',
                   step.status === 'current' && 'text-primary',
                   step.status === 'failed' && 'text-destructive',

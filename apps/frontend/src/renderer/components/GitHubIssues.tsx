@@ -611,7 +611,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
           </section>
         }
         rightPanel={
-          <section className="flex flex-col h-full" aria-label={t('panels.issueDetail')} tabIndex={-1}>
+          <section className="flex flex-col h-full min-w-0 overflow-hidden" aria-label={t('panels.issueDetail')} tabIndex={-1}>
             {selectedIssue ? (
               <IssueDetail
                 issue={selectedIssue}
