@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckCircle, Circle, CircleDot, Loader2, XCircle,
-  Send, FileText, X,
+  Send, FileText, X, RotateCcw,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Progress } from '../../ui/progress';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../ui/dropdown-menu';
 import { cn } from '../../../lib/utils';
 import { CollapsibleCard } from '../../github-prs/components/CollapsibleCard';
 import type {
@@ -14,6 +15,7 @@ import type {
   InvestigationReport,
   InvestigationLogs,
   InvestigationAgentType,
+  InvestigationDismissReason,
 } from '@shared/types';
 
 const AGENT_ORDER: InvestigationAgentType[] = [
@@ -46,6 +48,12 @@ interface InvestigationNeedsAttentionProps {
   onCreateTask: () => void;
   onPostToGitHub?: () => void;
   isPostingToGitHub?: boolean;
+  onDismissIssue?: (reason: InvestigationDismissReason) => void;
+  onCloseIssue?: () => void;
+  onReopenIssue?: () => void;
+  isClosingIssue?: boolean;
+  isReopeningIssue?: boolean;
+  issueState: 'open' | 'closed';
 }
 
 type StepStatus = 'completed' | 'current' | 'pending' | 'failed';
@@ -54,6 +62,7 @@ export function InvestigationNeedsAttention({
   state, progress, report, error, startedAt, completedAt,
   githubCommentId, specId, issueNumber, projectId,
   onCancel, onInvestigate, onCreateTask, onPostToGitHub, isPostingToGitHub,
+  onDismissIssue, onCloseIssue, onReopenIssue, isClosingIssue, isReopeningIssue, issueState,
 }: InvestigationNeedsAttentionProps) {
   const { t } = useTranslation('common');
   const [isOpen, setIsOpen] = useState(true);
@@ -291,32 +300,69 @@ export function InvestigationNeedsAttention({
         )}
       </div>
 
-      {/* Action buttons */}
-      {isComplete && report && (
-        <div className="flex flex-wrap gap-2 mx-4 mb-4 pt-3 border-t border-border/50">
-          {onPostToGitHub && !githubCommentId && (
-            <Button size="sm" variant="outline" onClick={onPostToGitHub} disabled={isPostingToGitHub}>
-              <Send className="h-3.5 w-3.5 mr-1.5" />
-              {t('investigation.actions.postToGitHub', 'Post Findings')}
-            </Button>
-          )}
-          {!specId && (
-            <Button size="sm" variant="outline" onClick={onCreateTask}>
-              <FileText className="h-3.5 w-3.5 mr-1.5" />
-              {t('investigation.actions.createTask', 'Create Task')}
-            </Button>
-          )}
-        </div>
-      )}
+      {/* Action buttons — always visible */}
+      <div className="flex flex-wrap gap-2 mx-4 mb-4 pt-3 border-t border-border/50">
+        {/* Dismiss */}
+        {onDismissIssue && state !== 'done' && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm">
+                <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                {t('investigation.button.dismiss', 'Dismiss')}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => onDismissIssue('wont_fix')}>
+                {t('investigation.dismiss.wontFix', "Won't Fix")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDismissIssue('duplicate')}>
+                {t('investigation.dismiss.duplicate', 'Duplicate')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDismissIssue('cannot_reproduce')}>
+                {t('investigation.dismiss.cannotReproduce', 'Cannot Reproduce')}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDismissIssue('out_of_scope')}>
+                {t('investigation.dismiss.outOfScope', 'Out of Scope')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
 
-      {/* Failed: retry */}
-      {isFailed && (
-        <div className="mx-4 mb-4 pt-3 border-t border-border/50">
+        {/* Close / Reopen issue */}
+        {issueState === 'open' && onCloseIssue && (
+          <Button variant="outline" size="sm" onClick={onCloseIssue} disabled={isClosingIssue}>
+            <X className="h-3.5 w-3.5 mr-1.5" />
+            {t('phase5.closeIssue')}
+          </Button>
+        )}
+        {issueState === 'closed' && onReopenIssue && (
+          <Button variant="outline" size="sm" onClick={onReopenIssue} disabled={isReopeningIssue}>
+            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+            {t('phase5.reopenIssue')}
+          </Button>
+        )}
+
+        {/* Post findings / Create task — when investigation is complete */}
+        {isComplete && report && onPostToGitHub && !githubCommentId && (
+          <Button size="sm" variant="outline" onClick={onPostToGitHub} disabled={isPostingToGitHub}>
+            <Send className="h-3.5 w-3.5 mr-1.5" />
+            {t('investigation.actions.postToGitHub', 'Post Findings')}
+          </Button>
+        )}
+        {isComplete && report && !specId && (
+          <Button size="sm" variant="outline" onClick={onCreateTask}>
+            <FileText className="h-3.5 w-3.5 mr-1.5" />
+            {t('investigation.actions.createTask', 'Create Task')}
+          </Button>
+        )}
+
+        {/* Retry — when failed */}
+        {isFailed && (
           <Button size="sm" variant="outline" onClick={onInvestigate}>
             {t('investigation.actions.retry', 'Re-investigate')}
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </CollapsibleCard>
   );
 }

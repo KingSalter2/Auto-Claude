@@ -243,52 +243,46 @@ export function IssueDetail({
               queueItem={autoFixQueueItem ?? null}
             />
           )}
-          {/* Dismiss button */}
-          {onDismissIssue && derivedState !== 'done' && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <XCircle className="h-4 w-4 mr-1" />
-                  {t('investigation.button.dismiss', 'Dismiss')}
+          {/* Dismiss/Close/Reopen only shown here when no status tree (otherwise inside NeedsAttention card) */}
+          {!showStatusTree && (
+            <>
+              {onDismissIssue && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <XCircle className="h-4 w-4 mr-1" />
+                      {t('investigation.button.dismiss', 'Dismiss')}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => onDismissIssue('wont_fix')}>
+                      {t('investigation.dismiss.wontFix', "Won't Fix")}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onDismissIssue('duplicate')}>
+                      {t('investigation.dismiss.duplicate', 'Duplicate')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onDismissIssue('cannot_reproduce')}>
+                      {t('investigation.dismiss.cannotReproduce', 'Cannot Reproduce')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onDismissIssue('out_of_scope')}>
+                      {t('investigation.dismiss.outOfScope', 'Out of Scope')}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {issue.state === 'open' && onClose && (
+                <Button variant="outline" size="sm" onClick={handleClose} disabled={isClosing}>
+                  <X className="h-4 w-4 mr-1" />
+                  {t('phase5.closeIssue')}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onDismissIssue('wont_fix')}>
-                  {t('investigation.dismiss.wontFix', "Won't Fix")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDismissIssue('duplicate')}>
-                  {t('investigation.dismiss.duplicate', 'Duplicate')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDismissIssue('cannot_reproduce')}>
-                  {t('investigation.dismiss.cannotReproduce', 'Cannot Reproduce')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDismissIssue('out_of_scope')}>
-                  {t('investigation.dismiss.outOfScope', 'Out of Scope')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          {issue.state === 'open' && onClose && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClose}
-              disabled={isClosing}
-            >
-              <X className="h-4 w-4 mr-1" />
-              {t('phase5.closeIssue')}
-            </Button>
-          )}
-          {issue.state === 'closed' && onReopen && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleReopen}
-              disabled={isReopening}
-            >
-              <RotateCcw className="h-4 w-4 mr-1" />
-              {t('phase5.reopenIssue')}
-            </Button>
+              )}
+              {issue.state === 'closed' && onReopen && (
+                <Button variant="outline" size="sm" onClick={handleReopen} disabled={isReopening}>
+                  <RotateCcw className="h-4 w-4 mr-1" />
+                  {t('phase5.reopenIssue')}
+                </Button>
+              )}
+            </>
           )}
         </div>
 
@@ -311,6 +305,12 @@ export function IssueDetail({
               onCreateTask={onCreateTask ?? (() => {})}
               onPostToGitHub={onPostToGitHub}
               isPostingToGitHub={isPostingToGitHub}
+              onDismissIssue={onDismissIssue}
+              onCloseIssue={issue.state === 'open' && onClose ? handleClose : undefined}
+              onReopenIssue={issue.state === 'closed' && onReopen ? handleReopen : undefined}
+              isClosingIssue={isClosing}
+              isReopeningIssue={isReopening}
+              issueState={issue.state}
             />
 
             {investigationReport && (
