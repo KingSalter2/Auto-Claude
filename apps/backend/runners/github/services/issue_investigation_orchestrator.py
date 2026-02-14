@@ -82,24 +82,32 @@ INVESTIGATION_SPECIALISTS: list[SpecialistConfig] = [
         prompt_file="investigation_root_cause.md",
         tools=["Read", "Grep", "Glob"],
         description="Trace the bug/issue to its source code paths and identify the root cause",
+        max_turns=40,
+        thinking_budget_multiplier=1.5,
     ),
     SpecialistConfig(
         name="impact",
         prompt_file="investigation_impact.md",
         tools=["Read", "Grep", "Glob"],
         description="Determine blast radius, affected components, and user impact",
+        max_turns=25,
+        thinking_budget_multiplier=1.0,
     ),
     SpecialistConfig(
         name="fix_advisor",
         prompt_file="investigation_fix_advice.md",
         tools=["Read", "Grep", "Glob"],
         description="Suggest concrete fix approaches with files to modify and patterns to follow",
+        max_turns=30,
+        thinking_budget_multiplier=1.0,
     ),
     SpecialistConfig(
         name="reproducer",
         prompt_file="investigation_reproduction.md",
         tools=["Read", "Grep", "Glob"],
         description="Determine reproducibility, check test coverage, and suggest test approaches",
+        max_turns=35,
+        thinking_budget_multiplier=1.0,
     ),
 ]
 
@@ -337,15 +345,22 @@ Use Read, Grep, and Glob tools to explore the codebase.
                 _output_schema = (
                     _schema_class.model_json_schema() if _schema_class else None
                 )
+                # Apply per-specialist thinking multiplier
+                _effective_budget = (
+                    int(thinking_budget * cfg.thinking_budget_multiplier)
+                    if thinking_budget
+                    else None
+                )
                 return self._run_specialist_session(
                     config=cfg,
                     prompt=_prompt,
                     project_root=project_root,
                     model=model,
-                    thinking_budget=thinking_budget,
+                    thinking_budget=_effective_budget,
                     output_schema=_output_schema,
                     agent_type="investigation_specialist",
                     context_name=f"Investigation:{cfg.name}",
+                    max_messages=cfg.max_turns,
                 )
 
             return factory
