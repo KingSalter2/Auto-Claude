@@ -348,13 +348,25 @@ async def cmd_investigate(args) -> int:
         sys.stderr.reconfigure(line_buffering=True)
 
     config = get_config(args)
+
+    # Parse resume sessions if provided
+    resume_sessions = None
+    if getattr(args, "resume_sessions", None):
+        try:
+            resume_sessions = json.loads(args.resume_sessions)
+        except json.JSONDecodeError:
+            safe_print("Warning: Invalid --resume-sessions JSON, starting fresh")
+
     orchestrator = GitHubOrchestrator(
         project_dir=args.project,
         config=config,
         progress_callback=print_progress,
     )
 
-    result = await orchestrator.investigate_issue(args.issue_number)
+    result = await orchestrator.investigate_issue(
+        args.issue_number,
+        resume_sessions=resume_sessions,
+    )
 
     # Output JSON for the Electron frontend to parse
     safe_print("\nJSON Output")
@@ -829,6 +841,12 @@ def main():
     )
     investigate_parser.add_argument(
         "issue_number", type=int, help="Issue number to investigate"
+    )
+    investigate_parser.add_argument(
+        "--resume-sessions",
+        type=str,
+        default=None,
+        help="JSON dict of specialist_name:session_id for resuming interrupted investigations",
     )
 
     # post-investigation command

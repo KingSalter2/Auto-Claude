@@ -1519,6 +1519,7 @@ class GitHubOrchestrator:
         self,
         issue_number: int,
         project_root: Path | None = None,
+        resume_sessions: dict[str, str] | None = None,
     ) -> dict:
         """
         Run an AI investigation on a GitHub issue.
@@ -1531,6 +1532,8 @@ class GitHubOrchestrator:
             issue_number: The GitHub issue number to investigate
             project_root: Working directory for agents (e.g., worktree path).
                          Defaults to self.project_dir.
+            resume_sessions: Optional dict mapping specialist name to SDK
+                           session ID for resuming interrupted investigations.
 
         Returns:
             Dict with investigation results (InvestigationReport as dict)
@@ -1616,6 +1619,7 @@ class GitHubOrchestrator:
                 issue_labels=issue_labels,
                 issue_comments=issue_comments,
                 project_root=working_dir,
+                resume_sessions=resume_sessions,
             )
 
             # Update state to findings_ready

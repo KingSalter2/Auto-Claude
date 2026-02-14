@@ -152,6 +152,7 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         issue_labels: list[str] | None = None,
         issue_comments: list[str] | None = None,
         project_root: Path | None = None,
+        resume_sessions: dict[str, str] | None = None,
     ) -> InvestigationReport:
         """
         Run a full investigation on a GitHub issue.
@@ -217,6 +218,7 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
             model=model,
             thinking_budget=thinking_budget,
             issue_number=issue_number,
+            resume_sessions=resume_sessions,
         )
 
         self._report_progress(
@@ -331,6 +333,7 @@ Use Read, Grep, and Glob tools to explore the codebase.
         model: str,
         thinking_budget: int | None,
         issue_number: int | None = None,
+        resume_sessions: dict[str, str] | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Run all investigation specialists in parallel.
 
@@ -340,6 +343,8 @@ Use Read, Grep, and Glob tools to explore the codebase.
             model: Model to use
             thinking_budget: Max thinking tokens
             issue_number: GitHub issue number (for session persistence)
+            resume_sessions: Optional dict mapping specialist name to SDK
+                           session ID for resuming interrupted sessions.
 
         Returns:
             Dict mapping specialist name → stream result dict
@@ -363,6 +368,10 @@ Use Read, Grep, and Glob tools to explore the codebase.
                     if thinking_budget
                     else None
                 )
+                # Look up resume session ID for this specialist
+                _resume_id = (
+                    resume_sessions.get(cfg.name) if resume_sessions else None
+                )
                 return self._run_specialist_session(
                     config=cfg,
                     prompt=_prompt,
@@ -373,6 +382,7 @@ Use Read, Grep, and Glob tools to explore the codebase.
                     agent_type="investigation_specialist",
                     context_name=f"Investigation:{cfg.name}",
                     max_messages=cfg.max_turns,
+                    resume_session_id=_resume_id,
                     on_thinking=lambda text, _name=cfg.name: emit_json_event(
                         "thinking",
                         _name,

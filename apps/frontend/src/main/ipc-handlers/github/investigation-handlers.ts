@@ -977,13 +977,35 @@ async function runInvestigation(
         });
       }
 
-      const args = buildRunnerArgs(
-        getRunnerPath(backendPath),
-        project.path,
-        'investigate',
-        [String(issueNumber)],
-        { model, thinkingLevel },
-      );
+      // Read session IDs for interrupted investigation resume
+      let resumeSessionsArg: string[] = [];
+      try {
+        const stateFile = path.join(
+          project.path, '.auto-claude', 'issues', `${issueNumber}`, 'investigation_state.json'
+        );
+        if (fs.existsSync(stateFile)) {
+          const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+          if (stateData.sessions && Object.keys(stateData.sessions).length > 0) {
+            // Only pass sessions if this is a resume (status was 'investigating')
+            if (stateData.status === 'investigating') {
+              resumeSessionsArg = ['--resume-sessions', JSON.stringify(stateData.sessions)];
+            }
+          }
+        }
+      } catch {
+        // Non-fatal: will start fresh
+      }
+
+      const args = [
+        ...buildRunnerArgs(
+          getRunnerPath(backendPath),
+          project.path,
+          'investigate',
+          [String(issueNumber)],
+          { model, thinkingLevel },
+        ),
+        ...resumeSessionsArg,
+      ];
 
       const startedAt = new Date().toISOString();
 
