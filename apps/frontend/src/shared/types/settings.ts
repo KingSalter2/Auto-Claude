@@ -200,6 +200,22 @@ export interface FeatureThinkingConfig {
   utility: ThinkingLevel;
 }
 
+// Per-specialist investigation model configuration
+export interface InvestigationModelConfig {
+  rootCause: ModelTypeShort;
+  impact: ModelTypeShort;
+  fixAdvisor: ModelTypeShort;
+  reproducer: ModelTypeShort;
+}
+
+// Per-specialist investigation thinking level configuration
+export interface InvestigationThinkingConfig {
+  rootCause: ThinkingLevel;
+  impact: ThinkingLevel;
+  fixAdvisor: ThinkingLevel;
+  reproducer: ThinkingLevel;
+}
+
 // Agent profile for preset model/thinking configurations
 // All profiles have per-phase configuration (phaseModels/phaseThinking)
 export interface AgentProfile {
@@ -263,6 +279,9 @@ export interface AppSettings {
   // Feature-specific configuration (insights, ideation, roadmap)
   featureModels?: FeatureModelConfig;
   featureThinking?: FeatureThinkingConfig;
+  // Per-specialist investigation agent configuration
+  investigationModels?: InvestigationModelConfig;
+  investigationThinking?: InvestigationThinkingConfig;
   // Changelog preferences
   changelogFormat?: ChangelogFormat;
   changelogAudience?: ChangelogAudience;
