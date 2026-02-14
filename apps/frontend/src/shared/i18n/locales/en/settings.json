@@ -202,6 +202,10 @@
     "aiTerminalNamingDescription": "Automatically name terminals based on commands (uses Haiku)",
     "featureModelSettings": "Feature Model Settings",
     "featureModelSettingsDescription": "Model and thinking level for Insights, Ideation, and Roadmap",
+    "investigationAgents": {
+      "title": "GitHub Issues",
+      "description": "Issue investigation agents"
+    },
     "model": "Model",
     "thinkingLevel": "Thinking Level",
     "paths": "Paths",

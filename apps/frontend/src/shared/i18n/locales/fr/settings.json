@@ -202,6 +202,10 @@
     "aiTerminalNamingDescription": "Nommer automatiquement les terminaux en fonction des commandes (utilise Haiku)",
     "featureModelSettings": "Paramètres du modèle de fonctionnalité",
     "featureModelSettingsDescription": "Modèle et niveau de réflexion pour Insights, Idéation et Roadmap",
+    "investigationAgents": {
+      "title": "GitHub Issues",
+      "description": "Agents d'investigation des issues"
+    },
     "model": "Modèle",
     "thinkingLevel": "Niveau de réflexion",
     "paths": "Chemins",
