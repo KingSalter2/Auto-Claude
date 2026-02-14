@@ -166,12 +166,19 @@ export function InvestigationNeedsAttention({
         if (duration) suffix = ` — ${duration}`;
       } else if (agentStatus === 'current' && agentLog?.startedAt) {
         const elapsed = Math.round((Date.now() - new Date(agentLog.startedAt).getTime()) / 1000);
-        suffix = ` — ${elapsed}s`;
+        if (elapsed < 60) {
+          suffix = ` — ${elapsed}s`;
+        } else {
+          const min = Math.floor(elapsed / 60);
+          const sec = elapsed % 60;
+          suffix = ` — ${min}m ${sec}s`;
+        }
       }
       steps.push({
         id: agentType,
         label: t(AGENT_I18N_KEYS[agentType]) + suffix,
         status: agentStatus,
+        date: agentLog?.startedAt,
       });
     }
   }
