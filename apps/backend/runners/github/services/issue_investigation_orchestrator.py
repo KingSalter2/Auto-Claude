@@ -468,6 +468,7 @@ the root cause — focus on your specialty using these findings as ground truth.
                     context_name=f"Investigation:{cfg.name}",
                     resume_session_id=_resume_id,
                     thinking_level=thinking_lvl,
+                    effort_level="high",
                     on_thinking=lambda text, _name=cfg.name: emit_json_event(
                         "thinking",
                         _name,

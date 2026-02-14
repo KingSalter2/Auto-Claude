@@ -156,6 +156,7 @@ class ParallelAgentOrchestrator:
         on_tool_result: Any | None = None,
         resume_session_id: str | None = None,
         thinking_level: str | None = None,
+        effort_level: str | None = None,
     ) -> dict[str, Any]:
         """Run a single specialist as its own SDK session.
 
@@ -198,6 +199,10 @@ class ParallelAgentOrchestrator:
             thinking_kwargs = get_thinking_kwargs_for_model(
                 model, effective_thinking
             )
+            # Override effort_level if explicitly provided (e.g., investigation
+            # agents always use "high" effort regardless of thinking level)
+            if effort_level and "effort_level" in thinking_kwargs:
+                thinking_kwargs["effort_level"] = effort_level
 
             client_kwargs: dict[str, Any] = {
                 "project_dir": project_root,
