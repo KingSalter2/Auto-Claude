@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   CheckCircle, Circle, CircleDot, Loader2, XCircle,
-  Send, FileText, X, RotateCcw,
+  Send, FileText, X, RotateCcw, RefreshCw,
 } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Progress } from '../../ui/progress';
@@ -342,7 +342,7 @@ export function InvestigationNeedsAttention({
           </Button>
         )}
 
-        {/* Post findings / Create task — when investigation is complete */}
+        {/* Post findings / Create task / Re-investigate — when investigation is complete or failed */}
         {isComplete && report && onPostToGitHub && !githubCommentId && (
           <Button size="sm" variant="outline" onClick={onPostToGitHub} disabled={isPostingToGitHub}>
             <Send className="h-3.5 w-3.5 mr-1.5" />
@@ -355,10 +355,9 @@ export function InvestigationNeedsAttention({
             {t('investigation.actions.createTask', 'Create Task')}
           </Button>
         )}
-
-        {/* Retry — when failed */}
-        {isFailed && (
+        {(isComplete || isFailed) && (
           <Button size="sm" variant="outline" onClick={onInvestigate}>
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
             {t('investigation.actions.retry', 'Re-investigate')}
           </Button>
         )}
