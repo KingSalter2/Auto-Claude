@@ -158,7 +158,53 @@ function parseInvestigationLogLine(line: string): {
   content: string;
   isError: boolean;
   isTool: boolean;
+  toolName?: string;
+  thinkingPreview?: string;
+  thinkingChars?: number;
+  isStructured?: boolean;
 } | null {
+  // Try JSON-structured events first (emitted by emit_json_event in investigation_hooks.py)
+  if (line.startsWith('{')) {
+    try {
+      const event = JSON.parse(line) as {
+        event?: string;
+        agent?: string;
+        tool?: string;
+        detail?: string;
+        chars?: number;
+        preview?: string;
+        success?: boolean;
+      };
+      if (event.event && event.agent) {
+        const agentType = INVESTIGATION_AGENT_NAMES[event.agent] ?? 'orchestrator';
+        const isError = event.event === 'tool_end' && event.success === false;
+        const isTool = event.event === 'tool_start' || event.event === 'tool_end';
+
+        let content = '';
+        if (event.event === 'thinking') {
+          content = `Thinking (${event.chars?.toLocaleString() ?? '?'} chars)`;
+        } else if (event.event === 'tool_start') {
+          content = event.detail ?? `Using ${event.tool}`;
+        } else if (event.event === 'tool_end') {
+          content = `${event.tool} ${event.success ? 'done' : 'failed'}`;
+        }
+
+        return {
+          agentType: agentType as InvestigationAgentType | 'orchestrator',
+          content,
+          isError,
+          isTool,
+          toolName: event.tool,
+          thinkingPreview: event.preview,
+          thinkingChars: event.chars,
+          isStructured: true,
+        };
+      }
+    } catch {
+      // Not valid JSON, fall through to bracket parsing
+    }
+  }
+
   // Skip debug-prefixed lines (noisy, not useful for UI)
   if (line.startsWith('[DEBUG ')) return null;
 
@@ -260,8 +306,9 @@ class InvestigationLogCollector {
       agent.status = 'active';
     }
 
-    let entryType: 'text' | 'tool_start' | 'tool_end' | 'error' | 'info' = 'text';
+    let entryType: InvestigationLogEntry['type'] = 'text';
     if (parsed.isError) entryType = 'error';
+    else if (parsed.thinkingChars) entryType = 'thinking';
     else if (parsed.isTool) entryType = 'tool_start';
 
     const entry: InvestigationLogEntry = {
@@ -270,6 +317,10 @@ class InvestigationLogCollector {
       content: parsed.content,
       agentType: parsed.agentType,
       source: parsed.agentType,
+      toolName: parsed.toolName,
+      thinkingPreview: parsed.thinkingPreview,
+      thinkingChars: parsed.thinkingChars,
+      isStructured: parsed.isStructured,
     };
 
     agent.entries.push(entry);

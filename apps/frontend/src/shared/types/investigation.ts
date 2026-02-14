@@ -281,11 +281,19 @@ export interface BatchStagingItem {
  */
 export interface InvestigationLogEntry {
   timestamp: string;
-  type: 'text' | 'tool_start' | 'tool_end' | 'error' | 'info';
+  type: 'text' | 'tool_start' | 'tool_end' | 'error' | 'info' | 'thinking';
   content: string;
   agentType: InvestigationAgentType | 'orchestrator';
   source?: string;
   detail?: string;
+  /** Tool name for tool_start/tool_end events */
+  toolName?: string;
+  /** Preview of thinking content */
+  thinkingPreview?: string;
+  /** Number of thinking chars */
+  thinkingChars?: number;
+  /** Whether this was parsed from structured JSON */
+  isStructured?: boolean;
 }
 
 /**

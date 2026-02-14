@@ -152,6 +152,9 @@ class ParallelAgentOrchestrator:
         agent_type: str = "pr_reviewer",
         context_name: str | None = None,
         max_messages: int | None = None,
+        on_thinking: Any | None = None,
+        on_tool_use: Any | None = None,
+        on_tool_result: Any | None = None,
     ) -> dict[str, Any]:
         """Run a single specialist as its own SDK session.
 
@@ -242,6 +245,12 @@ class ParallelAgentOrchestrator:
                 }
                 if max_messages is not None:
                     stream_kwargs["max_messages"] = max_messages
+                if on_thinking is not None:
+                    stream_kwargs["on_thinking"] = on_thinking
+                if on_tool_use is not None:
+                    stream_kwargs["on_tool_use"] = on_tool_use
+                if on_tool_result is not None:
+                    stream_kwargs["on_tool_result"] = on_tool_result
 
                 stream_result = await process_sdk_stream(**stream_kwargs)
 

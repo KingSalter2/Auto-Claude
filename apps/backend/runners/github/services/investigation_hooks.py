@@ -16,8 +16,18 @@ also allows "git log --oneline -10".
 
 from __future__ import annotations
 
+import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
+
+try:
+    from .io_utils import safe_print
+except (ImportError, ValueError, SystemError):
+    try:
+        from services.io_utils import safe_print
+    except (ImportError, ModuleNotFoundError):
+        from io_utils import safe_print
 
 logger = logging.getLogger(__name__)
 
@@ -113,3 +123,20 @@ async def investigation_bash_guard(
             ),
         }
     }
+
+
+def emit_json_event(event: str, agent: str, **kwargs: Any) -> None:
+    """Emit a structured JSON event to stdout for the frontend to parse.
+
+    Args:
+        event: Event type (tool_start, tool_end, thinking)
+        agent: Specialist agent name (root_cause, impact, etc.)
+        **kwargs: Additional event data
+    """
+    payload = {
+        "event": event,
+        "agent": agent,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        **kwargs,
+    }
+    safe_print(json.dumps(payload, default=str))

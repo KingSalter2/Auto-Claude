@@ -25,6 +25,7 @@ try:
         get_thinking_budget,
         resolve_model_id,
     )
+    from .investigation_hooks import emit_json_event
     from .investigation_models import (
         FixAdvice,
         ImpactAssessment,
@@ -37,8 +38,10 @@ try:
         save_investigation_report,
     )
     from .parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+    from .sdk_utils import _get_tool_detail
 except (ImportError, ValueError, SystemError):
     try:
+        from services.investigation_hooks import emit_json_event
         from services.investigation_models import (
             FixAdvice,
             ImpactAssessment,
@@ -51,7 +54,9 @@ except (ImportError, ValueError, SystemError):
             save_investigation_report,
         )
         from services.parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+        from services.sdk_utils import _get_tool_detail
     except (ImportError, ModuleNotFoundError):
+        from investigation_hooks import emit_json_event
         from investigation_models import (
             FixAdvice,
             ImpactAssessment,
@@ -64,6 +69,7 @@ except (ImportError, ValueError, SystemError):
             save_investigation_report,
         )
         from parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+        from sdk_utils import _get_tool_detail
     from phase_config import (
         get_thinking_budget,
         resolve_model_id,
@@ -361,6 +367,23 @@ Use Read, Grep, and Glob tools to explore the codebase.
                     agent_type="investigation_specialist",
                     context_name=f"Investigation:{cfg.name}",
                     max_messages=cfg.max_turns,
+                    on_thinking=lambda text, _name=cfg.name: emit_json_event(
+                        "thinking",
+                        _name,
+                        chars=len(text),
+                        preview=text[:200].replace("\n", " "),
+                    ),
+                    on_tool_use=lambda name, tid, inp, _name=cfg.name: emit_json_event(
+                        "tool_start",
+                        _name,
+                        tool=name,
+                        detail=_get_tool_detail(name, inp),
+                    ),
+                    on_tool_result=lambda tid, err, _, _name=cfg.name: emit_json_event(
+                        "tool_end",
+                        _name,
+                        success=not err,
+                    ),
                 )
 
             return factory
