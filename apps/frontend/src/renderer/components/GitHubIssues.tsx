@@ -280,10 +280,16 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     });
   }, [selectedProject?.id]);
 
-  // Load persisted investigation state from disk on project change
+  // Load persisted investigation state and settings from disk on project change
   useEffect(() => {
     if (!selectedProject?.id) return;
     loadPersistedInvestigations(selectedProject.id);
+    // Hydrate investigation settings (including labelConsentGiven) into the store
+    window.electronAPI?.github?.getInvestigationSettings?.(selectedProject.id).then((res) => {
+      if (res?.success && res.data) {
+        investigationStore.setSettings(selectedProject.id, res.data);
+      }
+    }).catch(() => { /* non-critical */ });
   }, [selectedProject?.id]);
 
   // Mark stale investigations: cross-reference investigations with fetched issues

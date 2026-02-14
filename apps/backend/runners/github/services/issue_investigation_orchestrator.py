@@ -383,17 +383,16 @@ Use Read, Grep, and Glob tools to explore the codebase.
                         detail=_get_tool_detail(name, inp),
                     )
 
-                def _on_tool_result(tid, err, _, _name=cfg.name, _map=_tool_names):
+                def _on_tool_result(tid, err, content, _name=cfg.name, _map=_tool_names):
                     tool = _map.pop(tid, None)
                     # StructuredOutput is an internal SDK tool — don't show in UI
                     if tool == "StructuredOutput":
                         return
-                    emit_json_event(
-                        "tool_end",
-                        _name,
-                        tool=tool,
-                        success=not err,
-                    )
+                    kwargs = {"tool": tool, "success": not err}
+                    if err and content:
+                        # Include truncated error detail for failed tools
+                        kwargs["error"] = str(content)[:200]
+                    emit_json_event("tool_end", _name, **kwargs)
 
                 return self._run_specialist_session(
                     config=cfg,

@@ -207,8 +207,8 @@ class TestCoverage(BaseModel):
 class ReproductionAnalysis(BaseModel):
     """Structured output from the Reproducer agent."""
 
-    reproducible: Literal["yes", "likely", "unlikely", "no"] = Field(
-        description="Whether the issue can be reproduced"
+    reproducible: str = Field(
+        description="Whether the issue can be reproduced (e.g. yes, likely, unlikely, no)"
     )
     reproduction_steps: list[str] = Field(
         default_factory=list,

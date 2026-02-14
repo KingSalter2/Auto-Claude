@@ -65,6 +65,8 @@ INVESTIGATION_BASH_ALLOWLIST: list[str] = [
     "head",
     "tail",
     "file",
+    "grep",
+    "rg",
 ]
 
 

@@ -93,9 +93,6 @@ function AgentSection({ agent, defaultOpen }: { agent: InvestigationAgentResult;
         {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         <Icon className="h-4 w-4 text-muted-foreground" />
         <span>{t(labelKey, defaultLabel)}</span>
-        <span className="ml-auto text-xs text-muted-foreground">
-          {agent.confidence}% {t('investigation.panel.confidence', 'confidence')}
-        </span>
       </button>
       {isOpen && (
         <div className="px-3 pb-3 space-y-2 border-t">

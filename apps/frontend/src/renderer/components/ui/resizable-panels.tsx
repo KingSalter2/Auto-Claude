@@ -133,7 +133,7 @@ export function ResizablePanels({
       {/* Left panel */}
       <div
         className="flex flex-col min-w-0 overflow-hidden"
-        style={{ width: `${leftWidth}%` }}
+        style={{ flex: `${leftWidth} 1 0` }}
       >
         {leftPanel}
       </div>
@@ -156,7 +156,7 @@ export function ResizablePanels({
       {/* Right panel */}
       <div
         className="flex flex-col min-w-0 overflow-hidden"
-        style={{ width: `${100 - leftWidth}%` }}
+        style={{ flex: `${100 - leftWidth} 1 0` }}
       >
         {rightPanel}
       </div>
@@ -291,7 +291,7 @@ export function ResizableThreePanels({
       {/* Left panel */}
       <div
         className="flex flex-col min-w-0 overflow-hidden"
-        style={{ width: `${widths.left}%` }}
+        style={{ flex: `${widths.left} 1 0` }}
       >
         {leftPanel}
       </div>
@@ -308,7 +308,7 @@ export function ResizableThreePanels({
       {/* Middle panel */}
       <div
         className="flex flex-col min-w-0 overflow-hidden"
-        style={{ width: `${widths.middle}%` }}
+        style={{ flex: `${widths.middle} 1 0` }}
       >
         {middlePanel}
       </div>
@@ -325,7 +325,7 @@ export function ResizableThreePanels({
       {/* Right panel */}
       <div
         className="flex flex-col min-w-0 overflow-hidden"
-        style={{ width: `${rightWidth}%` }}
+        style={{ flex: `${rightWidth} 1 0` }}
       >
         {rightPanel}
       </div>

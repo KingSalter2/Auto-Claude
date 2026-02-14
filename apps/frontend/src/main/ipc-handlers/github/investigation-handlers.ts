@@ -174,6 +174,7 @@ function parseInvestigationLogLine(line: string): {
         chars?: number;
         preview?: string;
         success?: boolean;
+        error?: string;
       };
       if (event.event && event.agent) {
         const agentType = INVESTIGATION_AGENT_NAMES[event.agent] ?? 'orchestrator';
@@ -186,7 +187,9 @@ function parseInvestigationLogLine(line: string): {
         } else if (event.event === 'tool_start') {
           content = event.detail ?? `Using ${event.tool}`;
         } else if (event.event === 'tool_end') {
-          content = `${event.tool ?? 'Tool'} ${event.success ? 'done' : 'failed'}`;
+          content = event.success
+            ? `${event.tool ?? 'Tool'} done`
+            : `${event.tool ?? 'Tool'} failed${event.error ? `: ${event.error}` : ''}`;
         }
 
         return {
@@ -399,18 +402,12 @@ function transformPythonReport(raw: Record<string, unknown>): InvestigationRepor
       };
     });
 
-  const confidenceToNumber = (conf: unknown): number => {
-    if (typeof conf === 'number') return conf;
-    const map: Record<string, number> = { high: 90, medium: 60, low: 30 };
-    return map[String(conf)] ?? 50;
-  };
-
   const transformAgent = (
     agentType: string,
     data: unknown,
-  ): { agentType: string; summary: string; findings: string[]; codeReferences: ReturnType<typeof codePathsToRefs>; confidence: number } => {
+  ): { agentType: string; summary: string; findings: string[]; codeReferences: ReturnType<typeof codePathsToRefs> } => {
     if (!data || typeof data !== 'object') {
-      return { agentType, summary: '', findings: [], codeReferences: [], confidence: 0 };
+      return { agentType, summary: '', findings: [], codeReferences: [] };
     }
     const d = data as Record<string, unknown>;
 
@@ -448,7 +445,6 @@ function transformPythonReport(raw: Record<string, unknown>): InvestigationRepor
       summary,
       findings,
       codeReferences: codePathsToRefs((d.code_paths as unknown[]) ?? []),
-      confidence: confidenceToNumber(d.confidence),
     };
   };
 

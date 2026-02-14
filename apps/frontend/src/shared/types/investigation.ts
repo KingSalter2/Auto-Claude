@@ -52,7 +52,8 @@ export interface InvestigationAgentResult {
   summary: string;
   findings: string[];
   codeReferences: CodeReference[];
-  confidence: number; // 0-100
+  /** @deprecated Removed from UI — AI self-reported confidence was misleading */
+  confidence?: number;
 }
 
 /**
