@@ -13,7 +13,7 @@ import {
 import { loadTasks } from "../stores/task-store";
 import {
   useGitHubIssues,
-  useIssueFiltering,
+  useIssueListFiltering,
   useAutoFix,
   useBulkOperations,
   useMutations,
@@ -26,6 +26,7 @@ import {
   IssueListHeader,
   IssueList,
   IssueDetail,
+  IssueFilterBar,
   BatchReviewWizard,
   BulkActionBar,
   BulkResultsPanel,
@@ -74,23 +75,39 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   // Investigation store — multi-issue keyed state
   const investigationStore = useInvestigationStore();
 
-  // FE-1 fix: Subscribe to issues/filterState individually and memoize the
-  // filtered list instead of calling getFilteredIssues() which creates a new
-  // array on every render.
   const storeIssues = useIssuesStore((s) => s.issues);
-  const storeFilterState = useIssuesStore((s) => s.filterState);
-  const memoizedFilteredIssues = useMemo(() => {
-    if (storeFilterState === 'all') return storeIssues;
-    return storeIssues.filter((issue) => issue.state === storeFilterState);
-  }, [storeIssues, storeFilterState]);
 
-  const { searchQuery, setSearchQuery, filteredIssues, isSearchActive } = useIssueFiltering(
-    memoizedFilteredIssues,
-    {
-      onSearchStart: handleSearchStart,
-      onSearchClear: handleSearchClear,
+  // useIssueListFiltering handles search, reporter, status, and sort client-side
+  const {
+    filteredIssues,
+    reporters,
+    filters: issueFilters,
+    setSearchQuery,
+    setReporters,
+    setStatuses,
+    setSortBy,
+    clearFilters,
+    hasActiveFilters,
+  } = useIssueListFiltering(storeIssues);
+
+  const isSearchActive = issueFilters.searchQuery.length > 0;
+
+  // Trigger full issue load when search becomes active
+  useEffect(() => {
+    if (issueFilters.searchQuery.length > 0) {
+      handleSearchStart();
+    } else {
+      handleSearchClear();
     }
-  );
+  }, [issueFilters.searchQuery, handleSearchStart, handleSearchClear]);
+
+  // Ensure all issues are loaded — status filtering is now client-side
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run once on mount
+  useEffect(() => {
+    if (filterState !== 'all') {
+      handleFilterChange('all');
+    }
+  }, []);
 
   const {
     config: autoFixConfig,
@@ -303,7 +320,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset on filter/search change
   useEffect(() => {
     setSelectedIssueNumbers(new Set());
-  }, [investigationStateFilter, filterState, searchQuery]);
+  }, [investigationStateFilter, issueFilters]);
 
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
 
@@ -549,10 +566,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         repoFullName={syncStatus.repoFullName ?? ""}
         openIssuesCount={getOpenIssuesCount()}
         isLoading={isLoading}
-        searchQuery={searchQuery}
-        filterState={filterState}
-        onSearchChange={setSearchQuery}
-        onFilterChange={handleFilterChange}
         onRefresh={handleRefreshWithAutoFix}
         autoFixEnabled={autoFixConfig?.enabled}
         autoFixRunning={isBatchRunning}
@@ -593,6 +606,16 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         maxLeftWidth={75}
         leftPanel={
           <section className="flex flex-col h-full border-r border-border" aria-label={t('panels.issueList')} tabIndex={-1}>
+            <IssueFilterBar
+              filters={issueFilters}
+              reporters={reporters}
+              hasActiveFilters={hasActiveFilters}
+              onSearchChange={setSearchQuery}
+              onReportersChange={setReporters}
+              onStatusesChange={setStatuses}
+              onSortChange={setSortBy}
+              onClearFilters={clearFilters}
+            />
             <IssueList
               issues={investigationFilteredIssues}
               selectedIssueNumber={selectedIssueNumber}

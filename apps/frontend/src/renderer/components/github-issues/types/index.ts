@@ -165,10 +165,6 @@ export interface IssueListHeaderProps {
   repoFullName: string;
   openIssuesCount: number;
   isLoading: boolean;
-  searchQuery: string;
-  filterState: FilterState;
-  onSearchChange: (query: string) => void;
-  onFilterChange: (state: FilterState) => void;
   onRefresh: () => void;
   // Auto-fix toggle (reactive - for new issues)
   autoFixEnabled?: boolean;

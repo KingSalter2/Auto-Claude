@@ -1,17 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Github, RefreshCw, Search, Filter, Wand2, Loader2, EyeOff, Eye, XCircle } from 'lucide-react';
+import { Github, RefreshCw, Wand2, Loader2, EyeOff, Eye, XCircle } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
-import { Input } from '../../ui/input';
 import { Switch } from '../../ui/switch';
 import { Label } from '../../ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '../../ui/select';
 import {
   Tooltip,
   TooltipContent,
@@ -66,10 +58,6 @@ export function IssueListHeader({
   repoFullName,
   openIssuesCount,
   isLoading,
-  searchQuery,
-  filterState,
-  onSearchChange,
-  onFilterChange,
   onRefresh,
   autoFixEnabled,
   autoFixRunning,
@@ -235,29 +223,6 @@ export function IssueListHeader({
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t('issues.searchPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={filterState} onValueChange={onFilterChange}>
-          <SelectTrigger className="w-32">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="open">{t('issues.filterOpen')}</SelectItem>
-            <SelectItem value="closed">{t('issues.filterClosed')}</SelectItem>
-            <SelectItem value="all">{t('issues.filterAll')}</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
       {children}
     </div>
   );
