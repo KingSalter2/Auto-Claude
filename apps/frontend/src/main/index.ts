@@ -56,6 +56,7 @@ import { initializeClaudeProfileManager, getClaudeProfileManager } from './claud
 import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
+import { getWindowManager } from './window-manager';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -208,6 +209,10 @@ function createWindow(): void {
       spellcheck: true // Enable spell check for text inputs
     }
   });
+
+  // Register the main window with WindowManager for multi-window support
+  const windowManager = getWindowManager();
+  windowManager.registerMainWindow(mainWindow);
 
   // Show window when ready to avoid visual flash
   mainWindow.on('ready-to-show', () => {
