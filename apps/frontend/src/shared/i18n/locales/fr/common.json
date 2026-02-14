@@ -1158,6 +1158,10 @@
       "toolFailed": "échoué",
       "agentsRunning": "En cours : {{agents}}"
     },
+    "duration": {
+      "seconds": "{{count}}s",
+      "minutesSeconds": "{{min}}m {{sec}}s"
+    },
     "dismiss": {
       "wontFix": "Ne sera pas corrigé",
       "duplicate": "Doublon",

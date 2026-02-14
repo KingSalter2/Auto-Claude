@@ -1158,6 +1158,10 @@
       "toolFailed": "failed",
       "agentsRunning": "Running: {{agents}}"
     },
+    "duration": {
+      "seconds": "{{count}}s",
+      "minutesSeconds": "{{min}}m {{sec}}s"
+    },
     "dismiss": {
       "wontFix": "Won't fix",
       "duplicate": "Duplicate",
