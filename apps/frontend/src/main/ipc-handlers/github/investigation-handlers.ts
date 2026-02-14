@@ -714,6 +714,127 @@ function getInvestigationSettings(projectId: string): InvestigationSettings {
 }
 
 /**
+ * Build a comprehensive task description from an investigation report.
+ * Includes root cause, ALL fix approaches with pros/cons, gotchas, and
+ * patterns to follow — so the AI coder agent has full context.
+ */
+function buildTaskDescriptionFromReport(
+  issueNumber: number,
+  reportData: Record<string, unknown>,
+): string {
+  const summary = (reportData.ai_summary as string) || `Investigation of issue #${issueNumber}`;
+  const fixAdvice = reportData.fix_advice as {
+    approaches?: Array<{
+      description?: string;
+      complexity?: string;
+      files_affected?: string[];
+      pros?: string[];
+      cons?: string[];
+    }>;
+    recommended_approach?: number;
+    gotchas?: string[];
+    patterns_to_follow?: Array<{ file?: string; description?: string }>;
+  } | undefined;
+  const rootCause = reportData.root_cause as {
+    identified_root_cause?: string;
+    confidence?: string;
+    evidence?: string;
+    code_paths?: Array<{ file?: string; description?: string }>;
+  } | undefined;
+
+  const sections: string[] = [
+    `# GitHub Issue #${issueNumber}`,
+    '',
+    '## Summary',
+    summary,
+  ];
+
+  // Root cause context for the coder agent
+  if (rootCause?.identified_root_cause) {
+    sections.push(
+      '',
+      '## Root Cause',
+      `**Confidence:** ${rootCause.confidence ?? 'unknown'}`,
+      '',
+      rootCause.identified_root_cause,
+    );
+    if (rootCause.code_paths?.length) {
+      sections.push(
+        '',
+        '### Code Paths',
+        ...rootCause.code_paths.map(
+          (cp) => `- \`${cp.file}\` — ${cp.description ?? ''}`,
+        ),
+      );
+    }
+    if (rootCause.evidence) {
+      sections.push('', '### Evidence', rootCause.evidence);
+    }
+  }
+
+  // All fix approaches so the agent can choose the best strategy
+  if (fixAdvice?.approaches?.length) {
+    const recIdx = fixAdvice.recommended_approach ?? 0;
+    sections.push('', '## Fix Approaches');
+    sections.push(
+      '',
+      `The investigation identified ${fixAdvice.approaches.length} approach(es). ` +
+      `Approach ${recIdx + 1} is recommended, but evaluate all options and choose the best strategy.`,
+    );
+
+    for (const [i, approach] of fixAdvice.approaches.entries()) {
+      const isRecommended = i === recIdx;
+      sections.push(
+        '',
+        `### Approach ${i + 1}: ${approach.description ?? 'Unnamed'}${isRecommended ? ' (Recommended)' : ''}`,
+        `**Complexity:** ${approach.complexity ?? 'unknown'}`,
+      );
+      if (approach.files_affected?.length) {
+        sections.push(
+          '',
+          '**Files to Modify:**',
+          ...approach.files_affected.map((f) => `- \`${f}\``),
+        );
+      }
+      if (approach.pros?.length) {
+        sections.push(
+          '',
+          '**Pros:**',
+          ...approach.pros.map((p) => `- ${p}`),
+        );
+      }
+      if (approach.cons?.length) {
+        sections.push(
+          '',
+          '**Cons:**',
+          ...approach.cons.map((c) => `- ${c}`),
+        );
+      }
+    }
+  }
+
+  // Gotchas and patterns
+  if (fixAdvice?.gotchas?.length) {
+    sections.push(
+      '',
+      '## Gotchas',
+      ...fixAdvice.gotchas.map((g) => `- ${g}`),
+    );
+  }
+  if (fixAdvice?.patterns_to_follow?.length) {
+    sections.push(
+      '',
+      '## Patterns to Follow',
+      ...fixAdvice.patterns_to_follow.map(
+        (p) => `- \`${p.file}\` — ${p.description ?? ''}`,
+      ),
+    );
+  }
+
+  return sections.join('\n');
+}
+
+/**
  * Auto-create a task from a completed investigation report.
  * Mirrors the logic in the GITHUB_INVESTIGATION_CREATE_TASK handler.
  * Returns the specId if successful, or null on failure.
@@ -737,26 +858,8 @@ async function autoCreateTaskFromInvestigation(
     if (!fs.existsSync(reportPath)) return null;
 
     const reportData = JSON.parse(fs.readFileSync(reportPath, 'utf-8'));
-    const summary = reportData.ai_summary || `Investigation of issue #${issueNumber}`;
-    const fixAdvice = reportData.fix_advice;
-    const taskDescription = [
-      `# GitHub Issue #${issueNumber}`,
-      '',
-      `## Summary`,
-      summary,
-      '',
-      fixAdvice?.approaches?.length
-        ? [
-            '## Suggested Approach',
-            fixAdvice.approaches[fixAdvice.recommended_approach ?? 0]?.description || '',
-            '',
-            '### Files to Modify',
-            ...(fixAdvice.approaches[fixAdvice.recommended_approach ?? 0]?.files_affected?.map(
-              (f: string) => `- ${f}`,
-            ) || []),
-          ].join('\n')
-        : '',
-    ].join('\n');
+    const summary = (reportData.ai_summary as string) || `Investigation of issue #${issueNumber}`;
+    const taskDescription = buildTaskDescriptionFromReport(issueNumber, reportData);
 
     const config = getGitHubConfig(project);
     const githubUrl = config
@@ -1473,28 +1576,9 @@ export function registerInvestigationHandlers(
 
           const reportData = JSON.parse(fs.readFileSync(reportPath, 'utf-8'));
 
-          // Build task description from investigation report
-          // Report fields use snake_case (Pydantic model_dump output)
-          const summary = reportData.ai_summary || `Investigation of issue #${issueNumber}`;
-          const fixAdvice = reportData.fix_advice;
-          const taskDescription = [
-            `# GitHub Issue #${issueNumber}`,
-            '',
-            `## Summary`,
-            summary,
-            '',
-            fixAdvice?.approaches?.length
-              ? [
-                  '## Suggested Approach',
-                  fixAdvice.approaches[fixAdvice.recommended_approach ?? 0]?.description || '',
-                  '',
-                  '### Files to Modify',
-                  ...(fixAdvice.approaches[fixAdvice.recommended_approach ?? 0]?.files_affected?.map(
-                    (f: string) => `- ${f}`,
-                  ) || []),
-                ].join('\n')
-              : '',
-          ].join('\n');
+          // Build task description from investigation report with ALL fix approaches
+          const summary = (reportData.ai_summary as string) || `Investigation of issue #${issueNumber}`;
+          const taskDescription = buildTaskDescriptionFromReport(issueNumber, reportData);
 
           const config = getGitHubConfig(project);
           const githubUrl = config

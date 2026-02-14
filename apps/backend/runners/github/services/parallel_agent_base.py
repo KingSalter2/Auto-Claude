@@ -200,7 +200,9 @@ class ParallelAgentOrchestrator:
                 model, effective_thinking
             )
             # Override effort_level if explicitly provided (e.g., investigation
-            # agents always use "high" effort regardless of thinking level)
+            # agents always use "high" effort regardless of thinking level).
+            # Only applies to adaptive models (Opus 4.6+) where thinking_kwargs
+            # includes effort_level; non-adaptive models silently skip this.
             if effort_level and "effort_level" in thinking_kwargs:
                 thinking_kwargs["effort_level"] = effort_level
 

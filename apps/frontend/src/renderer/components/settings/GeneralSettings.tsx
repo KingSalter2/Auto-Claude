@@ -15,7 +15,6 @@ import {
   DEFAULT_INVESTIGATION_MODELS,
   DEFAULT_INVESTIGATION_THINKING,
   INVESTIGATION_SPECIALIST_KEYS,
-  INVESTIGATION_SPECIALIST_LABELS
 } from '../../../shared/constants';
 import type {
   AppSettings,
@@ -267,10 +266,10 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                       <div key={specialist} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label className="text-xs font-medium text-foreground">
-                            {INVESTIGATION_SPECIALIST_LABELS[specialist].label}
+                            {t(`general.investigationAgents.${specialist}.label`)}
                           </Label>
                           <span className="text-xs text-muted-foreground">
-                            {INVESTIGATION_SPECIALIST_LABELS[specialist].description}
+                            {t(`general.investigationAgents.${specialist}.description`)}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-3 max-w-md">

@@ -204,7 +204,23 @@
     "featureModelSettingsDescription": "Modèle et niveau de réflexion pour Insights, Idéation et Roadmap",
     "investigationAgents": {
       "title": "GitHub Issues",
-      "description": "Agents d'investigation des issues"
+      "description": "Agents d'investigation des issues",
+      "root_cause": {
+        "label": "Agent Cause Racine",
+        "description": "Trace le bug jusqu'à son code source"
+      },
+      "impact": {
+        "label": "Agent Impact",
+        "description": "Évalue le rayon d'impact et la sévérité"
+      },
+      "fix_advisor": {
+        "label": "Agent Correctif",
+        "description": "Propose des approches de correction concrètes"
+      },
+      "reproducer": {
+        "label": "Agent Reproducteur",
+        "description": "Conçoit les étapes de reproduction et les tests"
+      }
     },
     "model": "Modèle",
     "thinkingLevel": "Niveau de réflexion",

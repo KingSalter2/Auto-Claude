@@ -204,7 +204,23 @@
     "featureModelSettingsDescription": "Model and thinking level for Insights, Ideation, and Roadmap",
     "investigationAgents": {
       "title": "GitHub Issues",
-      "description": "Issue investigation agents"
+      "description": "Issue investigation agents",
+      "root_cause": {
+        "label": "Root Cause Agent",
+        "description": "Traces the bug to its source code"
+      },
+      "impact": {
+        "label": "Impact Agent",
+        "description": "Assesses blast radius and severity"
+      },
+      "fix_advisor": {
+        "label": "Fix Advisor Agent",
+        "description": "Suggests concrete fix approaches"
+      },
+      "reproducer": {
+        "label": "Reproducer Agent",
+        "description": "Designs reproduction steps and tests"
+      }
     },
     "model": "Model",
     "thinkingLevel": "Thinking Level",
