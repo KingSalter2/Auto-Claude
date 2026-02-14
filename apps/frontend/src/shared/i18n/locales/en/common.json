@@ -1146,7 +1146,12 @@
       "buildingReport": "Building report...",
       "complete": "Investigation complete",
       "failed": "Investigation failed",
-      "interrupted": "Investigation was interrupted by app restart"
+      "interrupted": "Investigation was interrupted by app restart",
+      "thinking": "Thinking ({{chars}} chars)",
+      "toolStart": "{{detail}}",
+      "toolEnd": "{{tool}} {{status}}",
+      "toolDone": "done",
+      "toolFailed": "failed"
     },
     "dismiss": {
       "wontFix": "Won't fix",

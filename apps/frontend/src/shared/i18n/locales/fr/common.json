@@ -1146,7 +1146,12 @@
       "buildingReport": "Construction du rapport...",
       "complete": "Investigation terminée",
       "failed": "Investigation échouée",
-      "interrupted": "L'investigation a été interrompue par le redémarrage de l'application"
+      "interrupted": "L'investigation a été interrompue par le redémarrage de l'application",
+      "thinking": "Raisonnement ({{chars}} car.)",
+      "toolStart": "{{detail}}",
+      "toolEnd": "{{tool}} {{status}}",
+      "toolDone": "terminé",
+      "toolFailed": "échoué"
     },
     "dismiss": {
       "wontFix": "Ne sera pas corrigé",
