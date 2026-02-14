@@ -19,7 +19,7 @@ import type { BrowserWindow } from 'electron';
 import type { ChildProcess } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
+import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, DEFAULT_INVESTIGATION_MODELS, DEFAULT_INVESTIGATION_THINKING, AUTO_BUILD_PATHS, getSpecsDir } from '../../../shared/constants';
 import type {
   GitHubInvestigationResult,
   GitHubInvestigationStatus,
@@ -612,6 +612,35 @@ function getGitHubIssuesSettings(): { model: string; thinkingLevel: string } {
 }
 
 /**
+ * Get per-specialist investigation model and thinking settings from app settings.
+ * Returns a JSON-serializable config dict for --specialist-config CLI arg.
+ */
+function getInvestigationSpecialistConfig(): Record<string, { model: string; thinking: string }> {
+  const rawSettings = readSettingsFile() as Partial<AppSettings> | undefined;
+  const invModels = rawSettings?.investigationModels ?? DEFAULT_INVESTIGATION_MODELS;
+  const invThinking = rawSettings?.investigationThinking ?? DEFAULT_INVESTIGATION_THINKING;
+
+  return {
+    root_cause: {
+      model: MODEL_ID_MAP[invModels.rootCause] ?? MODEL_ID_MAP['opus'],
+      thinking: invThinking.rootCause ?? 'high'
+    },
+    impact: {
+      model: MODEL_ID_MAP[invModels.impact] ?? MODEL_ID_MAP['sonnet'],
+      thinking: invThinking.impact ?? 'medium'
+    },
+    fix_advisor: {
+      model: MODEL_ID_MAP[invModels.fixAdvisor] ?? MODEL_ID_MAP['sonnet'],
+      thinking: invThinking.fixAdvisor ?? 'medium'
+    },
+    reproducer: {
+      model: MODEL_ID_MAP[invModels.reproducer] ?? MODEL_ID_MAP['sonnet'],
+      thinking: invThinking.reproducer ?? 'low'
+    }
+  };
+}
+
+/**
  * Get the GitHub config directory for a project
  */
 function getGitHubDir(projectPath: string): string {
@@ -984,7 +1013,7 @@ async function runInvestigation(
       }
 
       const backendPath = validation.backendPath ?? '';
-      const { model, thinkingLevel } = getGitHubIssuesSettings();
+      const specialistConfig = getInvestigationSpecialistConfig();
 
       // Pre-allocate a spec number for task creation (Gap 86)
       // This reserves the number early to prevent collisions when multiple
@@ -1047,8 +1076,8 @@ async function runInvestigation(
           project.path,
           'investigate',
           [String(issueNumber)],
-          { model, thinkingLevel },
         ),
+        '--specialist-config', JSON.stringify(specialistConfig),
         ...resumeSessionsArg,
       ];
 
