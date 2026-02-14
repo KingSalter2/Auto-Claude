@@ -153,9 +153,8 @@ class BotDetector:
         # Identify bot username from token
         self.bot_username = self._get_bot_username()
 
-        print(
-            f"[BotDetector] Initialized: bot_user={self.bot_username}, review_own_prs={review_own_prs}",
-            file=sys.stderr,
+        logger.debug(
+            f"[BotDetector] Initialized: bot_user={self.bot_username}, review_own_prs={review_own_prs}"
         )
 
     def _get_bot_username(self) -> str | None:
@@ -166,10 +165,7 @@ class BotDetector:
             Bot username or None if token not provided or invalid
         """
         if not self.bot_token:
-            print(
-                "[BotDetector] No bot token provided, cannot identify bot user",
-                file=sys.stderr,
-            )
+            logger.debug("[BotDetector] No bot token provided, cannot identify bot user")
             return None
 
         try:
