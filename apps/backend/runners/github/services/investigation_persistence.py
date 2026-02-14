@@ -310,6 +310,60 @@ def load_suggested_labels(
 
 
 # =============================================================================
+# Session Persistence (Resume Support)
+# =============================================================================
+
+
+def save_specialist_session(
+    project_dir: Path,
+    issue_number: int,
+    specialist_name: str,
+    session_id: str,
+) -> None:
+    """Save a specialist's SDK session ID for resume support.
+
+    Updates the sessions dict in investigation_state.json.
+
+    Args:
+        project_dir: Project root directory
+        issue_number: GitHub issue number
+        specialist_name: Specialist name (root_cause, impact, etc.)
+        session_id: SDK session ID
+    """
+    state = load_investigation_state(project_dir, issue_number)
+    if state is None:
+        logger.warning(
+            f"Cannot save session for issue #{issue_number}: no investigation state"
+        )
+        return
+
+    state.sessions[specialist_name] = session_id
+    save_investigation_state(project_dir, issue_number, state)
+    logger.debug(
+        f"Saved session ID for issue #{issue_number}/{specialist_name}: {session_id[:20]}..."
+    )
+
+
+def load_specialist_sessions(
+    project_dir: Path,
+    issue_number: int,
+) -> dict[str, str | None]:
+    """Load all specialist session IDs for an investigation.
+
+    Args:
+        project_dir: Project root directory
+        issue_number: GitHub issue number
+
+    Returns:
+        Dict mapping specialist name to session ID (or None)
+    """
+    state = load_investigation_state(project_dir, issue_number)
+    if state is None:
+        return {}
+    return state.sessions
+
+
+# =============================================================================
 # Listing & Querying
 # =============================================================================
 

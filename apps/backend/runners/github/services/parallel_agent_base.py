@@ -155,6 +155,7 @@ class ParallelAgentOrchestrator:
         on_thinking: Any | None = None,
         on_tool_use: Any | None = None,
         on_tool_result: Any | None = None,
+        resume_session_id: str | None = None,
     ) -> dict[str, Any]:
         """Run a single specialist as its own SDK session.
 
@@ -211,6 +212,11 @@ class ParallelAgentOrchestrator:
                     "schema": output_schema,
                 }
 
+            # Resume previous session if session ID provided
+            if resume_session_id:
+                client_kwargs["resume"] = resume_session_id
+                safe_print(f"[{log_name}] Resuming session: {resume_session_id[:20]}...")
+
             # Add investigation Bash safety hook if agent has Bash access
             if "Bash" in config.tools:
                 try:
@@ -234,6 +240,9 @@ class ParallelAgentOrchestrator:
 
             async with client:
                 await client.query(prompt)
+
+                # Capture session ID for resume support
+                session_id = getattr(client, "session_id", None)
 
                 # Build stream kwargs
                 stream_kwargs: dict[str, Any] = {
@@ -262,7 +271,7 @@ class ParallelAgentOrchestrator:
                         flush=True,
                     )
 
-                return stream_result
+                return {**stream_result, "session_id": session_id}
 
         except Exception as e:
             logger.error(

@@ -36,6 +36,7 @@ try:
     from .investigation_persistence import (
         save_agent_log,
         save_investigation_report,
+        save_specialist_session,
     )
     from .parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
     from .sdk_utils import _get_tool_detail
@@ -52,6 +53,7 @@ except (ImportError, ValueError, SystemError):
         from services.investigation_persistence import (
             save_agent_log,
             save_investigation_report,
+            save_specialist_session,
         )
         from services.parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
         from services.sdk_utils import _get_tool_detail
@@ -67,6 +69,7 @@ except (ImportError, ValueError, SystemError):
         from investigation_persistence import (
             save_agent_log,
             save_investigation_report,
+            save_specialist_session,
         )
         from parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
         from sdk_utils import _get_tool_detail
@@ -213,6 +216,7 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
             project_root=working_dir,
             model=model,
             thinking_budget=thinking_budget,
+            issue_number=issue_number,
         )
 
         self._report_progress(
@@ -326,6 +330,7 @@ Use Read, Grep, and Glob tools to explore the codebase.
         project_root: Path,
         model: str,
         thinking_budget: int | None,
+        issue_number: int | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Run all investigation specialists in parallel.
 
@@ -334,6 +339,7 @@ Use Read, Grep, and Glob tools to explore the codebase.
             project_root: Working directory
             model: Model to use
             thinking_budget: Max thinking tokens
+            issue_number: GitHub issue number (for session persistence)
 
         Returns:
             Dict mapping specialist name → stream result dict
@@ -402,6 +408,21 @@ Use Read, Grep, and Glob tools to explore the codebase.
             orchestrator_name="IssueInvestigation",
             retry_tasks=retry_factories,
         )
+
+        # Save session IDs for resume support
+        if issue_number is not None:
+            for i, config in enumerate(INVESTIGATION_SPECIALISTS):
+                result = valid_results[i] if i < len(valid_results) else None
+                if result and result.get("session_id"):
+                    try:
+                        save_specialist_session(
+                            self.project_dir,
+                            issue_number,
+                            config.name,
+                            result["session_id"],
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to save session ID for {config.name}: {e}")
 
         # Map results back to specialist names (position-preserving)
         result_map: dict[str, dict[str, Any]] = {}

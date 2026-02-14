@@ -313,3 +313,7 @@ class InvestigationState(BaseModel):
     model_used: str | None = Field(
         None, description="Model used for investigation (e.g., 'sonnet')"
     )
+    sessions: dict[str, str | None] = Field(
+        default_factory=dict,
+        description="SDK session IDs per specialist for resume support. Keys are specialist names, values are session IDs or None.",
+    )
