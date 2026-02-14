@@ -151,8 +151,8 @@ Frontend needs no structural changes — it already tracks per-agent events inde
 | `_effective_budget` calculation | `_make_specialist_factory()` in orchestrator | No longer needed |
 | Single `model` param | `_run_investigation_specialists()` | Replaced by per-specialist config |
 | Single `thinking_budget` param | `_run_investigation_specialists()` | Replaced by per-specialist config |
-| `featureModels.githubIssues` | `FeatureModelConfig` type + defaults | Replaced by `investigationModels` |
-| `featureThinking.githubIssues` | `FeatureThinkingConfig` type + defaults | Replaced by `investigationThinking` |
+| ~~`featureModels.githubIssues`~~ | ~~`FeatureModelConfig`~~ | **NOT removed** — still used by triage/enrich/split handlers. `investigationModels` is additive. |
+| ~~`featureThinking.githubIssues`~~ | ~~`FeatureThinkingConfig`~~ | **NOT removed** — still used by triage handlers. `investigationThinking` is additive. |
 
 ## Unchanged (No Breakage)
 
@@ -189,4 +189,4 @@ Phase 2: create_client(model=sonnet, thinking=medium) ← Impact Agent (+ root c
 
 ## Migration
 
-No migration needed. Users with existing `featureModels.githubIssues` settings: the new code reads from `investigationModels`/`investigationThinking` with sensible defaults if the new keys aren't present. The old `githubIssues` key is removed from the type.
+No migration needed. `featureModels.githubIssues` and `featureThinking.githubIssues` remain in place for triage/enrich/split handlers. The new `investigationModels`/`investigationThinking` keys are additive — they read with sensible defaults if the new keys aren't present in settings.
