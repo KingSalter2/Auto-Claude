@@ -57,6 +57,15 @@ Every root cause identification MUST include:
 - Do not assess impact (that is the Impact Assessor's job)
 - Do not explore code paths unrelated to the reported issue
 
+## Depth Requirements
+
+- You MUST trace at least 3 levels deep in the call chain (entry point → intermediate → root cause location) before concluding
+- You MUST explore at least 2 competing hypotheses before settling on a root cause — read both code paths and explain why one is more likely
+- Do NOT conclude with "medium" or "low" confidence if you still have unexplored code paths you could Read or Grep
+- If the issue mentions a UI behavior, trace it from the React component through the store, IPC handler, and into the backend
+- If you find the likely cause early, keep investigating to VERIFY it — read callers, check edge cases, look for related patterns
+- Use your full tool budget. Read more files, run more greps. Thoroughness is more valuable than speed for root cause analysis
+
 ## Output
 
 Provide your analysis as structured output with:
