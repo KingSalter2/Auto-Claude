@@ -888,6 +888,20 @@
       "currentValue": "Current value: {{value}}"
     }
   },
+  "observer": {
+    "title": "Observer Memory",
+    "description": "Background observer that watches agent sessions and extracts insights into memory",
+    "enable": "Enable Observer",
+    "enableDescription": "Run a lightweight observer alongside agent sessions to capture patterns and insights",
+    "model": "Observer Model",
+    "modelDescription": "Model used for observer analysis (lightweight models recommended)",
+    "customModel": "Custom model",
+    "customModelPlaceholder": "Enter model name (e.g., gemini-2.0-flash)",
+    "maxCalls": "Max Calls Per Session",
+    "maxCallsDescription": "Maximum number of observer API calls per agent session",
+    "timeout": "Timeout (seconds)",
+    "timeoutDescription": "Maximum time in seconds for each observer API call"
+  },
   "agents": {
     "pr_template_filler": {
       "label": "PR Template Filler",

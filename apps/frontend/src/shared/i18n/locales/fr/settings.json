@@ -888,6 +888,20 @@
       "currentValue": "Valeur actuelle : {{value}}"
     }
   },
+  "observer": {
+    "title": "Observateur de mémoire",
+    "description": "Observateur en arrière-plan qui surveille les sessions d'agents et extrait des informations dans la mémoire",
+    "enable": "Activer l'observateur",
+    "enableDescription": "Exécuter un observateur léger parallèlement aux sessions d'agents pour capturer des patterns et des insights",
+    "model": "Modèle de l'observateur",
+    "modelDescription": "Modèle utilisé pour l'analyse de l'observateur (modèles légers recommandés)",
+    "customModel": "Modèle personnalisé",
+    "customModelPlaceholder": "Entrez le nom du modèle (ex: gemini-2.0-flash)",
+    "maxCalls": "Appels max par session",
+    "maxCallsDescription": "Nombre maximum d'appels API de l'observateur par session d'agent",
+    "timeout": "Délai d'attente (secondes)",
+    "timeoutDescription": "Durée maximale en secondes pour chaque appel API de l'observateur"
+  },
   "agents": {
     "pr_template_filler": {
       "label": "Remplisseur de modèle PR",

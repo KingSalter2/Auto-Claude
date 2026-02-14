@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Database, Globe, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Database, Globe, RefreshCw, CheckCircle2, AlertCircle, Loader2, Eye } from 'lucide-react';
 import { CollapsibleSection } from './CollapsibleSection';
 import { InfrastructureStatus } from './InfrastructureStatus';
 import { PasswordInput } from './PasswordInput';
@@ -500,6 +501,150 @@ export function MemoryBackendSection({
           </div>
         </>
       )}
+
+      {/* Observer Memory System */}
+      <ObserverSettings settings={settings} onUpdateSettings={onUpdateSettings} />
     </CollapsibleSection>
+  );
+}
+
+/**
+ * Observer Memory Settings sub-section
+ */
+function ObserverSettings({
+  settings,
+  onUpdateSettings,
+}: {
+  settings: MemoryBackendSectionProps['settings'];
+  onUpdateSettings: MemoryBackendSectionProps['onUpdateSettings'];
+}) {
+  const { t } = useTranslation('settings');
+  const [customModel, setCustomModel] = useState('');
+
+  const observerEnabled = settings.observerEnabled ?? false;
+  const observerModel = settings.observerModel ?? 'gemini-2.0-flash';
+  const observerMaxCalls = settings.observerMaxCalls ?? 20;
+  const observerTimeout = settings.observerTimeout ?? 30;
+
+  const isCustomModel = observerModel !== 'gemini-2.0-flash' && observerModel !== 'claude-haiku-4-5-20251001';
+
+  return (
+    <>
+      <Separator />
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Eye className="h-4 w-4 text-muted-foreground" />
+          <Label className="text-sm font-medium text-foreground">
+            {t('observer.title')}
+          </Label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {t('observer.description')}
+        </p>
+
+        {/* Enable/Disable Toggle */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label className="font-normal text-foreground">
+              {t('observer.enable')}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t('observer.enableDescription')}
+            </p>
+          </div>
+          <Switch
+            checked={observerEnabled}
+            onCheckedChange={(checked) =>
+              onUpdateSettings({ observerEnabled: checked })
+            }
+          />
+        </div>
+
+        {observerEnabled && (
+          <div className="space-y-4 ml-2">
+            {/* Model Selection */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                {t('observer.model')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('observer.modelDescription')}
+              </p>
+              <Select
+                value={isCustomModel ? 'custom' : observerModel}
+                onValueChange={(value) => {
+                  if (value === 'custom') {
+                    setCustomModel(observerModel);
+                  } else {
+                    onUpdateSettings({ observerModel: value });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                  <SelectItem value="claude-haiku-4-5-20251001">Claude Haiku 4.5</SelectItem>
+                  <SelectItem value="custom">{t('observer.customModel')}</SelectItem>
+                </SelectContent>
+              </Select>
+              {(isCustomModel || customModel) && (
+                <Input
+                  placeholder={t('observer.customModelPlaceholder')}
+                  value={isCustomModel ? observerModel : customModel}
+                  onChange={(e) => {
+                    setCustomModel(e.target.value);
+                    if (e.target.value) {
+                      onUpdateSettings({ observerModel: e.target.value });
+                    }
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Max Calls Per Session */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                {t('observer.maxCalls')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('observer.maxCallsDescription')}
+              </p>
+              <Input
+                type="number"
+                min={1}
+                max={100}
+                value={observerMaxCalls}
+                onChange={(e) =>
+                  onUpdateSettings({ observerMaxCalls: parseInt(e.target.value, 10) || 20 })
+                }
+                className="max-w-[120px]"
+              />
+            </div>
+
+            {/* Timeout Seconds */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-foreground">
+                {t('observer.timeout')}
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {t('observer.timeoutDescription')}
+              </p>
+              <Input
+                type="number"
+                min={5}
+                max={120}
+                value={observerTimeout}
+                onChange={(e) =>
+                  onUpdateSettings({ observerTimeout: parseInt(e.target.value, 10) || 30 })
+                }
+                className="max-w-[120px]"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
