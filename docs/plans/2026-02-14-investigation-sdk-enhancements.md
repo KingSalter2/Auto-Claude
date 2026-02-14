@@ -10,6 +10,23 @@
 
 ---
 
+## Progress Tracker
+
+> **Instructions:** Update status as you work. Statuses: `pending` | `in_progress` | `done` | `committed`
+
+| # | Task | Status | Commit |
+|---|------|--------|--------|
+| 1 | Extend SpecialistConfig (max_turns, thinking_multiplier) | `pending` | — |
+| 2 | Create investigation hooks module (Bash guard + tests) | `pending` | — |
+| 3 | Wire Bash access + hooks into parallel_agent_base | `pending` | — |
+| 4 | Add structured JSON progress events | `pending` | — |
+| 5 | Add session persistence for resumable investigations | `pending` | — |
+| 6 | Wire resume into frontend investigation handlers | `pending` | — |
+| 7 | Add i18n keys for structured progress events | `pending` | — |
+| 8 | Final integration verification | `pending` | — |
+
+---
+
 ### Task 1: Extend SpecialistConfig with max_turns and thinking_budget_multiplier
 
 **Files:**
