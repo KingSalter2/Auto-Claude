@@ -72,6 +72,15 @@ export function InvestigationNeedsAttention({
   const isComplete = ['findings_ready', 'resolved', 'task_created', 'building', 'done'].includes(state);
   const isFailed = state === 'failed' || state === 'interrupted';
 
+  const formatDuration = (startedAt?: string, completedAt?: string): string | null => {
+    if (!startedAt || !completedAt) return null;
+    const seconds = Math.round((new Date(completedAt).getTime() - new Date(startedAt).getTime()) / 1000);
+    if (seconds < 60) return t('investigation.duration.seconds', '{{count}}s', { count: seconds });
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return t('investigation.duration.minutesSeconds', '{{min}}m {{sec}}s', { min: minutes, sec: remainingSeconds });
+  };
+
   // Fetch logs to get per-agent status
   const fetchLogs = useCallback(async () => {
     try {
@@ -101,6 +110,16 @@ export function InvestigationNeedsAttention({
       cleanup();
     };
   }, [isInvestigating, isComplete, isFailed, projectId, issueNumber, fetchLogs]);
+
+  // Tick every second to update elapsed times for active agents
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    if (!isInvestigating) return;
+    const hasActiveAgent = AGENT_ORDER.some(a => logs?.agents[a]?.status === 'active');
+    if (!hasActiveAgent) return;
+    const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isInvestigating, logs]);
 
   // Derive agent status from logs (primary) or progress (fallback)
   const getAgentStatus = (agentType: InvestigationAgentType): StepStatus => {
@@ -139,10 +158,20 @@ export function InvestigationNeedsAttention({
   // Steps 2-5: Individual agents
   if (isInvestigating || isComplete || isFailed) {
     for (const agentType of AGENT_ORDER) {
+      const agentLog = logs?.agents[agentType];
+      const agentStatus = getAgentStatus(agentType);
+      let suffix = '';
+      if (agentStatus === 'completed') {
+        const duration = agentLog ? formatDuration(agentLog.startedAt, agentLog.completedAt) : null;
+        if (duration) suffix = ` — ${duration}`;
+      } else if (agentStatus === 'current' && agentLog?.startedAt) {
+        const elapsed = Math.round((Date.now() - new Date(agentLog.startedAt).getTime()) / 1000);
+        suffix = ` — ${elapsed}s`;
+      }
       steps.push({
         id: agentType,
-        label: t(AGENT_I18N_KEYS[agentType]),
-        status: getAgentStatus(agentType),
+        label: t(AGENT_I18N_KEYS[agentType]) + suffix,
+        status: agentStatus,
       });
     }
   }
