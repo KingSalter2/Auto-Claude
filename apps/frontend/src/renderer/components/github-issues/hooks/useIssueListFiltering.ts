@@ -10,7 +10,7 @@ import type { IssueFilterState, IssueStatusFilter, IssueSortOption } from '../ty
 const DEFAULT_FILTERS: IssueFilterState = {
   searchQuery: '',
   reporters: [],
-  statuses: [],
+  statuses: ['open'],
   sortBy: 'newest',
 };
 
@@ -111,10 +111,14 @@ export function useIssueListFiltering(issues: GitHubIssue[]) {
   }, []);
 
   const hasActiveFilters = useMemo(() => {
+    // Compare against defaults — status 'open' is the default, not an active filter
+    const statusChanged =
+      filters.statuses.length !== DEFAULT_FILTERS.statuses.length ||
+      filters.statuses.some((s, i) => s !== DEFAULT_FILTERS.statuses[i]);
     return (
       filters.searchQuery !== '' ||
       filters.reporters.length > 0 ||
-      filters.statuses.length > 0
+      statusChanged
     );
   }, [filters]);
 
