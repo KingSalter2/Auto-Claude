@@ -69,9 +69,13 @@ export class BrowserWindow extends EventEmitter {
   };
 
   id = 1;
+  static nextId = 1;
+  static instances: BrowserWindow[] = [];
 
   constructor(_options?: unknown) {
     super();
+    this.id = BrowserWindow.nextId++;
+    BrowserWindow.instances.push(this);
   }
 
   loadURL = vi.fn();
@@ -92,9 +96,24 @@ export class BrowserWindow extends EventEmitter {
   setFullScreen = vi.fn();
   isFullScreen = vi.fn(() => false);
   getBounds = vi.fn(() => ({ x: 0, y: 0, width: 1200, height: 800 }));
+  getNormalBounds = vi.fn(() => ({ x: 0, y: 0, width: 1200, height: 800 }));
   setBounds = vi.fn();
-  getContentBounds = vi.fn(() => ({ x: 0, y: 0, width: 1200, height: 800 }));
   setContentBounds = vi.fn();
+
+  // Static methods
+  static fromWebContents = vi.fn((webContents: unknown) => {
+    // Find window instance that has this webContents
+    const window = BrowserWindow.instances.find(w => w.webContents === webContents);
+    return window || null;
+  });
+
+  static fromId = vi.fn((id: number) => {
+    return BrowserWindow.instances.find(w => w.id === id) || null;
+  });
+
+  static getAllWindows = vi.fn(() => {
+    return BrowserWindow.instances.filter(w => !w.isDestroyed());
+  });
 }
 
 // Mock dialog
