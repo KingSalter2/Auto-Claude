@@ -89,12 +89,6 @@ interface InvestigationStoreState {
   cancelAllInvestigations: (projectId: string) => void;
   markStaleInvestigations: (projectId: string, activeIssueNumbers: Set<number>) => void;
 
-  // ---- Label Sync ----
-  // Label sync callback - called when investigation state changes
-  // Receives (projectId, issueNumber, investigationState)
-  setStateChangeCallback: (callback: ((projectId: string, issueNumber: number, newState: string) => void) | undefined) => void;
-  triggerLabelSync: (projectId: string, issueNumber: number) => void;
-
   // ---- Selectors ----
   getInvestigationState: (projectId: string, issueNumber: number) => IssueInvestigationState | null;
   getDerivedState: (projectId: string, issueNumber: number) => InvestigationState;
@@ -110,8 +104,6 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   // Initial state
   investigations: {},
   settings: {},
-  // Label sync callback
-  stateChangeCallback: undefined as ((projectId: string, issueNumber: number, newState: string) => void) | undefined,
 
   // Legacy state
   investigationStatus: { phase: 'idle', progress: 0, message: '' },
@@ -411,22 +403,6 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     }
     return changed ? { investigations: updated } : state;
   }),
-
-  // ---- Label Sync ----
-
-  setStateChangeCallback: (callback) => set({ stateChangeCallback: callback }),
-
-  triggerLabelSync: (projectId: string, issueNumber: number) => {
-    const state = get();
-    const callback = state.stateChangeCallback;
-    if (!callback) return;
-
-    const inv = state.investigations[`${projectId}:${issueNumber}`];
-    if (!inv) return;
-
-    const derivedState = state.getDerivedState(projectId, issueNumber);
-    callback(projectId, issueNumber, derivedState);
-  },
 
   // ---- Selectors ----
 
