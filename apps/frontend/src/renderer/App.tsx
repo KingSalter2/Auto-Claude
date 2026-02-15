@@ -963,9 +963,108 @@ export function App() {
           <main className="flex-1 overflow-hidden">
             {renderViewComponent(windowConfig.view, windowConfig.projectId)}
           </main>
-        ) : (
+        ) : windowConfig?.type === 'project' && windowConfig.projectId ? (
+          /* Project Mode - render all views for one project without project tabs */
           <>
-            {/* Sidebar - hidden in single-view mode */}
+            <Sidebar
+              onSettingsClick={() => setIsSettingsDialogOpen(true)}
+              onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+              activeView={activeView}
+              onViewChange={setActiveView}
+            />
+            <div className="flex flex-1 flex-col overflow-hidden">
+              {/* Main content area - no project tabs in project mode */}
+              <main className="flex-1 overflow-hidden">
+                {(() => {
+                  const project = projects.find((p) => p.id === windowConfig.projectId);
+                  return project ? (
+                    <>
+                      {activeView === 'kanban' && (
+                        <KanbanBoard
+                          tasks={tasks}
+                          onTaskClick={handleTaskClick}
+                          onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+                          onRefresh={handleRefreshTasks}
+                          isRefreshing={isRefreshingTasks}
+                        />
+                      )}
+                      {/* TerminalGrid is always mounted but hidden when not active to preserve terminal state */}
+                      <div className={activeView === 'terminals' ? 'h-full' : 'hidden'}>
+                        <TerminalGrid
+                          projectPath={project?.path}
+                          onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+                          isActive={activeView === 'terminals'}
+                        />
+                      </div>
+                      {activeView === 'roadmap' && (
+                        <Roadmap projectId={windowConfig.projectId} onGoToTask={handleGoToTask} />
+                      )}
+                      {activeView === 'context' && (
+                        <ErrorBoundary>
+                          <Context projectId={windowConfig.projectId} />
+                        </ErrorBoundary>
+                      )}
+                      {activeView === 'ideation' && (
+                        <Ideation projectId={windowConfig.projectId} onGoToTask={handleGoToTask} />
+                      )}
+                      {activeView === 'insights' && (
+                        <Insights projectId={windowConfig.projectId} />
+                      )}
+                      {activeView === 'github-issues' && (
+                        <GitHubIssues
+                          onOpenSettings={() => {
+                            setSettingsInitialProjectSection('github');
+                            setIsSettingsDialogOpen(true);
+                          }}
+                          onNavigateToTask={handleGoToTask}
+                        />
+                      )}
+                      {activeView === 'gitlab-issues' && (
+                        <GitLabIssues
+                          onOpenSettings={() => {
+                            setSettingsInitialProjectSection('gitlab');
+                            setIsSettingsDialogOpen(true);
+                          }}
+                          onNavigateToTask={handleGoToTask}
+                        />
+                      )}
+                      {/* GitHubPRs is always mounted but hidden when not active to preserve review state */}
+                      <div className={activeView === 'github-prs' ? 'h-full' : 'hidden'}>
+                        <GitHubPRs
+                          onOpenSettings={() => {
+                            setSettingsInitialProjectSection('github');
+                            setIsSettingsDialogOpen(true);
+                          }}
+                          isActive={activeView === 'github-prs'}
+                        />
+                      </div>
+                      {activeView === 'gitlab-merge-requests' && (
+                        <GitLabMergeRequests
+                          projectId={windowConfig.projectId}
+                          onOpenSettings={() => {
+                            setSettingsInitialProjectSection('gitlab');
+                            setIsSettingsDialogOpen(true);
+                          }}
+                        />
+                      )}
+                      {activeView === 'changelog' && <Changelog />}
+                      {activeView === 'worktrees' && (
+                        <Worktrees projectId={windowConfig.projectId} />
+                      )}
+                      {activeView === 'agent-tools' && <AgentTools />}
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                      Project not found
+                    </div>
+                  );
+                })()}
+              </main>
+            </div>
+          </>
+        ) : (
+          /* Main Mode - default layout with project tabs and all projects */
+          <>
             <Sidebar
               onSettingsClick={() => setIsSettingsDialogOpen(true)}
               onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
