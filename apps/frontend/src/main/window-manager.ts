@@ -19,6 +19,7 @@
 
 import { app, BrowserWindow, screen } from 'electron';
 import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { is } from '@electron-toolkit/utils';
 import { isMacOS } from './platform';
 import { IPC_CHANNELS } from '../shared/constants';
@@ -34,6 +35,17 @@ const DEFAULT_SCREEN_WIDTH = 1920;
 const DEFAULT_SCREEN_HEIGHT = 1080;
 
 /**
+ * Persisted window bounds storage format
+ * Keys are stable identifiers: 'main', 'project-{id}', 'view-{id}-{view}'
+ */
+interface PersistedBounds {
+  [key: string]: Electron.Rectangle;
+}
+
+/** Debounce delay for saving window state to disk (ms) */
+const SAVE_DEBOUNCE_DELAY = 500;
+
+/**
  * Window Manager singleton class
  * Manages lifecycle of all BrowserWindow instances in the application
  */
@@ -41,9 +53,12 @@ export class WindowManager {
   private static instance: WindowManager | null = null;
   private windows: Map<number, WindowConfig>;
   private mainWindowId: number | null = null;
+  private saveTimer: NodeJS.Timeout | null = null;
+  private persistedBounds: PersistedBounds = {};
 
   private constructor() {
     this.windows = new Map();
+    this.loadPersistedBounds();
   }
 
   /**
@@ -58,6 +73,89 @@ export class WindowManager {
   }
 
   /**
+   * Get path to window bounds persistence file
+   * @returns Absolute path to window-bounds.json in userData
+   */
+  private getBoundsFilePath(): string {
+    return join(app.getPath('userData'), 'window-bounds.json');
+  }
+
+  /**
+   * Generate stable key for window bounds persistence
+   * @param config - Window configuration
+   * @returns Stable key string (e.g., 'main', 'project-123', 'view-123-terminals')
+   */
+  private getWindowKey(config: Pick<WindowConfig, 'type' | 'projectId' | 'view'>): string {
+    if (config.type === 'main') {
+      return 'main';
+    }
+    if (config.type === 'project' && config.projectId) {
+      return `project-${config.projectId}`;
+    }
+    if (config.type === 'view' && config.projectId && config.view) {
+      return `view-${config.projectId}-${config.view}`;
+    }
+    return 'unknown';
+  }
+
+  /**
+   * Load persisted window bounds from disk
+   * Called during WindowManager construction
+   */
+  private loadPersistedBounds(): void {
+    const boundsPath = this.getBoundsFilePath();
+    try {
+      if (existsSync(boundsPath)) {
+        const data = readFileSync(boundsPath, 'utf-8');
+        this.persistedBounds = JSON.parse(data);
+      }
+    } catch (error: unknown) {
+      console.error('[WindowManager] Failed to load persisted bounds:', error);
+      this.persistedBounds = {};
+    }
+  }
+
+  /**
+   * Save window bounds to disk (debounced to avoid excessive writes)
+   * Collects bounds from all tracked windows and persists to JSON file
+   */
+  private scheduleSave(): void {
+    // Clear existing timer
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+    }
+
+    // Schedule new save
+    this.saveTimer = setTimeout(() => {
+      this.saveNow();
+      this.saveTimer = null;
+    }, SAVE_DEBOUNCE_DELAY);
+  }
+
+  /**
+   * Immediately save window bounds to disk (no debounce)
+   */
+  private saveNow(): void {
+    const boundsPath = this.getBoundsFilePath();
+    const boundsToSave: PersistedBounds = {};
+
+    // Collect current bounds from all windows
+    for (const config of this.windows.values()) {
+      if (config.bounds) {
+        const key = this.getWindowKey(config);
+        boundsToSave[key] = config.bounds;
+      }
+    }
+
+    try {
+      writeFileSync(boundsPath, JSON.stringify(boundsToSave, null, 2), 'utf-8');
+      this.persistedBounds = boundsToSave;
+    } catch (error: unknown) {
+      console.error('[WindowManager] Failed to save window bounds:', error);
+    }
+  }
+
+  /**
    * Register the main window
    * @param window - Main BrowserWindow instance
    */
@@ -69,10 +167,30 @@ export class WindowManager {
       bounds: window.getNormalBounds(),
     });
 
+    // Update bounds on move/resize and persist to disk
+    window.on('resize', () => {
+      const config = this.windows.get(window.id);
+      if (config) {
+        config.bounds = window.getNormalBounds();
+        this.scheduleSave();
+      }
+    });
+
+    window.on('move', () => {
+      const config = this.windows.get(window.id);
+      if (config) {
+        config.bounds = window.getNormalBounds();
+        this.scheduleSave();
+      }
+    });
+
     // Track window close to clean up from map
     window.on('closed', () => {
       // Close all child windows first (prevents orphaned pop-outs)
       this.closeChildWindows(window.id);
+
+      // Save final state before cleanup
+      this.saveNow();
 
       // Clean up the main window reference
       this.windows.delete(window.id);
@@ -113,9 +231,14 @@ export class WindowManager {
     const availableWidth = workAreaSize.width - WINDOW_SCREEN_MARGIN;
     const availableHeight = workAreaSize.height - WINDOW_SCREEN_MARGIN;
 
+    // Check for persisted bounds first, then use provided bounds, then calculate
+    const windowKey = this.getWindowKey(config);
+    const persistedBounds = this.persistedBounds[windowKey];
+    const boundsToUse = persistedBounds ?? config.bounds;
+
     // Use saved bounds if available, otherwise calculate
-    const width = config.bounds?.width ?? Math.min(WINDOW_PREFERRED_WIDTH, availableWidth);
-    const height = config.bounds?.height ?? Math.min(WINDOW_PREFERRED_HEIGHT, availableHeight);
+    const width = boundsToUse?.width ?? Math.min(WINDOW_PREFERRED_WIDTH, availableWidth);
+    const height = boundsToUse?.height ?? Math.min(WINDOW_PREFERRED_HEIGHT, availableHeight);
     const minWidth = Math.min(WINDOW_MIN_WIDTH, width);
     const minHeight = Math.min(WINDOW_MIN_HEIGHT, height);
 
@@ -142,10 +265,10 @@ export class WindowManager {
       windowOptions.parent = parentWindow;
     }
 
-    // Apply saved bounds if available
-    if (config.bounds) {
-      windowOptions.x = config.bounds.x;
-      windowOptions.y = config.bounds.y;
+    // Apply saved position if available
+    if (boundsToUse) {
+      windowOptions.x = boundsToUse.x;
+      windowOptions.y = boundsToUse.y;
     }
 
     const window = new BrowserWindow(windowOptions);
@@ -192,11 +315,12 @@ export class WindowManager {
     };
     this.windows.set(window.id, windowConfig);
 
-    // Update bounds on move/resize
+    // Update bounds on move/resize and persist to disk
     window.on('resize', () => {
       const config = this.windows.get(window.id);
       if (config) {
         config.bounds = window.getNormalBounds();
+        this.scheduleSave();
       }
     });
 
@@ -204,12 +328,14 @@ export class WindowManager {
       const config = this.windows.get(window.id);
       if (config) {
         config.bounds = window.getNormalBounds();
+        this.scheduleSave();
       }
     });
 
-    // Clean up on close
+    // Clean up on close and save final state
     window.on('closed', () => {
       this.windows.delete(window.id);
+      this.scheduleSave();
     });
 
     return window;
@@ -447,20 +573,20 @@ export class WindowManager {
 
   /**
    * Save window state to persistent storage
-   * TODO: Implement persistence using app.getPath('userData')
+   * Public API for external callers to trigger immediate save
    */
   saveWindowState(): void {
-    // To be implemented in Phase 6 (Window Lifecycle & Persistence)
-    console.log('[WindowManager] saveWindowState() - not yet implemented');
+    this.saveNow();
   }
 
   /**
    * Restore windows from saved state
-   * TODO: Implement restoration from persistent storage
+   * Note: Bounds are automatically loaded during WindowManager construction
+   * and applied when windows are created. This method allows external callers
+   * to trigger a reload of persisted bounds if needed.
    */
   restoreWindowState(): void {
-    // To be implemented in Phase 6 (Window Lifecycle & Persistence)
-    console.log('[WindowManager] restoreWindowState() - not yet implemented');
+    this.loadPersistedBounds();
   }
 
   /**
