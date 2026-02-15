@@ -9,7 +9,7 @@
  * - import-handlers: Bulk issue import
  * - release-handlers: GitHub release creation
  * - oauth-handlers: GitHub CLI OAuth authentication
- * - autofix-handlers: Automatic issue fixing with label triggers
+ * - analyze-preview-handlers: Issue analysis and batch grouping
  * - pr-handlers: PR review, polling status, and status updates
  * - triage-handlers: Issue triage automation
  */
@@ -22,7 +22,7 @@ import { registerInvestigationHandlers } from './investigation-handlers';
 import { registerImportHandlers } from './import-handlers';
 import { registerReleaseHandlers } from './release-handlers';
 import { registerGithubOAuthHandlers } from './oauth-handlers';
-import { registerAutoFixHandlers } from './autofix-handlers';
+import { registerAnalyzePreviewHandlers } from './analyze-preview-handlers';
 import { registerPRHandlers } from './pr-handlers';
 import { registerTriageHandlers } from './triage-handlers';
 import { registerEnrichmentHandlers } from './enrichment-handlers';
@@ -49,7 +49,7 @@ export function registerGithubHandlers(
   registerImportHandlers(agentManager);
   registerReleaseHandlers();
   registerGithubOAuthHandlers();
-  registerAutoFixHandlers(agentManager, getMainWindow);
+  registerAnalyzePreviewHandlers(getMainWindow);
   registerPRHandlers(getMainWindow);
   registerTriageHandlers(getMainWindow);
   registerEnrichmentHandlers(getMainWindow);

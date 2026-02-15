@@ -13,7 +13,6 @@ import {
   GITHUB_ISSUE_STATE_LABELS,
 } from '@shared/constants';
 import { formatDate } from '../utils';
-import { AutoFixButton } from './AutoFixButton';
 import { DependencyList } from './DependencyList';
 import { CommentForm } from './CommentForm';
 import { InlineEditor } from './InlineEditor';
@@ -32,8 +31,6 @@ export function IssueDetail({
   linkedTaskId,
   onViewTask,
   projectId,
-  autoFixConfig,
-  autoFixQueueItem,
   onEditTitle,
   onEditBody,
   onAddLabels,
@@ -235,14 +232,6 @@ export function IssueDetail({
               disabled={isInvestigating && !onCancelInvestigation}
             />
           ) : null}
-          {projectId && autoFixConfig?.enabled && !hasLinkedTask && (
-            <AutoFixButton
-              issue={issue}
-              projectId={projectId}
-              config={autoFixConfig}
-              queueItem={autoFixQueueItem ?? null}
-            />
-          )}
           {/* Dismiss/Close/Reopen only shown here when no status tree (otherwise inside NeedsAttention card) */}
           {!showStatusTree && (
             <>

@@ -5,7 +5,6 @@ import path from 'path';
 import type { Project } from '../../../../shared/types';
 import { IPC_CHANNELS } from '../../../../shared/constants';
 import type { BrowserWindow } from 'electron';
-import type { AgentManager } from '../../../agent/agent-manager';
 import type { createIPCCommunicators as createIPCCommunicatorsType } from '../utils/ipc-communicator';
 
 const mockIpcMain = vi.hoisted(() => {
@@ -226,9 +225,8 @@ describe('GitHub runner env usage', () => {
     );
   });
 
-  it('passes runner env to autofix analyze preview subprocess', async () => {
-    const { registerAutoFixHandlers } = await import('../autofix-handlers');
-    const { AgentManager: MockedAgentManager } = await import('../../../agent/agent-manager');
+  it('passes runner env to analyze preview subprocess', async () => {
+    const { registerAnalyzePreviewHandlers } = await import('../analyze-preview-handlers');
 
     mockRunPythonSubprocess.mockReturnValue({
       process: { pid: 125 },
@@ -246,10 +244,9 @@ describe('GitHub runner env usage', () => {
       }),
     });
 
-    const agentManager: AgentManager = new MockedAgentManager();
     const getMainWindow: () => BrowserWindow | null = () => createMockWindow();
 
-    registerAutoFixHandlers(agentManager, getMainWindow);
+    registerAnalyzePreviewHandlers(getMainWindow);
     await mockIpcMain.emit(IPC_CHANNELS.GITHUB_AUTOFIX_ANALYZE_PREVIEW, projectRef.current?.id);
 
     expect(mockGetRunnerEnv).toHaveBeenCalledWith();

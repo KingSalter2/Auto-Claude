@@ -377,25 +377,6 @@ export const IPC_CHANNELS = {
   GITLAB_TRIAGE_COMPLETE: 'gitlab:triage:complete',
   GITLAB_TRIAGE_ERROR: 'gitlab:triage:error',
 
-  // GitHub Auto-Fix operations
-  GITHUB_AUTOFIX_START: 'github:autofix:start',
-  GITHUB_AUTOFIX_STOP: 'github:autofix:stop',
-  GITHUB_AUTOFIX_GET_QUEUE: 'github:autofix:getQueue',
-  GITHUB_AUTOFIX_CHECK_LABELS: 'github:autofix:checkLabels',
-  GITHUB_AUTOFIX_CHECK_NEW: 'github:autofix:checkNew',
-  GITHUB_AUTOFIX_GET_CONFIG: 'github:autofix:getConfig',
-  GITHUB_AUTOFIX_SAVE_CONFIG: 'github:autofix:saveConfig',
-  GITHUB_AUTOFIX_BATCH: 'github:autofix:batch',
-  GITHUB_AUTOFIX_GET_BATCHES: 'github:autofix:getBatches',
-
-  // GitHub Auto-Fix events (main -> renderer)
-  GITHUB_AUTOFIX_PROGRESS: 'github:autofix:progress',
-  GITHUB_AUTOFIX_COMPLETE: 'github:autofix:complete',
-  GITHUB_AUTOFIX_ERROR: 'github:autofix:error',
-  GITHUB_AUTOFIX_BATCH_PROGRESS: 'github:autofix:batchProgress',
-  GITHUB_AUTOFIX_BATCH_COMPLETE: 'github:autofix:batchComplete',
-  GITHUB_AUTOFIX_BATCH_ERROR: 'github:autofix:batchError',
-
   // GitHub Issue Analysis Preview (proactive batch workflow)
   GITHUB_AUTOFIX_ANALYZE_PREVIEW: 'github:autofix:analyzePreview',
   GITHUB_AUTOFIX_ANALYZE_PREVIEW_PROGRESS: 'github:autofix:analyzePreviewProgress',

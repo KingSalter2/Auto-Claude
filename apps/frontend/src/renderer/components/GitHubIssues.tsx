@@ -14,7 +14,6 @@ import { loadTasks } from "../stores/task-store";
 import {
   useGitHubIssues,
   useIssueListFiltering,
-  useAutoFix,
   useBulkOperations,
   useMutations,
   useDependencies,
@@ -108,15 +107,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       handleFilterChange('all');
     }
   }, []);
-
-  const {
-    config: autoFixConfig,
-    getQueueItem: getAutoFixQueueItem,
-    isBatchRunning,
-    batchProgress,
-    toggleAutoFix,
-    checkForNewIssues,
-  } = useAutoFix(selectedProject?.id);
 
   // Analyze & Group Issues (proactive workflow)
   const {
@@ -434,14 +424,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     };
   }, [selectedProject?.id, syncStatus?.connected]);
 
-  // Enhanced refresh
-  const handleRefreshWithAutoFix = useCallback(() => {
-    handleRefresh();
-    if (autoFixConfig?.enabled) {
-      checkForNewIssues();
-    }
-  }, [handleRefresh, autoFixConfig?.enabled, checkForNewIssues]);
-
   // Helper: check if label consent is needed before investigating
   const needsLabelConsent = useCallback(() => {
     if (!selectedProject?.id) return false;
@@ -566,11 +548,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         repoFullName={syncStatus.repoFullName ?? ""}
         openIssuesCount={getOpenIssuesCount()}
         isLoading={isLoading}
-        onRefresh={handleRefreshWithAutoFix}
-        autoFixEnabled={autoFixConfig?.enabled}
-        autoFixRunning={isBatchRunning}
-        autoFixProcessing={batchProgress?.totalIssues}
-        onAutoFixToggle={toggleAutoFix}
+        onRefresh={handleRefresh}
         investigationStateFilter={investigationStateFilter}
         onInvestigationStateFilterChange={setInvestigationStateFilter}
         investigationStateCounts={investigationStateCounts}
@@ -642,8 +620,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
                 linkedTaskId={issueToTaskMap.get(selectedIssue.number)}
                 onViewTask={onNavigateToTask}
                 projectId={selectedProject?.id}
-                autoFixConfig={autoFixConfig}
-                autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
                 onEditTitle={handleEditTitle}
                 onEditBody={handleEditBody}
                 onClose={handleCloseIssue}

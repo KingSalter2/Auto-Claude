@@ -1,6 +1,5 @@
 export { useGitHubIssues } from './useGitHubIssues';
 export { useGitHubInvestigation } from './useGitHubInvestigation';
-export { useAutoFix } from './useAutoFix';
 
 export { useMutations } from './useMutations';
 export { useBulkOperations } from './useBulkOperations';

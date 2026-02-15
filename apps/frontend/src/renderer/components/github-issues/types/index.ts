@@ -1,5 +1,4 @@
 import type { GitHubIssue, GitHubInvestigationResult, InvestigationState, InvestigationReport, InvestigationProgress, InvestigationDismissReason, SuggestedLabel } from '@shared/types';
-import type { AutoFixConfig, AutoFixQueueItem } from '../../../../preload/api/modules/github-api';
 import type { IssueDependencies } from '@shared/types/dependencies';
 
 export type FilterState = 'open' | 'closed' | 'all';
@@ -101,12 +100,8 @@ export interface IssueDetailProps {
   linkedTaskId?: string;
   /** Handler to navigate to view the linked task */
   onViewTask?: (taskId: string) => void;
-  /** Project ID for auto-fix functionality */
+  /** Project ID */
   projectId?: string;
-  /** Auto-fix configuration */
-  autoFixConfig?: AutoFixConfig | null;
-  /** Auto-fix queue item for this issue */
-  autoFixQueueItem?: AutoFixQueueItem | null;
   onEditTitle?: (title: string) => Promise<void>;
   onEditBody?: (body: string) => Promise<void>;
   onAddLabels?: (labels: string[]) => Promise<void>;
@@ -166,11 +161,6 @@ export interface IssueListHeaderProps {
   openIssuesCount: number;
   isLoading: boolean;
   onRefresh: () => void;
-  // Auto-fix toggle (reactive - for new issues)
-  autoFixEnabled?: boolean;
-  autoFixRunning?: boolean;
-  autoFixProcessing?: number; // Number of issues being processed
-  onAutoFixToggle?: (enabled: boolean) => void;
   // --- Investigation system (F5) ---
   /** Filter by investigation states */
   investigationStateFilter?: InvestigationState[];

@@ -36,74 +36,6 @@ import type {
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
 /**
- * Auto-fix configuration
- */
-export interface AutoFixConfig {
-  enabled: boolean;
-  labels: string[];
-  requireHumanApproval: boolean;
-  botToken?: string;
-  model: string;
-  thinkingLevel: string;
-}
-
-/**
- * Auto-fix queue item
- */
-export interface AutoFixQueueItem {
-  issueNumber: number;
-  repo: string;
-  status: 'pending' | 'analyzing' | 'creating_spec' | 'building' | 'qa_review' | 'pr_created' | 'completed' | 'failed';
-  specId?: string;
-  prNumber?: number;
-  error?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * Auto-fix progress status
- */
-export interface AutoFixProgress {
-  phase: 'checking' | 'fetching' | 'analyzing' | 'batching' | 'creating_spec' | 'building' | 'qa_review' | 'creating_pr' | 'complete';
-  issueNumber: number;
-  progress: number;
-  message: string;
-}
-
-/**
- * Issue batch for grouped fixing
- */
-export interface IssueBatch {
-  batchId: string;
-  repo: string;
-  primaryIssue: number;
-  issues: Array<{
-    issueNumber: number;
-    title: string;
-    similarityToPrimary: number;
-  }>;
-  commonThemes: string[];
-  status: 'pending' | 'analyzing' | 'creating_spec' | 'building' | 'qa_review' | 'pr_created' | 'completed' | 'failed';
-  specId?: string;
-  prNumber?: number;
-  error?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * Batch progress status
- */
-export interface BatchProgress {
-  phase: 'analyzing' | 'batching' | 'creating_specs' | 'complete';
-  progress: number;
-  message: string;
-  totalIssues: number;
-  batchCount: number;
-}
-
-/**
  * Analyze preview progress (proactive workflow)
  */
 export interface AnalyzePreviewProgress {
@@ -147,6 +79,27 @@ export interface AnalyzePreviewResult {
   }>;
   message: string;
   error?: string;
+}
+
+/**
+ * Issue batch for grouped fixing
+ */
+export interface IssueBatch {
+  batchId: string;
+  repo: string;
+  primaryIssue: number;
+  issues: Array<{
+    issueNumber: number;
+    title: string;
+    similarityToPrimary: number;
+  }>;
+  commonThemes: string[];
+  status: 'pending' | 'analyzing' | 'creating_spec' | 'building' | 'qa_review' | 'pr_created' | 'completed' | 'failed';
+  specId?: string;
+  prNumber?: number;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
@@ -267,40 +220,6 @@ export interface GitHubAPI {
   ) => IpcListenerCleanup;
   onGitHubInvestigationError: (
     callback: (projectId: string, error: string) => void
-  ) => IpcListenerCleanup;
-
-  // Auto-fix operations
-  getAutoFixConfig: (projectId: string) => Promise<AutoFixConfig | null>;
-  saveAutoFixConfig: (projectId: string, config: AutoFixConfig) => Promise<boolean>;
-  getAutoFixQueue: (projectId: string) => Promise<AutoFixQueueItem[]>;
-  checkAutoFixLabels: (projectId: string) => Promise<number[]>;
-  checkNewIssues: (projectId: string) => Promise<Array<{number: number}>>;
-  startAutoFix: (projectId: string, issueNumber: number) => void;
-
-  // Batch auto-fix operations
-  batchAutoFix: (projectId: string, issueNumbers?: number[]) => void;
-  getBatches: (projectId: string) => Promise<IssueBatch[]>;
-
-  // Auto-fix event listeners
-  onAutoFixProgress: (
-    callback: (projectId: string, progress: AutoFixProgress) => void
-  ) => IpcListenerCleanup;
-  onAutoFixComplete: (
-    callback: (projectId: string, result: AutoFixQueueItem) => void
-  ) => IpcListenerCleanup;
-  onAutoFixError: (
-    callback: (projectId: string, error: { issueNumber: number; error: string }) => void
-  ) => IpcListenerCleanup;
-
-  // Batch auto-fix event listeners
-  onBatchProgress: (
-    callback: (projectId: string, progress: BatchProgress) => void
-  ) => IpcListenerCleanup;
-  onBatchComplete: (
-    callback: (projectId: string, batches: IssueBatch[]) => void
-  ) => IpcListenerCleanup;
-  onBatchError: (
-    callback: (projectId: string, error: { error: string }) => void
   ) => IpcListenerCleanup;
 
   // Analyze & Group Issues (proactive batch workflow)
@@ -780,64 +699,6 @@ export const createGitHubAPI = (): GitHubAPI => ({
     callback: (projectId: string, error: string) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR, callback),
-
-  // Auto-fix operations
-  getAutoFixConfig: (projectId: string): Promise<AutoFixConfig | null> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_AUTOFIX_GET_CONFIG, projectId),
-
-  saveAutoFixConfig: (projectId: string, config: AutoFixConfig): Promise<boolean> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_AUTOFIX_SAVE_CONFIG, projectId, config),
-
-  getAutoFixQueue: (projectId: string): Promise<AutoFixQueueItem[]> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_AUTOFIX_GET_QUEUE, projectId),
-
-  checkAutoFixLabels: (projectId: string): Promise<number[]> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_AUTOFIX_CHECK_LABELS, projectId),
-
-  checkNewIssues: (projectId: string): Promise<Array<{number: number}>> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_AUTOFIX_CHECK_NEW, projectId),
-
-  startAutoFix: (projectId: string, issueNumber: number): void =>
-    sendIpc(IPC_CHANNELS.GITHUB_AUTOFIX_START, projectId, issueNumber),
-
-  // Batch auto-fix operations
-  batchAutoFix: (projectId: string, issueNumbers?: number[]): void =>
-    sendIpc(IPC_CHANNELS.GITHUB_AUTOFIX_BATCH, projectId, issueNumbers),
-
-  getBatches: (projectId: string): Promise<IssueBatch[]> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_AUTOFIX_GET_BATCHES, projectId),
-
-  // Auto-fix event listeners
-  onAutoFixProgress: (
-    callback: (projectId: string, progress: AutoFixProgress) => void
-  ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_PROGRESS, callback),
-
-  onAutoFixComplete: (
-    callback: (projectId: string, result: AutoFixQueueItem) => void
-  ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_COMPLETE, callback),
-
-  onAutoFixError: (
-    callback: (projectId: string, error: { issueNumber: number; error: string }) => void
-  ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_ERROR, callback),
-
-  // Batch auto-fix event listeners
-  onBatchProgress: (
-    callback: (projectId: string, progress: BatchProgress) => void
-  ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_BATCH_PROGRESS, callback),
-
-  onBatchComplete: (
-    callback: (projectId: string, batches: IssueBatch[]) => void
-  ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_BATCH_COMPLETE, callback),
-
-  onBatchError: (
-    callback: (projectId: string, error: { error: string }) => void
-  ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_BATCH_ERROR, callback),
 
   // Analyze & Group Issues (proactive batch workflow)
   analyzeIssuesPreview: (projectId: string, issueNumbers?: number[], maxIssues?: number): void =>

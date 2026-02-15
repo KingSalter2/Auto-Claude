@@ -7,7 +7,6 @@ describe('Phase 5 Barrel Exports', () => {
       const exportNames = Object.keys(hooks);
       expect(exportNames).toContain('useGitHubIssues');
       expect(exportNames).toContain('useGitHubInvestigation');
-      expect(exportNames).toContain('useAutoFix');
       expect(exportNames).toContain('useMutations');
       expect(exportNames).toContain('useBulkOperations');
       expect(exportNames).toContain('useLabelSync');
@@ -15,7 +14,7 @@ describe('Phase 5 Barrel Exports', () => {
       expect(exportNames).toContain('useMetrics');
       expect(exportNames).toContain('useAnalyzePreview');
       expect(exportNames).toContain('useIssueListFiltering');
-      expect(exportNames.length).toBeGreaterThanOrEqual(10);
+      expect(exportNames.length).toBeGreaterThanOrEqual(9);
     });
   });
 
@@ -54,11 +53,10 @@ describe('Phase 5 Barrel Exports', () => {
       expect(exportNames).toContain('IssueListHeader');
       // InvestigationDialog — removed in F9, replaced by InvestigateButton + InvestigationPanel
       expect(exportNames).toContain('BatchReviewWizard');
-      expect(exportNames).toContain('AutoFixButton');
       expect(exportNames).toContain('EmptyState');
       expect(exportNames).toContain('NotConnectedState');
 
-      expect(exportNames.length).toBeGreaterThanOrEqual(22);
+      expect(exportNames.length).toBeGreaterThanOrEqual(21);
     });
   });
 

@@ -1,9 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Github, RefreshCw, Wand2, Loader2, EyeOff, Eye, XCircle } from 'lucide-react';
+import { Github, RefreshCw, Loader2, EyeOff, Eye, XCircle } from 'lucide-react';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
-import { Switch } from '../../ui/switch';
-import { Label } from '../../ui/label';
 import {
   Tooltip,
   TooltipContent,
@@ -59,10 +57,6 @@ export function IssueListHeader({
   openIssuesCount,
   isLoading,
   onRefresh,
-  autoFixEnabled,
-  autoFixRunning,
-  autoFixProcessing,
-  onAutoFixToggle,
   // Investigation system (F5)
   investigationStateFilter,
   onInvestigationStateFilterChange,
@@ -157,43 +151,6 @@ export function IssueListHeader({
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} aria-hidden="true" />
           </Button>
         </div>
-      </div>
-
-      {/* Issue Management Actions */}
-      <div className="flex items-center gap-3 mb-4">
-        {/* Auto-Fix Toggle */}
-        {onAutoFixToggle && (
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 border border-border">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-2">
-                    {autoFixRunning ? (
-                      <Loader2 className="h-4 w-4 text-primary animate-spin" />
-                    ) : (
-                      <Wand2 className="h-4 w-4 text-muted-foreground" />
-                    )}
-                    <Label htmlFor="auto-fix-toggle" className="text-sm cursor-pointer whitespace-nowrap">
-                      {t('issues.autoFixNew')}
-                    </Label>
-                    <Switch
-                      id="auto-fix-toggle"
-                      checked={autoFixEnabled ?? false}
-                      onCheckedChange={onAutoFixToggle}
-                      disabled={autoFixRunning}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-xs">
-                  <p>{t('issues.autoFixTooltip')}</p>
-                  {autoFixRunning && autoFixProcessing !== undefined && autoFixProcessing > 0 && (
-                    <p className="mt-1 text-primary">{t('issues.autoFixProcessing', { count: autoFixProcessing })}</p>
-                  )}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
       </div>
 
       {/* Investigation State Filter Chips */}
