@@ -116,6 +116,59 @@ export class WindowManager {
   }
 
   /**
+   * Validate that window bounds are visible on at least one display
+   * Returns null if bounds are off-screen (monitor disconnected)
+   * @param bounds - Window bounds to validate
+   * @returns Validated bounds or null if off-screen
+   */
+  private validateBounds(bounds: Electron.Rectangle): Electron.Rectangle | null {
+    try {
+      const displays = screen.getAllDisplays();
+
+      // Validate displays array has valid data
+      if (!Array.isArray(displays) || displays.length === 0) {
+        console.error('[WindowManager] screen.getAllDisplays() returned invalid data');
+        return null;
+      }
+
+      // Check if window bounds intersect with any display
+      for (const display of displays) {
+        if (
+          !display?.bounds ||
+          typeof display.bounds.x !== 'number' ||
+          typeof display.bounds.y !== 'number' ||
+          typeof display.bounds.width !== 'number' ||
+          typeof display.bounds.height !== 'number'
+        ) {
+          continue; // Skip invalid display data
+        }
+
+        const displayBounds = display.bounds;
+
+        // Check for intersection between window and display
+        // Windows intersect if they overlap in both x and y axes
+        const intersectsX =
+          bounds.x < displayBounds.x + displayBounds.width &&
+          bounds.x + bounds.width > displayBounds.x;
+        const intersectsY =
+          bounds.y < displayBounds.y + displayBounds.height &&
+          bounds.y + bounds.height > displayBounds.y;
+
+        if (intersectsX && intersectsY) {
+          // Window is at least partially visible on this display
+          return bounds;
+        }
+      }
+
+      // Window is not visible on any display (monitor disconnected)
+      return null;
+    } catch (error: unknown) {
+      console.error('[WindowManager] Failed to validate bounds:', error);
+      return null;
+    }
+  }
+
+  /**
    * Save window bounds to disk (debounced to avoid excessive writes)
    * Collects bounds from all tracked windows and persists to JSON file
    */
@@ -234,9 +287,23 @@ export class WindowManager {
     // Check for persisted bounds first, then use provided bounds, then calculate
     const windowKey = this.getWindowKey(config);
     const persistedBounds = this.persistedBounds[windowKey];
-    const boundsToUse = persistedBounds ?? config.bounds;
 
-    // Use saved bounds if available, otherwise calculate
+    // Validate bounds to ensure they're on-screen (handles disconnected monitors)
+    let validatedBounds: Electron.Rectangle | null = null;
+    if (persistedBounds) {
+      validatedBounds = this.validateBounds(persistedBounds);
+      if (!validatedBounds) {
+        console.warn(
+          `[WindowManager] Window bounds for '${windowKey}' are off-screen (monitor disconnected), resetting to default position`
+        );
+      }
+    } else if (config.bounds) {
+      validatedBounds = this.validateBounds(config.bounds);
+    }
+
+    const boundsToUse = validatedBounds ?? null;
+
+    // Use validated bounds if available, otherwise calculate default
     const width = boundsToUse?.width ?? Math.min(WINDOW_PREFERRED_WIDTH, availableWidth);
     const height = boundsToUse?.height ?? Math.min(WINDOW_PREFERRED_HEIGHT, availableHeight);
     const minWidth = Math.min(WINDOW_MIN_WIDTH, width);
