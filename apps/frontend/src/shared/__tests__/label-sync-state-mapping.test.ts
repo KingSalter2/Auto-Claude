@@ -45,4 +45,16 @@ describe('mapInvestigationStateToWorkflowState', () => {
   it('returns null for unknown state', () => {
     expect(mapInvestigationStateToWorkflowState('unknown' as never)).toBe(null);
   });
+
+  it('returns null for null input', () => {
+    expect(mapInvestigationStateToWorkflowState(null as never)).toBe(null);
+  });
+
+  it('returns null for undefined input', () => {
+    expect(mapInvestigationStateToWorkflowState(undefined as never)).toBe(null);
+  });
+
+  it('returns null for empty string', () => {
+    expect(mapInvestigationStateToWorkflowState('' as never)).toBe(null);
+  });
 });

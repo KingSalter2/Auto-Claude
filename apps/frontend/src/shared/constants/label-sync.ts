@@ -4,6 +4,7 @@
  */
 import type { WorkflowState } from '../types/enrichment';
 import type { WorkflowLabel, WorkflowLabelCustomization, CustomWorkflowLabel } from '../types/label-sync';
+import type { InvestigationState } from '../types/investigation';
 
 // ============================================
 // Label Prefix
@@ -166,6 +167,9 @@ export function isAutoClaudeLabel(
  * Map investigation state to workflow state for label sync.
  * Investigation states are derived from investigation + task status,
  * workflow states are used for GitHub labels.
+ *
+ * Accepts string for defensive programming (handles invalid states gracefully).
+ * Valid InvestigationState values are mapped to WorkflowState, invalid values return null.
  */
 export function mapInvestigationStateToWorkflowState(
   investigationState: string,
