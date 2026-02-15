@@ -639,6 +639,75 @@ export class WindowManager {
   }
 
   /**
+   * Close all windows showing a specific project
+   * Called when a project is deleted to clean up any pop-out windows
+   * @param projectId - ID of the project to close windows for
+   */
+  closeWindowsForProject(projectId: string): void {
+    const windowsToClose: number[] = [];
+
+    // Find all windows showing this project (both project and view types)
+    for (const [windowId, config] of this.windows.entries()) {
+      if (config.projectId === projectId && config.type !== 'main') {
+        windowsToClose.push(windowId);
+      }
+    }
+
+    // Close each window
+    for (const windowId of windowsToClose) {
+      try {
+        const window = BrowserWindow.fromId(windowId);
+        if (window && !window.isDestroyed()) {
+          console.warn(
+            `[WindowManager] Closing window ${windowId} for deleted project ${projectId}`
+          );
+          window.destroy(); // Use destroy() for guaranteed cleanup
+        }
+        // Remove from tracking
+        this.windows.delete(windowId);
+      } catch (error: unknown) {
+        console.error(
+          `[WindowManager] Error closing window ${windowId} for project ${projectId}:`,
+          error
+        );
+      }
+    }
+
+    // Save state after cleanup
+    this.scheduleSave();
+  }
+
+  /**
+   * Close specific view window
+   * Called when a view (like a terminal) should be closed
+   * @param projectId - ID of the project
+   * @param view - View identifier
+   */
+  closeWindowForView(projectId: string, view: string): void {
+    const windowId = this.isViewPoppedOut(projectId, view);
+    if (windowId !== null) {
+      try {
+        const window = BrowserWindow.fromId(windowId);
+        if (window && !window.isDestroyed()) {
+          console.warn(
+            `[WindowManager] Closing view window ${windowId} for ${projectId}:${view}`
+          );
+          window.destroy();
+        }
+        this.windows.delete(windowId);
+      } catch (error: unknown) {
+        console.error(
+          `[WindowManager] Error closing view window ${windowId}:`,
+          error
+        );
+      }
+
+      // Save state after cleanup
+      this.scheduleSave();
+    }
+  }
+
+  /**
    * Save window state to persistent storage
    * Public API for external callers to trigger immediate save
    */

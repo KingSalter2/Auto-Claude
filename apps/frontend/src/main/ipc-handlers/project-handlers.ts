@@ -313,6 +313,14 @@ export function registerProjectHandlers(
     IPC_CHANNELS.PROJECT_REMOVE,
     async (_, projectId: string): Promise<IPCResult> => {
       const success = projectStore.removeProject(projectId);
+
+      // Close any pop-out windows showing this project (edge case handling)
+      if (success) {
+        const { getWindowManager } = await import('../window-manager');
+        const windowManager = getWindowManager();
+        windowManager.closeWindowsForProject(projectId);
+      }
+
       return { success };
     }
   );

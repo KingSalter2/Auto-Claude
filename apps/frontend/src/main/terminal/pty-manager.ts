@@ -6,6 +6,7 @@
 import * as pty from '@lydell/node-pty';
 import * as os from 'os';
 import { existsSync } from 'fs';
+import { BrowserWindow } from 'electron';
 import type { TerminalProcess, WindowGetter, WindowsShellType } from './types';
 import { isWindows, getWindowsShellPaths } from '../platform';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -222,9 +223,20 @@ export function setupPtyHandlers(
     // Call custom data handler
     onDataCallback(terminal, data);
 
-    // Send to renderer with isDestroyed() check to prevent crashes
-    // when the window is closed during terminal activity
-    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
+    // Broadcast terminal output to ALL windows (not just main window)
+    // This ensures pop-out terminal windows receive terminal output
+    try {
+      const allWindows = BrowserWindow.getAllWindows();
+      for (const window of allWindows) {
+        if (!window.isDestroyed()) {
+          window.webContents.send(IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
+        }
+      }
+    } catch (error: unknown) {
+      console.error('[PTY] Failed to broadcast terminal output:', error);
+      // Fallback to main window only
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
+    }
   });
 
   // Handle terminal exit
@@ -244,9 +256,20 @@ export function setupPtyHandlers(
     // to avoid pty.node SIGABRT from destroyed BrowserWindow resources
     if (isShuttingDown) return;
 
-    // Send to renderer with isDestroyed() check to prevent crashes
-    // when the window is closed during terminal exit
-    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
+    // Broadcast terminal exit to ALL windows (not just main window)
+    // This ensures pop-out terminal windows receive the exit event
+    try {
+      const allWindows = BrowserWindow.getAllWindows();
+      for (const window of allWindows) {
+        if (!window.isDestroyed()) {
+          window.webContents.send(IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
+        }
+      }
+    } catch (error: unknown) {
+      console.error('[PTY] Failed to broadcast terminal exit:', error);
+      // Fallback to main window only
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
+    }
 
     // Call custom exit handler
     onExitCallback(terminal);
