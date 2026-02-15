@@ -79,9 +79,13 @@ export class AgentQueueManager {
     this.debouncedPersistRoadmapProgress = debouncedFn;
     this.cancelPersistRoadmapProgress = cancel;
 
-    // Initialize sequential spawn queue with ideation spawn function
-    this.spawnQueue = new SpawnQueue(async (id, projectPath, args, env, projectId, cwd) => {
-      return this.executeIdeationSpawn(id, projectPath, args, env, projectId, cwd);
+    // Initialize sequential spawn queue with routing based on process type
+    this.spawnQueue = new SpawnQueue(async (id, projectPath, args, env, projectId, cwd, type = 'ideation') => {
+      if (type === 'roadmap') {
+        return this.executeRoadmapSpawn(id, projectPath, args, env, projectId, cwd);
+      } else {
+        return this.executeIdeationSpawn(id, projectPath, args, env, projectId, cwd);
+      }
     });
   }
 
@@ -378,6 +382,52 @@ export class AgentQueueManager {
     });
 
     debugLog('[Agent Queue] Ideation process spawned:', { spawnId, projectId, pid: childProcess.pid });
+
+    return childProcess;
+  }
+
+  /**
+   * Execute roadmap spawn - called by SpawnQueue when request reaches front of queue
+   * This method only spawns the process; all event handlers are attached in spawnRoadmapProcess's onSpawn callback
+   */
+  private async executeRoadmapSpawn(
+    spawnId: string,
+    projectPath: string,
+    args: string[],
+    env: Record<string, string>,
+    projectId: string,
+    cwd: string
+  ): Promise<ChildProcess> {
+    debugLog('[Agent Queue] Executing roadmap spawn:', { spawnId, projectId });
+
+    // Get Python path from process manager (uses venv if configured)
+    const pythonPath = this.processManager.getPythonPath();
+
+    // Validate Python path
+    if (!pythonPath) {
+      throw new Error('Python path not configured. Please ensure Python is properly set up in settings.');
+    }
+
+    // Parse Python command to handle space-separated commands like "py -3"
+    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
+
+    // Spawn the process
+    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
+      cwd,
+      env
+    });
+
+    // Add to state tracking
+    this.state.addProcess(projectId, {
+      taskId: projectId,
+      process: childProcess,
+      startedAt: new Date(),
+      projectPath, // Store project path for loading roadmap on completion
+      spawnId: parseInt(spawnId, 10),
+      queueProcessType: 'roadmap'
+    });
+
+    debugLog('[Agent Queue] Roadmap process spawned:', { spawnId, projectId, pid: childProcess.pid });
 
     return childProcess;
   }
@@ -809,218 +859,223 @@ export class AgentQueueManager {
       hasToken
     });
 
-    // Parse Python command to handle space-separated commands like "py -3"
-    const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonPath);
-    const childProcess = spawn(pythonCommand, [...pythonBaseArgs, ...args], {
-      cwd,
-      env: finalEnv
-    });
-
-    this.state.addProcess(projectId, {
-      taskId: projectId,
-      process: childProcess,
-      startedAt: new Date(),
-      projectPath, // Store project path for loading roadmap on completion
-      spawnId,
-      queueProcessType: 'roadmap'
-    });
-
-    // Track progress through output
-    let progressPhase = 'analyzing';
-    let progressPercent = 10;
-    // Collect output for rate limit detection
-    let allRoadmapOutput = '';
-    // Track startedAt timestamp for progress persistence
-    const roadmapStartedAt = new Date().toISOString();
-
-    // Persist initial progress state (debounced - will execute immediately due to leading: true)
-    this.debouncedPersistRoadmapProgress(
+    // Enqueue the spawn request for sequential processing
+    // The queue will call executeRoadmapSpawn() when it's this request's turn
+    this.spawnQueue.enqueue({
+      id: String(spawnId),
+      type: 'roadmap',
+      projectId,
       projectPath,
-      progressPhase,
-      progressPercent,
-      'Starting roadmap generation...',
-      roadmapStartedAt,
-      true
-    );
+      args,
+      env: finalEnv as Record<string, string>,
+      cwd,
+      onSpawn: async (childProcess) => {
+        debugLog('[Agent Queue] Roadmap process spawned from queue:', { spawnId, projectId, pid: childProcess.pid });
 
-    // Helper to emit logs - split multi-line output into individual log lines
-    const emitLogs = (log: string) => {
-      const lines = log.split('\n').filter(line => line.trim().length > 0);
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed.length > 0) {
-          this.emitter.emit('roadmap-log', projectId, trimmed);
-        }
-      }
-    };
+        // Track progress through output
+        let progressPhase = 'analyzing';
+        let progressPercent = 10;
+        // Collect output for rate limit detection
+        let allRoadmapOutput = '';
+        // Track startedAt timestamp for progress persistence
+        const roadmapStartedAt = new Date().toISOString();
 
-    // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
-    childProcess.stdout?.on('data', (data: Buffer) => {
-      const log = data.toString('utf-8');
-      // Collect output for rate limit detection (keep last 10KB)
-      allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
+        // Persist initial progress state (debounced - will execute immediately due to leading: true)
+        this.debouncedPersistRoadmapProgress(
+          projectPath,
+          progressPhase,
+          progressPercent,
+          'Starting roadmap generation...',
+          roadmapStartedAt,
+          true
+        );
 
-      // Emit all log lines for debugging
-      emitLogs(log);
+        // Helper to emit logs - split multi-line output into individual log lines
+        const emitLogs = (log: string) => {
+          const lines = log.split('\n').filter(line => line.trim().length > 0);
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.length > 0) {
+              this.emitter.emit('roadmap-log', projectId, trimmed);
+            }
+          }
+        };
 
-      // Parse progress using AgentEvents
-      const progressUpdate = this.events.parseRoadmapProgress(log, progressPhase, progressPercent);
-      progressPhase = progressUpdate.phase;
-      progressPercent = progressUpdate.progress;
+        // Handle stdout - explicitly decode as UTF-8 for cross-platform Unicode support
+        childProcess.stdout?.on('data', (data: Buffer) => {
+          const log = data.toString('utf-8');
+          // Collect output for rate limit detection (keep last 10KB)
+          allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
 
-      // Get status message for display
-      const statusMessage = formatStatusMessage(log);
+          // Emit all log lines for debugging
+          emitLogs(log);
 
-      // Persist progress to disk for recovery after restart (debounced to limit writes)
-      this.debouncedPersistRoadmapProgress(
-        projectPath,
-        progressPhase,
-        progressPercent,
-        statusMessage,
-        roadmapStartedAt,
-        true
-      );
+          // Parse progress using AgentEvents
+          const progressUpdate = this.events.parseRoadmapProgress(log, progressPhase, progressPercent);
+          progressPhase = progressUpdate.phase;
+          progressPercent = progressUpdate.progress;
 
-      // Emit progress update
-      this.emitter.emit('roadmap-progress', projectId, {
-        phase: progressPhase,
-        progress: progressPercent,
-        message: statusMessage
-      });
-    });
+          // Get status message for display
+          const statusMessage = formatStatusMessage(log);
 
-    // Handle stderr - explicitly decode as UTF-8
-    childProcess.stderr?.on('data', (data: Buffer) => {
-      const log = data.toString('utf-8');
-      // Collect stderr for rate limit detection too
-      allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
-      console.error('[Roadmap STDERR]', log);
-      emitLogs(log);
+          // Persist progress to disk for recovery after restart (debounced to limit writes)
+          this.debouncedPersistRoadmapProgress(
+            projectPath,
+            progressPhase,
+            progressPercent,
+            statusMessage,
+            roadmapStartedAt,
+            true
+          );
 
-      const statusMessage = formatStatusMessage(log);
-
-      // Persist progress to disk (debounced - also on stderr to show activity)
-      this.debouncedPersistRoadmapProgress(
-        projectPath,
-        progressPhase,
-        progressPercent,
-        statusMessage,
-        roadmapStartedAt,
-        true
-      );
-
-      this.emitter.emit('roadmap-progress', projectId, {
-        phase: progressPhase,
-        progress: progressPercent,
-        message: statusMessage
-      });
-    });
-
-    // Handle process exit
-    childProcess.on('exit', (code: number | null) => {
-      debugLog('[Agent Queue] Roadmap process exited:', { projectId, code, spawnId });
-
-      // Check if this process was intentionally stopped by the user
-      const wasIntentionallyStopped = this.state.wasSpawnKilled(spawnId);
-      if (wasIntentionallyStopped) {
-        debugLog('[Agent Queue] Roadmap process was intentionally stopped, ignoring exit');
-        this.state.clearKilledSpawn(spawnId);
-        // Clear progress file on intentional stop
-        this.clearRoadmapProgress(projectPath);
-        // Note: Don't call deleteProcess here - killProcess() already deleted it.
-        // A new process with the same projectId may have been started.
-        return;
-      }
-
-      // Get the stored project path before deleting from map
-      const processInfo = this.state.getProcess(projectId);
-      const storedProjectPath = processInfo?.projectPath;
-      this.state.deleteProcess(projectId);
-
-      // Check for rate limit if process failed
-      if (code !== 0) {
-        debugLog('[Agent Queue] Checking for rate limit (non-zero exit)');
-        const rateLimitDetection = detectRateLimit(allRoadmapOutput);
-        if (rateLimitDetection.isRateLimited) {
-          debugLog('[Agent Queue] Rate limit detected for roadmap');
-          const rateLimitInfo = createSDKRateLimitInfo('roadmap', rateLimitDetection, {
-            projectId
+          // Emit progress update
+          this.emitter.emit('roadmap-progress', projectId, {
+            phase: progressPhase,
+            progress: progressPercent,
+            message: statusMessage
           });
-          this.emitter.emit('sdk-rate-limit', rateLimitInfo);
-        }
-      }
-
-      if (code === 0) {
-        debugLog('[Agent Queue] Roadmap generation completed successfully');
-        this.emitter.emit('roadmap-progress', projectId, {
-          phase: 'complete',
-          progress: 100,
-          message: 'Roadmap generation complete'
         });
 
-        // Clear progress file on successful completion
-        this.clearRoadmapProgress(projectPath);
+        // Handle stderr - explicitly decode as UTF-8
+        childProcess.stderr?.on('data', (data: Buffer) => {
+          const log = data.toString('utf-8');
+          // Collect stderr for rate limit detection too
+          allRoadmapOutput = (allRoadmapOutput + log).slice(-10000);
+          console.error('[Roadmap STDERR]', log);
+          emitLogs(log);
 
-        // Load and emit the complete roadmap
-        if (storedProjectPath) {
-          try {
-            const roadmapFilePath = path.join(
-              storedProjectPath,
-              '.auto-claude',
-              'roadmap',
-              'roadmap.json'
-            );
-            debugLog('[Agent Queue] Loading roadmap from:', roadmapFilePath);
-            if (existsSync(roadmapFilePath)) {
-              const loadRoadmap = async (): Promise<void> => {
-                try {
-                  const content = await fsPromises.readFile(roadmapFilePath, 'utf-8');
-                  const rawRoadmap = JSON.parse(content);
-                  const transformedRoadmap = transformRoadmapFromSnakeCase(rawRoadmap, projectId);
-                  debugLog('[Agent Queue] Loaded roadmap:', {
-                    featuresCount: transformedRoadmap.features?.length || 0,
-                    phasesCount: transformedRoadmap.phases?.length || 0
-                  });
-                  this.emitter.emit('roadmap-complete', projectId, transformedRoadmap);
-                } catch (err) {
-                  debugError('[Roadmap] Failed to load roadmap:', err);
-                  this.emitter.emit('roadmap-error', projectId,
-                    `Failed to load roadmap: ${err instanceof Error ? err.message : 'Unknown error'}`);
-                }
-              };
-              loadRoadmap().catch((err: unknown) => {
-                debugError('[Agent Queue] Unhandled error loading roadmap:', err);
-              });
-            } else {
-              debugError('[Roadmap] roadmap.json not found at:', roadmapFilePath);
-              this.emitter.emit('roadmap-error', projectId,
-                'Roadmap completed but file not found.');
-            }
-          } catch (err) {
-            debugError('[Roadmap] Unexpected error in roadmap completion:', err);
-            this.emitter.emit('roadmap-error', projectId,
-              `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+          const statusMessage = formatStatusMessage(log);
+
+          // Persist progress to disk (debounced - also on stderr to show activity)
+          this.debouncedPersistRoadmapProgress(
+            projectPath,
+            progressPhase,
+            progressPercent,
+            statusMessage,
+            roadmapStartedAt,
+            true
+          );
+
+          this.emitter.emit('roadmap-progress', projectId, {
+            phase: progressPhase,
+            progress: progressPercent,
+            message: statusMessage
+          });
+        });
+
+        // Handle process exit
+        childProcess.on('exit', (code: number | null) => {
+          debugLog('[Agent Queue] Roadmap process exited:', { projectId, code, spawnId });
+
+          // Check if this process was intentionally stopped by the user
+          const wasIntentionallyStopped = this.state.wasSpawnKilled(spawnId);
+          if (wasIntentionallyStopped) {
+            debugLog('[Agent Queue] Roadmap process was intentionally stopped, ignoring exit');
+            this.state.clearKilledSpawn(spawnId);
+            // Clear progress file on intentional stop
+            this.clearRoadmapProgress(projectPath);
+            // Note: Don't call deleteProcess here - killProcess() already deleted it.
+            // A new process with the same projectId may have been started.
+            return;
           }
-        } else {
-          debugError('[Roadmap] No project path available for roadmap completion');
-          this.emitter.emit('roadmap-error', projectId, 'Roadmap completed but project path not found.');
-        }
-      } else {
-        debugError('[Agent Queue] Roadmap generation failed:', { projectId, code });
-        // Clear progress file on error
-        this.clearRoadmapProgress(projectPath);
-        this.emitter.emit('roadmap-error', projectId, `Roadmap generation failed with exit code ${code}`);
+
+          // Get the stored project path before deleting from map
+          const processInfo = this.state.getProcess(projectId);
+          const storedProjectPath = processInfo?.projectPath;
+          this.state.deleteProcess(projectId);
+
+          // Check for rate limit if process failed
+          if (code !== 0) {
+            debugLog('[Agent Queue] Checking for rate limit (non-zero exit)');
+            const rateLimitDetection = detectRateLimit(allRoadmapOutput);
+            if (rateLimitDetection.isRateLimited) {
+              debugLog('[Agent Queue] Rate limit detected for roadmap');
+              const rateLimitInfo = createSDKRateLimitInfo('roadmap', rateLimitDetection, {
+                projectId
+              });
+              this.emitter.emit('sdk-rate-limit', rateLimitInfo);
+            }
+          }
+
+          if (code === 0) {
+            debugLog('[Agent Queue] Roadmap generation completed successfully');
+            this.emitter.emit('roadmap-progress', projectId, {
+              phase: 'complete',
+              progress: 100,
+              message: 'Roadmap generation complete'
+            });
+
+            // Clear progress file on successful completion
+            this.clearRoadmapProgress(projectPath);
+
+            // Load and emit the complete roadmap
+            if (storedProjectPath) {
+              try {
+                const roadmapFilePath = path.join(
+                  storedProjectPath,
+                  '.auto-claude',
+                  'roadmap',
+                  'roadmap.json'
+                );
+                debugLog('[Agent Queue] Loading roadmap from:', roadmapFilePath);
+                if (existsSync(roadmapFilePath)) {
+                  const loadRoadmap = async (): Promise<void> => {
+                    try {
+                      const content = await fsPromises.readFile(roadmapFilePath, 'utf-8');
+                      const rawRoadmap = JSON.parse(content);
+                      const transformedRoadmap = transformRoadmapFromSnakeCase(rawRoadmap, projectId);
+                      debugLog('[Agent Queue] Loaded roadmap:', {
+                        featuresCount: transformedRoadmap.features?.length || 0,
+                        phasesCount: transformedRoadmap.phases?.length || 0
+                      });
+                      this.emitter.emit('roadmap-complete', projectId, transformedRoadmap);
+                    } catch (err) {
+                      debugError('[Roadmap] Failed to load roadmap:', err);
+                      this.emitter.emit('roadmap-error', projectId,
+                        `Failed to load roadmap: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                    }
+                  };
+                  loadRoadmap().catch((err: unknown) => {
+                    debugError('[Agent Queue] Unhandled error loading roadmap:', err);
+                  });
+                } else {
+                  debugError('[Roadmap] roadmap.json not found at:', roadmapFilePath);
+                  this.emitter.emit('roadmap-error', projectId,
+                    'Roadmap completed but file not found.');
+                }
+              } catch (err) {
+                debugError('[Roadmap] Unexpected error in roadmap completion:', err);
+                this.emitter.emit('roadmap-error', projectId,
+                  `Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`);
+              }
+            } else {
+              debugError('[Roadmap] No project path available for roadmap completion');
+              this.emitter.emit('roadmap-error', projectId, 'Roadmap completed but project path not found.');
+            }
+          } else {
+            debugError('[Agent Queue] Roadmap generation failed:', { projectId, code });
+            // Clear progress file on error
+            this.clearRoadmapProgress(projectPath);
+            this.emitter.emit('roadmap-error', projectId, `Roadmap generation failed with exit code ${code}`);
+          }
+        });
+
+        // Handle process error
+        childProcess.on('error', (err: Error) => {
+          console.error('[Roadmap] Process error:', err.message);
+          this.state.deleteProcess(projectId);
+          // Clear progress file on process error
+          this.clearRoadmapProgress(projectPath);
+          this.emitter.emit('roadmap-error', projectId, err.message);
+        });
+      },
+      onError: (error: Error) => {
+        debugError('[Agent Queue] Failed to spawn roadmap process:', error);
+        this.emitter.emit('roadmap-error', projectId, error.message);
       }
     });
 
-    // Handle process error
-    childProcess.on('error', (err: Error) => {
-      console.error('[Roadmap] Process error:', err.message);
-      this.state.deleteProcess(projectId);
-      // Clear progress file on process error
-      this.clearRoadmapProgress(projectPath);
-      this.emitter.emit('roadmap-error', projectId, err.message);
-    });
+    debugLog('[Agent Queue] Roadmap spawn request enqueued:', { spawnId, projectId });
   }
 
   /**
