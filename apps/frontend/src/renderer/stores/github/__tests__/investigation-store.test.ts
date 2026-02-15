@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useInvestigationStore } from '../investigation-store';
 
@@ -126,10 +126,10 @@ describe('Investigation Store - Label Sync Integration', () => {
       useInvestigationStore.getState().setResult('test-project', {
         issueNumber: 42,
         report: {
-          rootCause: { agentType: 'root_cause', rootCause: 'test', codePaths: [], relatedIssues: [], summary: '', findings: [] },
-          impact: { agentType: 'impact', severity: 'medium', affectedComponents: [], userImpact: '', riskIfUnfixed: '' },
-          fixAdvice: { agentType: 'fix_advisor', suggestedApproaches: [], recommendedApproach: 0, patternsToFollow: [] },
-          reproduction: { agentType: 'reproducer', reproducible: 'unknown', existingTests: [], testGaps: [], suggestedTests: [] },
+          rootCause: { agentType: 'root_cause', rootCause: 'test', codePaths: [], relatedIssues: [], summary: '', findings: [], codeReferences: [] },
+          impact: { agentType: 'impact', severity: 'medium', affectedComponents: [], userImpact: '', riskIfUnfixed: '', summary: '', findings: [], codeReferences: [] },
+          fixAdvice: { agentType: 'fix_advisor', suggestedApproaches: [], recommendedApproach: 0, patternsToFollow: [], summary: '', findings: [], codeReferences: [] },
+          reproduction: { agentType: 'reproducer', reproducible: 'unknown', existingTests: [], testGaps: [], suggestedTests: [], summary: '', findings: [], codeReferences: [] },
           summary: 'Test',
           severity: 'medium',
           suggestedLabels: [],
