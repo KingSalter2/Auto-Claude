@@ -137,6 +137,7 @@ export function App() {
   const claudeProfiles = useClaudeProfileStore((state) => state.profiles);
 
   // Window store
+  const windowConfig = useWindowStore((state) => state.windowConfig);
   const setWindowConfig = useWindowStore((state) => state.setWindowConfig);
 
   // UI State
@@ -863,56 +864,152 @@ export function App() {
     }
   };
 
+  /**
+   * Render a specific view component based on view name
+   * Used for single-view window mode
+   */
+  const renderViewComponent = (viewName: string, projectId: string) => {
+    const project = projects.find((p) => p.id === projectId);
+
+    switch (viewName) {
+      case 'kanban':
+        return (
+          <KanbanBoard
+            tasks={tasks}
+            onTaskClick={handleTaskClick}
+            onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+            onRefresh={handleRefreshTasks}
+            isRefreshing={isRefreshingTasks}
+          />
+        );
+      case 'terminals':
+        return (
+          <TerminalGrid
+            projectPath={project?.path}
+            onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+            isActive={true}
+          />
+        );
+      case 'roadmap':
+        return <Roadmap projectId={projectId} onGoToTask={handleGoToTask} />;
+      case 'context':
+        return (
+          <ErrorBoundary>
+            <Context projectId={projectId} />
+          </ErrorBoundary>
+        );
+      case 'ideation':
+        return <Ideation projectId={projectId} onGoToTask={handleGoToTask} />;
+      case 'insights':
+        return <Insights projectId={projectId} />;
+      case 'github-issues':
+        return (
+          <GitHubIssues
+            onOpenSettings={() => {
+              setSettingsInitialProjectSection('github');
+              setIsSettingsDialogOpen(true);
+            }}
+            onNavigateToTask={handleGoToTask}
+          />
+        );
+      case 'gitlab-issues':
+        return (
+          <GitLabIssues
+            onOpenSettings={() => {
+              setSettingsInitialProjectSection('gitlab');
+              setIsSettingsDialogOpen(true);
+            }}
+            onNavigateToTask={handleGoToTask}
+          />
+        );
+      case 'github-prs':
+        return (
+          <GitHubPRs
+            onOpenSettings={() => {
+              setSettingsInitialProjectSection('github');
+              setIsSettingsDialogOpen(true);
+            }}
+            isActive={true}
+          />
+        );
+      case 'gitlab-merge-requests':
+        return (
+          <GitLabMergeRequests
+            projectId={projectId}
+            onOpenSettings={() => {
+              setSettingsInitialProjectSection('gitlab');
+              setIsSettingsDialogOpen(true);
+            }}
+          />
+        );
+      case 'changelog':
+        return <Changelog />;
+      case 'worktrees':
+        return <Worktrees projectId={projectId} />;
+      case 'agent-tools':
+        return <AgentTools />;
+      default:
+        return <div className="flex items-center justify-center h-full text-muted-foreground">Unknown view: {viewName}</div>;
+    }
+  };
+
   return (
     <ViewStateProvider>
       <TooltipProvider>
         <ProactiveSwapListener />
       <div className="flex h-screen bg-background">
-        {/* Sidebar */}
-        <Sidebar
-          onSettingsClick={() => setIsSettingsDialogOpen(true)}
-          onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
-          activeView={activeView}
-          onViewChange={setActiveView}
-        />
-
-        {/* Main content */}
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Project Tabs */}
-          {projectTabs.length > 0 && (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext items={projectTabs.map(p => p.id)} strategy={horizontalListSortingStrategy}>
-                <ProjectTabBarWithContext
-                  projects={projectTabs}
-                  activeProjectId={activeProjectId}
-                  onProjectSelect={handleProjectTabSelect}
-                  onProjectClose={handleProjectTabClose}
-                  onAddProject={handleAddProject}
-                  onSettingsClick={() => setIsSettingsDialogOpen(true)}
-                />
-              </SortableContext>
-
-              {/* Drag overlay - shows what's being dragged */}
-              <DragOverlay>
-                {activeDragProject && (
-                  <div className="flex items-center gap-2 bg-card border border-border rounded-md px-4 py-2.5 shadow-lg max-w-[200px]">
-                    <div className="w-1 h-4 bg-muted-foreground rounded-full" />
-                    <span className="truncate font-medium text-sm">
-                      {activeDragProject.name}
-                    </span>
-                  </div>
-                )}
-              </DragOverlay>
-            </DndContext>
-          )}
-
-          {/* Main content area */}
+        {/* Single View Mode - render only the specified view without sidebar/tabs */}
+        {windowConfig?.type === 'view' && windowConfig.view && windowConfig.projectId ? (
           <main className="flex-1 overflow-hidden">
+            {renderViewComponent(windowConfig.view, windowConfig.projectId)}
+          </main>
+        ) : (
+          <>
+            {/* Sidebar - hidden in single-view mode */}
+            <Sidebar
+              onSettingsClick={() => setIsSettingsDialogOpen(true)}
+              onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
+              activeView={activeView}
+              onViewChange={setActiveView}
+            />
+
+            {/* Main content */}
+            <div className="flex flex-1 flex-col overflow-hidden">
+              {/* Project Tabs */}
+              {projectTabs.length > 0 && (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                >
+                  <SortableContext items={projectTabs.map(p => p.id)} strategy={horizontalListSortingStrategy}>
+                    <ProjectTabBarWithContext
+                      projects={projectTabs}
+                      activeProjectId={activeProjectId}
+                      onProjectSelect={handleProjectTabSelect}
+                      onProjectClose={handleProjectTabClose}
+                      onAddProject={handleAddProject}
+                      onSettingsClick={() => setIsSettingsDialogOpen(true)}
+                    />
+                  </SortableContext>
+
+                  {/* Drag overlay - shows what's being dragged */}
+                  <DragOverlay>
+                    {activeDragProject && (
+                      <div className="flex items-center gap-2 bg-card border border-border rounded-md px-4 py-2.5 shadow-lg max-w-[200px]">
+                        <div className="w-1 h-4 bg-muted-foreground rounded-full" />
+                        <span className="truncate font-medium text-sm">
+                          {activeDragProject.name}
+                        </span>
+                      </div>
+                    )}
+                  </DragOverlay>
+                </DndContext>
+              )}
+
+              {/* Main content area */}
+              <main className="flex-1 overflow-hidden">
             {selectedProject ? (
               <>
                 {activeView === 'kanban' && (
@@ -1005,6 +1102,8 @@ export function App() {
             )}
           </main>
         </div>
+          </>
+        )}
 
         {/* Task detail modal */}
         <TaskDetailModal
