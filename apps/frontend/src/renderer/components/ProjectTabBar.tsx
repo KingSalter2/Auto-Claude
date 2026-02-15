@@ -36,9 +36,31 @@ export function ProjectTabBar({
   const handlePopOutProject = async (projectId: string) => {
     try {
       setWindowLoading(projectId, true);
-      const { windowId } = await window.electronAPI.window.popOutProject(projectId);
+      const result = await window.electronAPI.window.popOutProject(projectId);
+
+      // Check if the result indicates an error (IPC handler returns success/error structure)
+      if ('success' in result && result.success === false && 'error' in result) {
+        const error = result.error as {
+          code: string;
+          message: string;
+          existingWindowId?: number;
+        };
+
+        // If project already popped out, focus the existing window
+        if (error.code === 'ALREADY_POPPED_OUT' && error.existingWindowId) {
+          await window.electronAPI.window.focusWindow(error.existingWindowId);
+          console.log(`Project ${projectId} already popped out, focused existing window ${error.existingWindowId}`);
+        } else {
+          console.error('Failed to pop out project:', error.message);
+          // TODO: Show error notification to user
+        }
+        return;
+      }
+
+      // Success path - result is { success: true, windowId: number }
+      const successResult = result as { success: true; windowId: number };
       addPoppedOutProject(projectId);
-      console.log(`Project ${projectId} popped out to window ${windowId}`);
+      console.log(`Project ${projectId} popped out to window ${successResult.windowId}`);
     } catch (error) {
       console.error('Failed to pop out project:', error);
       // TODO: Show error notification to user
