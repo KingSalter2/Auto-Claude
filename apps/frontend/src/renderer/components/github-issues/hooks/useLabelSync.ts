@@ -77,8 +77,11 @@ export function useLabelSync() {
     syncTimerRef.current = setTimeout(async () => {
       try {
         await window.electronAPI.github.syncIssueLabel(projectId, issueNumber, newState, oldState);
-      } catch {
-        // Non-blocking — label sync failures shouldn't disrupt workflow
+      } catch (err) {
+        // Log error but don't disrupt workflow - label sync failures are non-blocking
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        console.warn(`[LabelSync] Failed to sync label for issue #${issueNumber}: ${errorMessage}`);
+        useLabelSyncStore.getState().setError(`Issue #${issueNumber}: ${errorMessage}`);
       }
     }, SYNC_DEBOUNCE_MS);
   }, [projectId]);

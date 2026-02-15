@@ -27,7 +27,7 @@ describe('Investigation Store', () => {
             ...investigations,
             [key]: {
               ...investigations[key]!,
-              progress: { issueNumber: 42, phase: 'queued', progress: 0, message: 'Queued' }
+              progress: { issueNumber: 42, phase: 'queued', progress: 0, message: 'Queued', agentStatuses: [], startedAt: new Date().toISOString() }
             }
           }
         });
