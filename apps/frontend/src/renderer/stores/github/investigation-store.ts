@@ -348,9 +348,23 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
 
       // Don't overwrite investigations that are already in-memory
       // (e.g., currently running or already loaded)
-      if (newInvestigations[key]?.isInvestigating) continue;
+      // Prevents race condition where fresh data gets overwritten by stale disk data
+      if (newInvestigations[key]?.isInvestigating) {
+        console.log(`[InvestigationStore] Skipping overwrite of active investigation ${key}`);
+        continue;
+      }
 
       const isError = persisted.status === 'failed' || persisted.wasInterrupted;
+
+      // Defensive: Never overwrite a valid githubCommentId with null
+      // This prevents losing the "posted" state during race conditions
+      const existingHasCommentId = newInvestigations[key]?.githubCommentId;
+      const persistedHasCommentId = persisted.githubCommentId;
+
+      if (existingHasCommentId && !persistedHasCommentId) {
+        console.warn(`[InvestigationStore] Skipping overwrite of ${key} - would lose githubCommentId (${existingHasCommentId})`);
+        continue;
+      }
 
       newInvestigations[key] = {
         issueNumber: persisted.issueNumber,
