@@ -47,6 +47,7 @@ const DEFAULT_SETTINGS: InvestigationSettingsType = {
   maxParallelInvestigations: 3,
   labelIncludeFilter: [],
   labelExcludeFilter: [],
+  fastInvestigations: false,
 };
 
 const INVESTIGATION_LABEL_KEYS: InvestigationLabelKey[] = [
@@ -289,7 +290,20 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
 
       <Separator />
 
-      {/* 7. Label include filter */}
+      {/* 7. Fast mode investigations */}
+      <SettingToggle
+        label={t('settings:investigationSettings.fastInvestigations', 'Fast mode investigations')}
+        description={t(
+          'settings:investigationSettings.fastInvestigationsDescription',
+          'Use Opus 4.6 Fast Mode (2.5x faster, higher cost)',
+        )}
+        checked={settings.fastInvestigations ?? false}
+        onCheckedChange={(v) => updateSetting('fastInvestigations', v)}
+      />
+
+      <Separator />
+
+      {/* 8. Label include filter */}
       <LabelFilterDropdown
         title={t('settings:investigationSettings.labelIncludeFilter', 'Label include filter')}
         description={t(
@@ -303,7 +317,7 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
         onRemove={(label) => removeLabelFilter('include', label)}
       />
 
-      {/* 8. Label exclude filter */}
+      {/* 9. Label exclude filter */}
       <LabelFilterDropdown
         title={t('settings:investigationSettings.labelExcludeFilter', 'Label exclude filter')}
         description={t(
@@ -319,7 +333,7 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
 
       <Separator />
 
-      {/* 9. Investigation label customization */}
+      {/* 10. Investigation label customization */}
       <InvestigationLabelSection
         customization={settings.labelCustomization}
         onCustomizationChange={(lc) => persist({ ...settings, labelCustomization: lc })}

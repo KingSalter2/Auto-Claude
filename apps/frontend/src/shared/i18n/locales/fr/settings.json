@@ -935,6 +935,8 @@
     "autoCloseIssuesDescription": "Fermer l'issue GitHub avec un commentaire de complétion quand la tâche liée est terminée",
     "maxParallel": "Investigations parallèles max",
     "maxParallelDescription": "Nombre maximum d'investigations simultanées (1-10)",
+    "fastInvestigations": "Mode rapide pour les enquêtes",
+    "fastInvestigationsDescription": "Utiliser le mode rapide Opus 4.6 (2.5x plus rapide, coût plus élevé)",
     "labelIncludeFilter": "Filtre d'inclusion de labels",
     "labelIncludeFilterDescription": "Ne créer automatiquement des tâches que pour les issues avec ces labels (vide = toutes)",
     "labelExcludeFilter": "Filtre d'exclusion de labels",

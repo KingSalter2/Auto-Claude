@@ -935,6 +935,8 @@
     "autoCloseIssuesDescription": "Close GitHub issue with completion comment when linked task reaches done",
     "maxParallel": "Max parallel investigations",
     "maxParallelDescription": "Maximum concurrent investigations (1-10)",
+    "fastInvestigations": "Fast mode investigations",
+    "fastInvestigationsDescription": "Use Opus 4.6 Fast Mode (2.5x faster, higher cost)",
     "labelIncludeFilter": "Label include filter",
     "labelIncludeFilterDescription": "Only auto-create tasks for issues with these labels (empty = all)",
     "labelExcludeFilter": "Label exclude filter",
