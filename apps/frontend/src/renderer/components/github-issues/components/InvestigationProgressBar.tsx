@@ -29,6 +29,18 @@ export const InvestigationProgressBar = memo(function InvestigationProgressBar({
   // Nothing to show for new issues
   if (state === 'new') return null;
 
+  // Queued — amber pulsing dot
+  if (state === 'queued') {
+    return (
+      <div className="flex items-center gap-1 mt-1.5">
+        <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+        <span className="text-[10px] text-amber-600 dark:text-amber-400">
+          {t('investigation.progress.queued', 'Queued')}
+        </span>
+      </div>
+    );
+  }
+
   // Active investigation — show progress bar
   if (state === 'investigating') {
     const pct = progress ?? 0;

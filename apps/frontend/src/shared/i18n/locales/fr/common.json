@@ -1050,6 +1050,7 @@
     "button": {
       "investigate": "Investigation IA",
       "investigating": "Investigation en cours...",
+      "queued": "En file d'attente...",
       "cancel": "Annuler",
       "viewResults": "Voir les résultats",
       "createTask": "Créer une tâche",
@@ -1155,6 +1156,7 @@
     },
     "progress": {
       "starting": "Démarrage de l'investigation...",
+      "queued": "En attente",
       "analyzing": "Analyse du code source...",
       "agentRunning": "{{agent}} en cours...",
       "agentComplete": "{{agent}} terminé",

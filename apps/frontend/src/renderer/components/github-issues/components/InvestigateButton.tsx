@@ -141,6 +141,30 @@ export const InvestigateButton = memo(function InvestigateButton({
     );
   }
 
+  // Queued — disabled + cancel
+  if (state === 'queued') {
+    return (
+      <div className="flex items-center gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled
+          className={className}
+        >
+          <Loader2 className="h-4 w-4 mr-1.5 animate-spin opacity-50" />
+          {t('investigation.button.queued', 'Queued...')}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCancel}
+        >
+          {t('investigation.button.cancel', 'Cancel')}
+        </Button>
+      </div>
+    );
+  }
+
   // Default: new — show investigate button
   return (
     <Button

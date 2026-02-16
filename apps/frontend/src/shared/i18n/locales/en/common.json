@@ -1050,6 +1050,7 @@
     "button": {
       "investigate": "AI Investigate",
       "investigating": "Investigating...",
+      "queued": "Queued...",
       "cancel": "Cancel",
       "viewResults": "View Results",
       "createTask": "Create Task",
@@ -1155,6 +1156,7 @@
     },
     "progress": {
       "starting": "Starting investigation...",
+      "queued": "Queued",
       "analyzing": "Analyzing codebase...",
       "agentRunning": "{{agent}} running...",
       "agentComplete": "{{agent}} complete",

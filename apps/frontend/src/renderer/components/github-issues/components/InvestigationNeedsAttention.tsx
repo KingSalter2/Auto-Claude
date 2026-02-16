@@ -256,6 +256,7 @@ export function InvestigationNeedsAttention({
       const names = runningAgents.map(a => t(AGENT_I18N_KEYS[a]));
       return t('investigation.progress.agentsRunning', 'Running: {{agents}}', { agents: names.join(', ') });
     }
+    if (state === 'queued') return t('investigation.queue.waiting', 'Waiting in queue...');
     if (isInvestigating) return t('investigation.progress.starting', 'Starting investigation...');
     return '';
   };
