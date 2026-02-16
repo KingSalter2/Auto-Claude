@@ -2,7 +2,7 @@
 
 > Your complete guide to using GitHub Issues integration in Auto Claude
 
-**Last updated:** 2025-02-16
+**Last updated:** 2026-02-16
 **Audience:** All users | **Prerequisites:** None
 
 ---
@@ -50,18 +50,20 @@ Get your first issue investigated in under 5 minutes.
 
 1. **Auto Claude installed** - Download from [GitHub Releases](https://github.com/AndyMik90/Auto-Claude/releases)
 2. **GitHub account** - Any account with access to your target repository
-3. **GitHub CLI installed** - Run `gh auth login` to authenticate
+3. **Claude credentials** - A Claude Code subscription (OAuth) or API key configured in Auto Claude settings
 
 ### Step 1: Connect Your Repository (1 minute)
 
-1. Open Auto Claude
-2. Create or open a project
-3. Go to **Settings → GitHub**
-4. Click **"Connect Repository"**
-5. Enter your repository URL (e.g., `https://github.com/owner/repo`)
-6. Authorize via GitHub CLI when prompted
+1. Open Auto Claude and open your project
+2. Go to **Project Settings → GitHub Integration**
+3. Click **"Connect Repository"**
+4. Enter your repository in `owner/repo` format (e.g., `AndyMik90/Auto-Claude`)
+5. Choose your authentication method:
+   - **OAuth** (recommended) - Sign in with your GitHub account
+   - **GitHub CLI** - For advanced users with `gh` installed
+6. Click **"Connect"** and authorize when prompted
 
-> **Note:** The first time you connect, you'll need to authenticate with GitHub CLI. This is a one-time setup.
+> **Note:** The first time you connect, you'll need to authorize access. This is a one-time setup per project.
 
 ### Step 2: Import Issues (30 seconds)
 
