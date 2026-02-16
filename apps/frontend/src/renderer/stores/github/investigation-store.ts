@@ -51,6 +51,8 @@ export interface IssueInvestigationState {
   activityLog: Array<{ event: string; timestamp: string }>;
   /** True if the issue no longer exists in the GitHub response (stale/deleted) */
   isStale?: boolean;
+  /** True if the investigation was explicitly cancelled (prevents late completion overwrite) */
+  isCancelled?: boolean;
 }
 
 // ============================================
@@ -144,8 +146,10 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           githubCommentId: existing?.githubCommentId ?? null,
           startedAt: now,
           completedAt: null,
+          postedAt: existing?.postedAt ?? null,
           linkedTaskStatus: existing?.linkedTaskStatus ?? null,
-          activityLog: log
+          activityLog: log,
+          isCancelled: false, // clear cancelled flag on new investigation
         }
       }
     };
@@ -154,6 +158,8 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   setProgress: (projectId: string, progress: InvestigationProgress) => set((state) => {
     const key = `${projectId}:${progress.issueNumber}`;
     const existing = state.investigations[key];
+    // Don't create ghost entries for cancelled/unknown investigations
+    if (!existing?.isInvestigating) return state;
     return {
       investigations: {
         ...state.investigations,
@@ -170,8 +176,10 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           githubCommentId: existing?.githubCommentId ?? null,
           startedAt: existing?.startedAt ?? null,
           completedAt: null,
+          postedAt: existing?.postedAt ?? null,
           linkedTaskStatus: existing?.linkedTaskStatus ?? null,
-          activityLog: existing?.activityLog ?? []
+          activityLog: existing?.activityLog ?? [],
+          isCancelled: existing?.isCancelled ?? false,
         }
       }
     };
@@ -180,6 +188,8 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   setResult: (projectId: string, result: InvestigationResult) => set((state) => {
     const key = `${projectId}:${result.issueNumber}`;
     const existing = state.investigations[key];
+    // Don't overwrite cancelled state with late completion
+    if (existing?.isCancelled) return state;
     const log = [...(existing?.activityLog ?? []), { event: 'investigation completed', timestamp: result.completedAt }].slice(-50);
     return {
       investigations: {
@@ -197,8 +207,10 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           githubCommentId: result.githubCommentId ?? existing?.githubCommentId ?? null,
           startedAt: existing?.startedAt ?? null,
           completedAt: result.completedAt,
+          postedAt: existing?.postedAt ?? null,
           linkedTaskStatus: existing?.linkedTaskStatus ?? null,
-          activityLog: log
+          activityLog: log,
+          isCancelled: false, // clear cancelled flag on successful completion
         }
       }
     };
@@ -224,8 +236,10 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           githubCommentId: existing?.githubCommentId ?? null,
           startedAt: existing?.startedAt ?? null,
           completedAt: null,
+          postedAt: existing?.postedAt ?? null,
           linkedTaskStatus: existing?.linkedTaskStatus ?? null,
-          activityLog: log
+          activityLog: log,
+          isCancelled: existing?.isCancelled ?? false,
         }
       }
     };
@@ -431,6 +445,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         progress: null,
         error: 'Investigation cancelled',
         activityLog: log,
+        isCancelled: true,
       };
       changed = true;
     }
@@ -609,6 +624,11 @@ export function startIssueInvestigation(
   issueNumber: number
 ): void {
   const store = useInvestigationStore.getState();
+
+  // Don't start if already investigating (concurrency guard)
+  const existing = store.getInvestigationState(projectId, issueNumber);
+  if (existing?.isInvestigating) return;
+
   store.startInvestigation(projectId, issueNumber);
   window.electronAPI.github.startInvestigation(projectId, issueNumber);
 }
@@ -621,6 +641,22 @@ export function cancelIssueInvestigation(
   issueNumber: number
 ): void {
   const store = useInvestigationStore.getState();
+  const key = `${projectId}:${issueNumber}`;
+  const existing = store.getInvestigationState(projectId, issueNumber);
+
+  // Mark as cancelled before the IPC call to prevent late completion from overwriting
+  if (existing) {
+    useInvestigationStore.setState((state) => ({
+      investigations: {
+        ...state.investigations,
+        [key]: {
+          ...state.investigations[key],
+          isCancelled: true,
+        },
+      },
+    }));
+  }
+
   // Mark as not investigating immediately
   store.setError(projectId, issueNumber, 'Investigation cancelled');
   window.electronAPI.github.cancelInvestigation(projectId, issueNumber);
@@ -676,4 +712,52 @@ export function investigateGitHubIssue(
   store.setInvestigationResult(null);
 
   window.electronAPI.investigateGitHubIssue(projectId, issueNumber, selectedCommentIds);
+}
+
+// ============================================
+// Investigation Watchdog
+// ============================================
+
+const WATCHDOG_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const INVESTIGATION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Start the investigation watchdog timer.
+ * Checks every 5 minutes for investigations that have been running
+ * for more than 30 minutes and marks them as timed out.
+ */
+export function startInvestigationWatchdog(): void {
+  if (watchdogTimer) return;
+
+  watchdogTimer = setInterval(() => {
+    const { investigations } = useInvestigationStore.getState();
+    const now = Date.now();
+
+    for (const [key, inv] of Object.entries(investigations)) {
+      // Only check active investigations with a start time
+      if (!inv.isInvestigating || !inv.startedAt) continue;
+
+      const elapsed = now - new Date(inv.startedAt).getTime();
+      if (elapsed > INVESTIGATION_TIMEOUT_MS) {
+        console.warn(`[InvestigationWatchdog] Investigation ${key} timed out after ${Math.round(elapsed / 60000)} minutes`);
+        useInvestigationStore.getState().setError(
+          inv.projectId,
+          inv.issueNumber,
+          'Investigation timed out (exceeded 30 minutes)'
+        );
+      }
+    }
+  }, WATCHDOG_INTERVAL_MS);
+}
+
+/**
+ * Stop the investigation watchdog timer.
+ */
+export function stopInvestigationWatchdog(): void {
+  if (watchdogTimer) {
+    clearInterval(watchdogTimer);
+    watchdogTimer = null;
+  }
 }
