@@ -312,7 +312,7 @@ export function InvestigationNeedsAttention({
                 </span>
                 {step.date && (
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    {new Date(step.date).toLocaleTimeString()}
+                    {new Date(step.date).toLocaleString()}
                   </div>
                 )}
               </div>
