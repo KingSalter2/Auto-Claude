@@ -324,9 +324,13 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
   setGithubCommentId: (projectId: string, issueNumber: number, commentId: number) => set((state) => {
     const key = `${projectId}:${issueNumber}`;
     const existing = state.investigations[key];
-    if (!existing) return state;
+    if (!existing) {
+      console.warn(`[InvestigationStore] setGithubCommentId called for non-existent investigation ${key}`);
+      return state;
+    }
     const now = new Date().toISOString();
     const log = [...(existing.activityLog ?? []), { event: 'posted to GitHub', timestamp: now }].slice(-50);
+    console.log(`[InvestigationStore] Setting githubCommentId=${commentId} and postedAt=${now} for ${key}`);
     return {
       investigations: {
         ...state.investigations,
