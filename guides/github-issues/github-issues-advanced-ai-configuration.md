@@ -297,10 +297,6 @@ Recommendations:
 - Opus 4.6 model pricing
 - Fast Mode multiplier (2.5x when enabled)
 
-**Typical Investigation Costs**
-
-**Typical Investigation Costs**
-
 > **Note:** These are rough estimates—actual costs vary significantly by codebase size and issue complexity.
 
 | Mode | Typical Range | Fast Mode Range |
