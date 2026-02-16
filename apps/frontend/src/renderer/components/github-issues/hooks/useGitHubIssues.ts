@@ -42,30 +42,29 @@ export function useGitHubIssues(projectId: string | undefined) {
     }
   }, [projectId]);
 
-  // Load issues when filter changes or after connection is established
-  // Note: isSearchActive is NOT in deps because handleSearchStart/handleSearchClear
-  // already handle loading issues when search state changes. Including it would cause
-  // duplicate API calls.
+  // Load issues once on mount or when connection is established.
+  // Always fetch 'all' issues from API - filter/search changes are handled client-side by useIssueListFiltering.
+  // This prevents the cascade where filterState changes trigger re-fetches.
+  // Note: filterState intentionally NOT in deps - filtering is client-side only.
   useEffect(() => {
     if (projectId && syncStatus?.connected) {
-      // If search is active, load all issues for complete search
-      loadGitHubIssues(projectId, filterState, isSearchActive);
+      // Always fetch 'all' from API - let client-side filtering handle the rest
+      loadGitHubIssues(projectId, 'all', false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, filterState, syncStatus?.connected, isSearchActive]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Intentional - filter is client-side only
+  }, [projectId, syncStatus?.connected]);
 
   const handleRefresh = useCallback(() => {
     if (projectId) {
-      // Re-check connection and reload issues
+      // Re-check connection and reload issues (paginated mode - client-side filtering)
       checkGitHubConnection(projectId);
-      loadGitHubIssues(projectId, filterState, isSearchActive);
+      loadGitHubIssues(projectId, 'all', false);
     }
-  }, [projectId, filterState, isSearchActive]);
+  }, [projectId]);
 
   const handleFilterChange = useCallback(
     (state: FilterState) => {
-      // Only update filter state - useEffect handles loading when filterState changes
-      // This prevents duplicate API calls
+      // Only update filter state - filtering is now client-side, no API call needed
       setFilterState(state);
     },
     [setFilterState]
@@ -73,27 +72,26 @@ export function useGitHubIssues(projectId: string | undefined) {
 
   const handleLoadMore = useCallback(() => {
     if (projectId && !isSearchActive) {
-      loadMoreGitHubIssues(projectId, filterState);
+      // Always load 'all' from API - client-side filtering handles the rest
+      loadMoreGitHubIssues(projectId, 'all');
     }
-  }, [projectId, filterState, isSearchActive]);
+  }, [projectId, isSearchActive]);
 
-  // When user starts searching, load all issues
+  // When user starts searching - just track state, no API call needed (client-side filtering)
   const handleSearchStart = useCallback(() => {
     if (!isSearchActive && projectId) {
       setIsSearchActive(true);
-      // Load all issues for search
-      loadAllGitHubIssues(projectId, filterState);
+      // No API call - filtering is now client-side on already-loaded issues
     }
-  }, [isSearchActive, projectId, filterState]);
+  }, [isSearchActive, projectId]);
 
-  // When user clears search, reset to paginated mode
+  // When user clears search - just track state, no API call needed
   const handleSearchClear = useCallback(() => {
     if (isSearchActive && projectId) {
       setIsSearchActive(false);
-      // Reset to paginated loading
-      loadGitHubIssues(projectId, filterState, false);
+      // No API call - filtering is client-side
     }
-  }, [isSearchActive, projectId, filterState]);
+  }, [isSearchActive, projectId]);
 
   // Compute selectedIssue from issues array
   const selectedIssue = useMemo(() => {
