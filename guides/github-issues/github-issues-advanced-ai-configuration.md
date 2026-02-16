@@ -50,6 +50,7 @@ Fast Mode is an Opus 4.6 feature that generates output 2.5x faster than standard
 **How It Works**
 - Uses optimized token generation from Opus 4.6
 - Same intelligence, faster delivery
+- Costs 6x more than standard mode ($150/M vs $25/M output tokens)
 - Different pricing tier (see [Pricing](#pricing--cost-management))
 
 **When to Use Fast Mode**
@@ -298,6 +299,8 @@ Recommendations:
 
 **Typical Investigation Costs**
 
+> **Note:** Fast Mode is 2.5x faster but costs 6x more. These are rough estimates—actual costs vary significantly by codebase size and issue complexity.
+
 | Mode | Typical Range | Fast Mode Range |
 |------|---------------|-----------------|
 | Simple issue | $0.50 - $2.00 | $1.25 - $5.00 |
@@ -340,6 +343,8 @@ Recommendations:
 ---
 
 ## Advanced Configuration
+
+> **Note:** Some advanced configuration options may require editing code directly. See [Customization Guide](github-issues-customization-guide.md) for programmatic configuration.
 
 ### Per-Specialist Configuration
 
@@ -445,7 +450,7 @@ Auto Claude automatically:
 | Investigation Orchestrator | `services/investigation_hooks.py` | Manages investigation lifecycle |
 | Specialist Runners | `services/investigation_spec_generator.py` | Runs each specialist |
 | Report Aggregator | `services/investigation_models.py` | Combines specialist outputs |
-| Context Builder | `services/context_builder.py` | Builds context for specialists |
+| Context Builder | `context_gatherer.py` | Builds context for specialists |
 
 ### Frontend Components
 
