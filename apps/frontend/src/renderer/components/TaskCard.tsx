@@ -15,6 +15,7 @@ import {
 } from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
+import { InvestigationSummary } from './InvestigationSummary';
 import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
@@ -128,6 +129,7 @@ export const TaskCard = memo(function TaskCard({
   const { toast } = useToast();
   const [isStuck, setIsStuck] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+  const [showInvestigation, setShowInvestigation] = useState(false);
   const stuckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const isRunning = task.status === 'in_progress';
@@ -512,7 +514,21 @@ export const TaskCard = memo(function TaskCard({
                 {t('tasks:metadata.linkedIssue', { number: task.metadata.githubIssueNumber })}
               </Badge>
             )}
+            {/* Investigation toggle for GitHub-sourced tasks */}
+            {task.metadata?.sourceType === 'github' && (
+              <button
+                onClick={() => setShowInvestigation(!showInvestigation)}
+                className="text-[10px] px-1.5 py-0.5 text-blue-600 dark:text-blue-400 hover:underline transition-colors"
+              >
+                {showInvestigation ? t('tasks:investigation.hide') : t('tasks:investigation.show')}
+              </button>
+            )}
           </div>
+        )}
+
+        {/* Investigation summary */}
+        {showInvestigation && task.metadata?.sourceType === 'github' && (
+          <InvestigationSummary taskId={task.id} />
         )}
 
         {/* Progress section - Phase-aware with animations */}
