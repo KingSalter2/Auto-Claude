@@ -867,9 +867,10 @@ def create_client(
         logger.info(f"Using CLAUDE_CLI_PATH override: {env_cli_path}")
 
     # Add structured output format if specified
+    # Migrated to output_config.format pattern (API evolution)
     # See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
     if output_format:
-        options_kwargs["output_format"] = output_format
+        options_kwargs["output_config"] = {"format": output_format}
 
     # Add subagent definitions if specified
     # See: https://platform.claude.com/docs/en/agent-sdk/subagents
