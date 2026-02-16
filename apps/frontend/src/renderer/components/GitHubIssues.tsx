@@ -392,7 +392,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         if (result.success) {
           // Update the local issue state to reflect closure
           useIssuesStore.getState().updateIssue(issueNumber, { state: 'closed' });
-          console.log(`[GitHubIssues] Auto-closed issue #${issueNumber} (linked task completed)`);
         } else {
           // Remove from auto-closed set so it can be retried
           autoClosedRef.current.delete(issueNumber);

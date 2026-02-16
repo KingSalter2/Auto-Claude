@@ -137,7 +137,9 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
         setIsLoading(true);
         window.electronAPI.github
           .saveInvestigationSettings(projectId, updated)
-          .catch(() => { /* silently handle save errors */ })
+          .catch((error) => {
+            console.error('[InvestigationSettings] Failed to save settings:', error);
+          })
           .finally(() => setIsLoading(false));
       }
     },

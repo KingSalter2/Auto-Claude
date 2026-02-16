@@ -293,7 +293,7 @@ export function BatchReviewWizard({
           <div className="space-y-3">
             {proposedBatches.map((batch, idx) => (
               <BatchCard
-                key={idx}
+                key={`batch-${batch.primaryIssue}-${idx}`}
                 batch={batch}
                 index={idx}
                 isSelected={selectedBatchIds.has(idx)}
@@ -546,8 +546,8 @@ function BatchCard({
             {/* Themes */}
             {batch.commonThemes.length > 0 && (
               <div className="flex flex-wrap gap-1 px-6 pt-2">
-                {batch.commonThemes.map((theme, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs">
+                {batch.commonThemes.map((theme) => (
+                  <Badge key={`theme-${theme}`} variant="secondary" className="text-xs">
                     {theme}
                   </Badge>
                 ))}

@@ -103,7 +103,7 @@ function AgentSection({ agent, defaultOpen }: { agent: InvestigationAgentResult;
               </h5>
               <ul className="space-y-1">
                 {agent.findings.map((finding, i) => (
-                  <li key={i} className="text-xs text-foreground flex items-start gap-1.5">
+                  <li key={`finding-${i}-${finding.slice(0, 20)}`} className="text-xs text-foreground flex items-start gap-1.5">
                     <span className="mt-1 h-1 w-1 rounded-full bg-muted-foreground shrink-0" />
                     {finding}
                   </li>
@@ -118,7 +118,7 @@ function AgentSection({ agent, defaultOpen }: { agent: InvestigationAgentResult;
               </h5>
               <div className="space-y-1">
                 {agent.codeReferences.map((ref, i) => (
-                  <div key={i} className="text-xs font-mono bg-muted/50 rounded px-2 py-1 truncate">
+                  <div key={`ref-${ref.file}-${ref.line || i}`} className="text-xs font-mono bg-muted/50 rounded px-2 py-1 truncate">
                     <span className="text-primary">{ref.file}</span>
                     {ref.line && <span className="text-muted-foreground">:{ref.line}</span>}
                     {ref.endLine && <span className="text-muted-foreground">-{ref.endLine}</span>}

@@ -134,6 +134,7 @@ export const InvestigateButton = memo(function InvestigateButton({
           onClick={onInvestigate}
           disabled={disabled}
           title={t('investigation.button.reInvestigate', 'Re-Investigate')}
+          aria-label={t('investigation.button.reInvestigate', 'Re-Investigate')}
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
