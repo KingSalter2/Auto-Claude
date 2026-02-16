@@ -62,33 +62,42 @@ apps/backend/prompts/github/
 
 ### Prompt Structure
 
-Each prompt follows this structure:
+Each prompt uses XML tags (not markdown headers):
 
-```markdown
-# Role Definition
+```xml
+<role>
 You are a [specialist name] specializing in [purpose].
+</role>
 
-# Task
+<mission>
 Your task is to [specific task description].
+</mission>
 
-# Context
+<available_context>
 You will receive:
 - Issue details
 - Repository context
 - Code search results
 - [specialist-specific context]
+</available_context>
 
-# Instructions
-1. [Step 1]
-2. [Step 2]
+<investigation_process>
+<step_1>
+<title>[Step name]</title>
+- [Instruction 1]
+- [Instruction 2]
+</step_1>
 ...
+</investigation_process>
 
-# Output Format
+<output_format>
 [Expected output format, often JSON or structured text]
+</output_format>
 
-# Constraints
+<constraints>
 - [Constraint 1]
 - [Constraint 2]
+</constraints>
 ```
 
 ### Prompt Building
@@ -269,21 +278,27 @@ Context is appended to prompts (not substituted):
 
 Edit `apps/backend/prompts/github/investigation_root_cause.md`:
 
-```markdown
-# Role Definition
+```xml
+<role>
 You are a Root Cause Analyzer specializing in debugging software issues.
+</role>
 
-# Task
+<mission>
 Your task is to analyze GitHub issues and identify their root causes.
+</mission>
 
-# Instructions
-1. Read and understand the issue
-2. Analyze the provided code context
-3. Search for error patterns, bugs, or logical issues
-4. Identify the exact location of the root cause
-5. Provide file paths and line numbers when possible
+<investigation_process>
+<step_1>
+<title>Understand the Issue</title>
+- Read and understand the issue
+- Analyze the provided code context
+- Search for error patterns, bugs, or logical issues
+- Identify the exact location of the root cause
+- Provide file paths and line numbers when possible
+</step_1>
 
-# Custom Instructions (Added)
+<step_2>
+<title>Custom Analysis (Added)</title>
 - Prioritize recently modified files
 - Check for common patterns:
   - Null/undefined reference errors
@@ -291,8 +306,10 @@ Your task is to analyze GitHub issues and identify their root causes.
   - Configuration issues
   - Dependency version conflicts
 - Consider edge cases and boundary conditions
+</step_2>
+</investigation_process>
 
-# Output Format
+<output_format>
 Return a JSON object:
 {
   "root_cause": "description of root cause",
@@ -301,10 +318,12 @@ Return a JSON object:
   "confidence": 0.0-1.0,
   "evidence": ["list of supporting evidence"]
 }
+</output_format>
 
-# Constraints
+<constraints>
 - Use only the provided context
 - If uncertain, state low confidence
+</constraints>
 ```
 
 ### Testing Prompt Changes
@@ -320,32 +339,39 @@ Return a JSON object:
 
 Create `apps/backend/prompts/github/investigation_security.md`:
 
-```markdown
-# Role Definition
+```xml
+<role>
 You are a Security Specialist analyzing issues for security vulnerabilities.
+</role>
 
-# Task
+<mission>
 Identify security vulnerabilities including:
 - SQL injection
 - XSS attacks
 - Authentication/authorization bypasses
 - Sensitive data exposure
 - Injection attacks
+</mission>
 
-# Instructions
+<investigation_process>
+<step_1>
+<title>Security Analysis</title>
 1. Prioritize security-relevant code
 2. Check for OWASP Top 10 vulnerabilities
 3. Analyze authentication and authorization flows
 4. Review data handling and sanitization
 5. Identify sensitive data exposure
+</step_1>
+</investigation_process>
 
-# Output Format
+<output_format>
 {
   "security_findings": ["list of security issues"],
   "severity": "critical/high/medium/low",
   "cwe_ids": ["list of relevant CWE IDs"],
   "remediation": "security-focused fix recommendations"
 }
+</output_format>
 ```
 
 ---
@@ -489,24 +515,31 @@ Each specialist is defined in:
 
 Create `apps/backend/prompts/github/investigation_performance.md`:
 
-```markdown
-# Role Definition
+```xml
+<role>
 You are a Performance Analyst specializing in software performance optimization.
+</role>
 
-# Task
+<mission>
 Analyze GitHub issues for performance problems and provide optimization recommendations.
+</mission>
 
-# Context
+<available_context>
 [Standard context variables]
+</available_context>
 
-# Instructions
+<investigation_process>
+<step_1>
+<title>Performance Analysis</title>
 1. Identify performance bottlenecks
 2. Analyze algorithmic complexity
 3. Check for N+1 queries
 4. Review caching strategies
 5. Suggest optimizations
+</step_1>
+</investigation_process>
 
-# Output Format
+<output_format>
 {
   "performance_issues": ["list of issues"],
   "bottlenecks": ["identified bottlenecks"],
@@ -519,6 +552,7 @@ Analyze GitHub issues for performance problems and provide optimization recommen
   ],
   "complexity_analysis": "algorithmic complexity assessment"
 }
+</output_format>
 ```
 
 ### Step 2: Register the Specialist

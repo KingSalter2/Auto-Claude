@@ -35,11 +35,11 @@ Optimize AI investigations for your needs. Learn about:
 **For:** Developers extending Auto Claude | **Focus:** Prompts, context, customization
 
 Extend and customize the GitHub Issues integration. Learn about:
-- Prompt system architecture
+- Prompt system architecture (XML-based prompts)
 - Context injection system
-- Modifying agent prompts and XML files
+- Modifying agent prompts
 - Adding custom specialists
-- Extending the integration with hooks
+- Extending the integration
 
 **Prerequisites:** Familiarity with Advanced AI Config | **Reading time:** 25 minutes
 
