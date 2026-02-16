@@ -74,7 +74,7 @@ export function registerBulkHandlers(
           results: [],
         };
         const win = getMainWindow();
-        if (win) {
+        if (win && !win.isDestroyed()) {
           win.webContents.send(IPC_CHANNELS.GITHUB_BULK_COMPLETE, emptyResult);
         }
         return emptyResult;
@@ -91,7 +91,7 @@ export function registerBulkHandlers(
           const win = getMainWindow();
 
           // Send progress event
-          if (win) {
+          if (win && !win.isDestroyed()) {
             win.webContents.send(IPC_CHANNELS.GITHUB_BULK_PROGRESS, {
               action,
               totalItems: issueNumbers.length,
@@ -139,7 +139,7 @@ export function registerBulkHandlers(
 
         // Send completion event
         const win = getMainWindow();
-        if (win) {
+        if (win && !win.isDestroyed()) {
           win.webContents.send(IPC_CHANNELS.GITHUB_BULK_COMPLETE, result);
         }
 

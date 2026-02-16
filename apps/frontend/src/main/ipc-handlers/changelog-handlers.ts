@@ -41,28 +41,28 @@ export function registerChangelogHandlers(
 
   const progressHandler = (projectId: string, progress: import('../../shared/types').ChangelogGenerationProgress) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_PROGRESS, projectId, progress);
     }
   };
 
   const completeHandler = (projectId: string, result: import('../../shared/types').ChangelogGenerationResult) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_COMPLETE, projectId, result);
     }
   };
 
   const errorHandler = (projectId: string, error: string) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, projectId, error);
     }
   };
 
   const rateLimitHandler = (_projectId: string, rateLimitInfo: import('../../shared/types').SDKRateLimitInfo) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
     }
   };
@@ -162,7 +162,7 @@ export function registerChangelogHandlers(
         } catch (error) {
           // Send error via event instead of return value since we already returned
           const mainWindow = getMainWindow();
-          if (mainWindow) {
+          if (mainWindow && !mainWindow.isDestroyed()) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to start changelog generation';
             mainWindow.webContents.send(IPC_CHANNELS.CHANGELOG_GENERATION_ERROR, request.projectId, errorMessage);
           }

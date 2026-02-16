@@ -38,7 +38,9 @@ function createAuthFailureCallback(
   if (!mainWindow) return undefined;
   return (authFailureInfo: AuthFailureInfo) => {
     debugLog(`Auth failure detected in ${context}`, authFailureInfo);
-    mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+    }
   };
 }
 

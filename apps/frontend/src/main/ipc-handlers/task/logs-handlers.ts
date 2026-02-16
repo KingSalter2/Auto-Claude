@@ -146,14 +146,14 @@ export function registerTaskLogsHandlers(getMainWindow: () => BrowserWindow | nu
    */
   taskLogService.on('logs-changed', (specId: string, logs: TaskLogs) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.TASK_LOGS_CHANGED, specId, logs);
     }
   });
 
   taskLogService.on('stream-chunk', (specId: string, chunk: TaskLogStreamChunk) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.TASK_LOGS_STREAM, specId, chunk);
     }
   });

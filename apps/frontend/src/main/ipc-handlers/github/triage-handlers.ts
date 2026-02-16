@@ -280,7 +280,9 @@ async function runTriage(
     onStderr: (line) => debugLog('STDERR:', line),
     onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
       debugLog('Auth failure detected in triage', authFailureInfo);
-      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+      }
     },
     onComplete: () => {
       // Load results from disk

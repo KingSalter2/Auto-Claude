@@ -249,7 +249,9 @@ function sendProgress(
   projectId: string,
   progress: { phase: string; progress: number; message: string; issueIid?: number }
 ): void {
-  mainWindow.webContents.send(IPC_CHANNELS.GITLAB_TRIAGE_PROGRESS, projectId, progress);
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.GITLAB_TRIAGE_PROGRESS, projectId, progress);
+  }
 }
 
 /**
@@ -260,7 +262,9 @@ function sendError(
   projectId: string,
   error: string
 ): void {
-  mainWindow.webContents.send(IPC_CHANNELS.GITLAB_TRIAGE_ERROR, projectId, error);
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.GITLAB_TRIAGE_ERROR, projectId, error);
+  }
 }
 
 /**
@@ -271,7 +275,9 @@ function sendComplete(
   projectId: string,
   results: GitLabTriageResult[]
 ): void {
-  mainWindow.webContents.send(IPC_CHANNELS.GITLAB_TRIAGE_COMPLETE, projectId, results);
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.GITLAB_TRIAGE_COMPLETE, projectId, results);
+  }
 }
 
 /**

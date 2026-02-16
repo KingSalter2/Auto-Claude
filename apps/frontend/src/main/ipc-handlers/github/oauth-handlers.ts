@@ -21,11 +21,13 @@ function sendDeviceCodeToRenderer(deviceCode: string, authUrl: string, browserOp
   debugLog('Sending device code to renderer windows');
   const windows = BrowserWindow.getAllWindows();
   for (const win of windows) {
-    win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_DEVICE_CODE, {
-      deviceCode,
-      authUrl,
-      browserOpened
-    });
+    if (!win.isDestroyed()) {
+      win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_DEVICE_CODE, {
+        deviceCode,
+        authUrl,
+        browserOpened
+      });
+    }
   }
 }
 
@@ -49,7 +51,9 @@ function sendAuthChangedToRenderer(oldUsername: string | null, newUsername: stri
     newUsername
   };
   for (const win of windows) {
-    win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_CHANGED, payload);
+    if (!win.isDestroyed()) {
+      win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_CHANGED, payload);
+    }
   }
 }
 

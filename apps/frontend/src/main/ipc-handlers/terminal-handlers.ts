@@ -731,16 +731,22 @@ export function initializeUsageMonitorForwarding(mainWindow: BrowserWindow): voi
 
   // Forward usage updates to renderer
   monitor.on('usage-updated', (usage: ClaudeUsageSnapshot) => {
-    mainWindow.webContents.send(IPC_CHANNELS.USAGE_UPDATED, usage);
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_CHANNELS.USAGE_UPDATED, usage);
+    }
   });
 
   // Forward all profiles usage updates to renderer (for multi-profile display)
   monitor.on('all-profiles-usage-updated', (allProfilesUsage: AllProfilesUsage) => {
-    mainWindow.webContents.send(IPC_CHANNELS.ALL_PROFILES_USAGE_UPDATED, allProfilesUsage);
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_CHANNELS.ALL_PROFILES_USAGE_UPDATED, allProfilesUsage);
+    }
   });
 
   // Forward proactive swap notifications to renderer
   monitor.on('show-swap-notification', (notification: unknown) => {
-    mainWindow.webContents.send(IPC_CHANNELS.PROACTIVE_SWAP_NOTIFICATION, notification);
+    if (!mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_CHANNELS.PROACTIVE_SWAP_NOTIFICATION, notification);
+    }
   });
 }

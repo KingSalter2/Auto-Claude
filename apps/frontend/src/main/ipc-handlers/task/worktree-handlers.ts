@@ -2085,7 +2085,7 @@ export function registerWorktreeHandlers(
 
               // Send timeout error progress event to the renderer
               const mainWindow = getMainWindow();
-              if (mainWindow) {
+              if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, {
                   type: 'progress',
                   stage: 'error',
@@ -2156,7 +2156,7 @@ export function registerWorktreeHandlers(
                   typeof parsed.message === 'string'
                 ) {
                   const mainWindow = getMainWindow();
-                  if (mainWindow) {
+                  if (mainWindow && !mainWindow.isDestroyed()) {
                     mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, parsed);
                   }
                   // Don't accumulate progress lines in stdout - they are not part of the final result
@@ -2189,7 +2189,7 @@ export function registerWorktreeHandlers(
                 const parsed = JSON.parse(lineBuffer.trim());
                 if (parsed && parsed.type === 'progress') {
                   const mainWindow = getMainWindow();
-                  if (mainWindow) {
+                  if (mainWindow && !mainWindow.isDestroyed()) {
                     mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, parsed);
                   }
                 } else {
@@ -2498,7 +2498,7 @@ export function registerWorktreeHandlers(
 
             // Send error progress event to the renderer
             const mainWindow = getMainWindow();
-            if (mainWindow) {
+            if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send(IPC_CHANNELS.TASK_MERGE_PROGRESS, taskId, {
                 type: 'progress',
                 stage: 'error',

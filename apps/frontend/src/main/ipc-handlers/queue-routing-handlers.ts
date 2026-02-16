@@ -222,7 +222,7 @@ export function registerQueueRoutingHandlers(
   // Profile swapped event
   agentManager.on('profile-swapped', (taskId: string, swap: unknown) => {
     const win = getMainWindow();
-    if (win) {
+    if (win && !win.isDestroyed()) {
       win.webContents.send(IPC_CHANNELS.QUEUE_PROFILE_SWAPPED, { taskId, swap });
     }
   });
@@ -230,7 +230,7 @@ export function registerQueueRoutingHandlers(
   // Session captured event
   agentManager.on('session-captured', (taskId: string, sessionId: string) => {
     const win = getMainWindow();
-    if (win) {
+    if (win && !win.isDestroyed()) {
       win.webContents.send(IPC_CHANNELS.QUEUE_SESSION_CAPTURED, {
         taskId,
         sessionId,
@@ -242,7 +242,7 @@ export function registerQueueRoutingHandlers(
   // Queue blocked event (no available profiles)
   agentManager.on('queue-blocked-no-profiles', (info: { reason: string }) => {
     const win = getMainWindow();
-    if (win) {
+    if (win && !win.isDestroyed()) {
       win.webContents.send(IPC_CHANNELS.QUEUE_BLOCKED_NO_PROFILES, {
         ...info,
         timestamp: new Date().toISOString()

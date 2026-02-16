@@ -926,11 +926,13 @@ function sendLegacyProgress(
   projectId: string,
   status: GitHubInvestigationStatus
 ): void {
-  mainWindow.webContents.send(
-    IPC_CHANNELS.GITHUB_INVESTIGATION_PROGRESS,
-    projectId,
-    status
-  );
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(
+      IPC_CHANNELS.GITHUB_INVESTIGATION_PROGRESS,
+      projectId,
+      status
+    );
+  }
 }
 
 /**
@@ -941,11 +943,13 @@ function sendLegacyError(
   projectId: string,
   error: string
 ): void {
-  mainWindow.webContents.send(
-    IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR,
-    projectId,
-    error
-  );
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(
+      IPC_CHANNELS.GITHUB_INVESTIGATION_ERROR,
+      projectId,
+      error
+    );
+  }
 }
 
 /**
@@ -956,11 +960,13 @@ function sendLegacyComplete(
   projectId: string,
   result: GitHubInvestigationResult
 ): void {
-  mainWindow.webContents.send(
-    IPC_CHANNELS.GITHUB_INVESTIGATION_COMPLETE,
-    projectId,
-    result
-  );
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(
+      IPC_CHANNELS.GITHUB_INVESTIGATION_COMPLETE,
+      projectId,
+      result
+    );
+  }
 }
 
 /**
@@ -1257,7 +1263,7 @@ async function runInvestigation(
         onStderr: (line) => debugLog('STDERR:', line),
         onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
           const win = getMainWindow();
-          if (win) {
+          if (win && !win.isDestroyed()) {
             win.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
           }
         },

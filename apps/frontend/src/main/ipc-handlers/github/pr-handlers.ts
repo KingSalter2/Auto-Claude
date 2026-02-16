@@ -1496,7 +1496,9 @@ async function runPRReview(
     onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
       // Send auth failure to renderer to show modal
       debugLog("Auth failure detected in PR review", authFailureInfo);
-      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+      }
     },
     onComplete: () => {
       // Load the result from disk

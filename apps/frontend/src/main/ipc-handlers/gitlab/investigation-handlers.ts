@@ -34,7 +34,7 @@ function sendProgress(
   status: GitLabInvestigationStatus
 ): void {
   const mainWindow = getMainWindow();
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(IPC_CHANNELS.GITLAB_INVESTIGATION_PROGRESS, projectId, status);
   }
 }
@@ -48,7 +48,7 @@ function sendComplete(
   result: GitLabInvestigationResult
 ): void {
   const mainWindow = getMainWindow();
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(IPC_CHANNELS.GITLAB_INVESTIGATION_COMPLETE, projectId, result);
   }
 }
@@ -62,7 +62,7 @@ function sendError(
   error: string
 ): void {
   const mainWindow = getMainWindow();
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(IPC_CHANNELS.GITLAB_INVESTIGATION_ERROR, projectId, error);
   }
 }

@@ -295,7 +295,9 @@ function sendProgress(
   projectId: string,
   progress: GitLabAutoFixProgress
 ): void {
-  mainWindow.webContents.send(IPC_CHANNELS.GITLAB_AUTOFIX_PROGRESS, projectId, progress);
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.GITLAB_AUTOFIX_PROGRESS, projectId, progress);
+  }
 }
 
 /**
@@ -306,7 +308,9 @@ function sendError(
   projectId: string,
   error: string
 ): void {
-  mainWindow.webContents.send(IPC_CHANNELS.GITLAB_AUTOFIX_ERROR, projectId, error);
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.GITLAB_AUTOFIX_ERROR, projectId, error);
+  }
 }
 
 /**
@@ -317,7 +321,9 @@ function sendComplete(
   projectId: string,
   data: GitLabAutoFixQueueItem
 ): void {
-  mainWindow.webContents.send(IPC_CHANNELS.GITLAB_AUTOFIX_COMPLETE, projectId, data);
+  if (!mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.GITLAB_AUTOFIX_COMPLETE, projectId, data);
+  }
 }
 
 /**
@@ -533,11 +539,13 @@ export function registerAutoFixHandlers(
             throw new Error('No GitLab configuration found');
           }
 
-          mainWindow.webContents.send(
-            IPC_CHANNELS.GITLAB_AUTOFIX_ANALYZE_PREVIEW_PROGRESS,
-            projectId,
-            { phase: 'analyzing', progress: 10, message: 'Fetching issues for analysis...' }
-          );
+          if (!mainWindow.isDestroyed()) {
+            mainWindow.webContents.send(
+              IPC_CHANNELS.GITLAB_AUTOFIX_ANALYZE_PREVIEW_PROGRESS,
+              projectId,
+              { phase: 'analyzing', progress: 10, message: 'Fetching issues for analysis...' }
+            );
+          }
 
           const encodedProject = encodeProjectPath(glConfig.project);
           const limit = maxIssues ?? 50;
@@ -558,11 +566,13 @@ export function registerAutoFixHandlers(
             ? issues.filter(i => issueIids.includes(i.iid))
             : issues;
 
-          mainWindow.webContents.send(
-            IPC_CHANNELS.GITLAB_AUTOFIX_ANALYZE_PREVIEW_PROGRESS,
-            projectId,
-            { phase: 'analyzing', progress: 50, message: `Analyzing ${filteredIssues.length} issues...` }
-          );
+          if (!mainWindow.isDestroyed()) {
+            mainWindow.webContents.send(
+              IPC_CHANNELS.GITLAB_AUTOFIX_ANALYZE_PREVIEW_PROGRESS,
+              projectId,
+              { phase: 'analyzing', progress: 50, message: `Analyzing ${filteredIssues.length} issues...` }
+            );
+          }
 
           // Simple grouping for now - in production this would use AI to group similar issues
           const result: GitLabAnalyzePreviewResult = {
@@ -579,19 +589,23 @@ export function registerAutoFixHandlers(
             message: `Found ${filteredIssues.length} issues to analyze`,
           };
 
-          mainWindow.webContents.send(
-            IPC_CHANNELS.GITLAB_AUTOFIX_ANALYZE_PREVIEW_COMPLETE,
-            projectId,
-            result
-          );
+          if (!mainWindow.isDestroyed()) {
+            mainWindow.webContents.send(
+              IPC_CHANNELS.GITLAB_AUTOFIX_ANALYZE_PREVIEW_COMPLETE,
+              projectId,
+              result
+            );
+          }
         });
       } catch (error) {
         debugLog('Analyze preview failed', { error: error instanceof Error ? error.message : error });
-        mainWindow.webContents.send(
-          IPC_CHANNELS.GITLAB_AUTOFIX_ANALYZE_PREVIEW_ERROR,
-          projectId,
-          error instanceof Error ? error.message : 'Failed to analyze issues'
-        );
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.GITLAB_AUTOFIX_ANALYZE_PREVIEW_ERROR,
+            projectId,
+            error instanceof Error ? error.message : 'Failed to analyze issues'
+          );
+        }
       }
     }
   );

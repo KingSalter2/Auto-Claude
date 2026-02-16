@@ -419,21 +419,21 @@ export function registerProjectHandlers(
   // Set up Python environment status events
   pythonEnvManager.on('status', (message: string) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('python-env:status', message);
     }
   });
 
   pythonEnvManager.on('error', (error: string) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('python-env:error', error);
     }
   });
 
   pythonEnvManager.on('ready', (pythonPath: string) => {
     const mainWindow = getMainWindow();
-    if (mainWindow) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('python-env:ready', pythonPath);
     }
   });

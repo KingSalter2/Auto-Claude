@@ -105,11 +105,13 @@ export function registerTaskExecutionHandlers(
       // This prevents race condition where auth check runs before profile data loads from disk
       const initResult = await ensureProfileManagerInitialized();
       if (!initResult.success) {
-        mainWindow.webContents.send(
-          IPC_CHANNELS.TASK_ERROR,
-          taskId,
-          initResult.error
-        );
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_ERROR,
+            taskId,
+            initResult.error
+          );
+        }
         return;
       }
       const profileManager = initResult.profileManager;
@@ -119,11 +121,13 @@ export function registerTaskExecutionHandlers(
 
       if (!task || !project) {
         console.warn('[TASK_START] Task or project not found for taskId:', taskId);
-        mainWindow.webContents.send(
-          IPC_CHANNELS.TASK_ERROR,
-          taskId,
-          'Task or project not found'
-        );
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_ERROR,
+            taskId,
+            'Task or project not found'
+          );
+        }
         return;
       }
 
@@ -131,31 +135,37 @@ export function registerTaskExecutionHandlers(
       const gitStatus = checkGitStatus(project.path);
       if (!gitStatus.isGitRepo) {
         console.warn('[TASK_START] Project is not a git repository:', project.path);
-        mainWindow.webContents.send(
-          IPC_CHANNELS.TASK_ERROR,
-          taskId,
-          'Git repository required. Please run "git init" in your project directory. Auto Claude uses git worktrees for isolated builds.'
-        );
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_ERROR,
+            taskId,
+            'Git repository required. Please run "git init" in your project directory. Auto Claude uses git worktrees for isolated builds.'
+          );
+        }
         return;
       }
       if (!gitStatus.hasCommits) {
         console.warn('[TASK_START] Git repository has no commits:', project.path);
-        mainWindow.webContents.send(
-          IPC_CHANNELS.TASK_ERROR,
-          taskId,
-          'Git repository has no commits. Please make an initial commit first (git add . && git commit -m "Initial commit").'
-        );
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_ERROR,
+            taskId,
+            'Git repository has no commits. Please make an initial commit first (git add . && git commit -m "Initial commit").'
+          );
+        }
         return;
       }
 
       // Check authentication - Claude requires valid auth to run tasks
       if (!profileManager.hasValidAuth()) {
         console.warn('[TASK_START] No valid authentication for active profile');
-        mainWindow.webContents.send(
-          IPC_CHANNELS.TASK_ERROR,
-          taskId,
-          'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or set an OAuth token.'
-        );
+        if (!mainWindow.isDestroyed()) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_ERROR,
+            taskId,
+            'Claude authentication required. Please go to Settings > Claude Profiles and authenticate your account, or set an OAuth token.'
+          );
+        }
         return;
       }
 
@@ -664,7 +674,7 @@ export function registerTaskExecutionHandlers(
           const gitStatusCheck = checkGitStatus(project.path);
           if (!gitStatusCheck.isGitRepo || !gitStatusCheck.hasCommits) {
             console.warn('[TASK_UPDATE_STATUS] Git check failed, cannot auto-start task');
-            if (mainWindow) {
+            if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_ERROR,
                 taskId,
@@ -678,7 +688,7 @@ export function registerTaskExecutionHandlers(
           // Ensure profile manager is initialized to prevent race condition
           const initResult = await ensureProfileManagerInitialized();
           if (!initResult.success) {
-            if (mainWindow) {
+            if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_ERROR,
                 taskId,
@@ -690,7 +700,7 @@ export function registerTaskExecutionHandlers(
           const profileManager = initResult.profileManager;
           if (!profileManager.hasValidAuth()) {
             console.warn('[TASK_UPDATE_STATUS] No valid authentication for active profile');
-            if (mainWindow) {
+            if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send(
                 IPC_CHANNELS.TASK_ERROR,
                 taskId,
@@ -764,7 +774,7 @@ export function registerTaskExecutionHandlers(
           }
 
           // Notify renderer about status change
-          if (mainWindow) {
+          if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send(
               IPC_CHANNELS.TASK_STATUS_CHANGE,
               taskId,
@@ -1191,7 +1201,7 @@ export function registerTaskExecutionHandlers(
 
         // Notify renderer of status change
         const mainWindow = getMainWindow();
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(
             IPC_CHANNELS.TASK_STATUS_CHANGE,
             taskId,

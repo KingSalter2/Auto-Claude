@@ -238,7 +238,9 @@ async function runMRReview(
     onStderr: (line) => debugLog('STDERR:', line),
     onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
       debugLog('Auth failure detected in MR review', authFailureInfo);
-      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+      if (!mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+      }
     },
     onComplete: () => {
       const reviewResult = getReviewResult(project, mrIid);

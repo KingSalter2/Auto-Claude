@@ -155,7 +155,9 @@ export function registerAITriageHandlers(
             onStdout: (line) => debugLog('STDOUT:', line),
             onStderr: (line) => debugLog('STDERR:', line),
             onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
-              mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+              if (!mainWindow.isDestroyed()) {
+                mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+              }
             },
           });
           const processKey = `${projectId}:enrich`;
@@ -272,7 +274,9 @@ export function registerAITriageHandlers(
             onStdout: (line) => debugLog('STDOUT:', line),
             onStderr: (line) => debugLog('STDERR:', line),
             onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
-              mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+              if (!mainWindow.isDestroyed()) {
+                mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+              }
             },
           });
           const processKey = `${projectId}:split`;
