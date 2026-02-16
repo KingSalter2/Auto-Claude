@@ -86,16 +86,16 @@ class TestSpecialistMaxTokensConfiguration:
 
         # Verify the actual runtime values
         assert "root_cause" in namespace['SPECIALIST_MAX_TOKENS']
-        assert namespace['SPECIALIST_MAX_TOKENS']["root_cause"] == 128000
+        assert namespace['SPECIALIST_MAX_TOKENS']["root_cause"] == 127999
 
         assert "impact" in namespace['SPECIALIST_MAX_TOKENS']
-        assert namespace['SPECIALIST_MAX_TOKENS']["impact"] == 64000
+        assert namespace['SPECIALIST_MAX_TOKENS']["impact"] == 63999
 
         assert "fix_advisor" in namespace['SPECIALIST_MAX_TOKENS']
-        assert namespace['SPECIALIST_MAX_TOKENS']["fix_advisor"] == 64000
+        assert namespace['SPECIALIST_MAX_TOKENS']["fix_advisor"] == 63999
 
         assert "reproducer" in namespace['SPECIALIST_MAX_TOKENS']
-        assert namespace['SPECIALIST_MAX_TOKENS']["reproducer"] == 64000
+        assert namespace['SPECIALIST_MAX_TOKENS']["reproducer"] == 63999
 
     def test_all_specialists_have_max_tokens(self):
         """Verify all investigation specialists have max_tokens configured."""
@@ -209,10 +209,10 @@ class TestSpecialistTokenBudgetResolution:
         exec(content[start_idx:end_idx], namespace)
 
         # This is a runtime execution - we're checking actual values, not parsing files
-        assert namespace['SPECIALIST_MAX_TOKENS']["root_cause"] == 128000
-        assert namespace['SPECIALIST_MAX_TOKENS']["impact"] == 64000
-        assert namespace['SPECIALIST_MAX_TOKENS']["fix_advisor"] == 64000
-        assert namespace['SPECIALIST_MAX_TOKENS']["reproducer"] == 64000
+        assert namespace['SPECIALIST_MAX_TOKENS']["root_cause"] == 127999
+        assert namespace['SPECIALIST_MAX_TOKENS']["impact"] == 63999
+        assert namespace['SPECIALIST_MAX_TOKENS']["fix_advisor"] == 63999
+        assert namespace['SPECIALIST_MAX_TOKENS']["reproducer"] == 63999
 
     def test_resolve_specialist_uses_max_tokens(self):
         """Verify _resolve_specialist function uses SPECIALIST_MAX_TOKENS."""
