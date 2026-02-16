@@ -91,7 +91,7 @@ Once investigation completes:
 3. Auto Claude creates a new task with all investigation context
 4. The task is ready for the autonomous build pipeline
 
-**That's it!** You've gone from GitHub issue to ready-to-build task in 5 minutes.
+**That's it!** You've converted a GitHub issue to a ready-to-build task in 5 minutes.
 
 > **Next:** Learn about [all features](#key-features) or [configure settings](#setup--configuration)
 

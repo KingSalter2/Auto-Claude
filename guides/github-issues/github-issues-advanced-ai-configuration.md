@@ -106,7 +106,7 @@ Adaptive thinking enables the model to spend more compute on complex problems.
 **How It's Used**
 - Difficult issues trigger high-effort thinking mode
 - Straightforward issues use standard thinking
-- Automatic—no configuration needed
+- Automatic - no configuration needed
 
 **Benefit**
 - Consistent quality across issue complexity
@@ -299,15 +299,15 @@ Recommendations:
 
 **Typical Investigation Costs**
 
-> **Note:** Fast Mode is 2.5x faster but costs 6x more. These are rough estimates—actual costs vary significantly by codebase size and issue complexity.
+**Typical Investigation Costs**
+
+> **Note:** These are rough estimates—actual costs vary significantly by codebase size and issue complexity.
 
 | Mode | Typical Range | Fast Mode Range |
 |------|---------------|-----------------|
 | Simple issue | $0.50 - $2.00 | $1.25 - $5.00 |
 | Medium issue | $2.00 - $5.00 | $5.00 - $12.50 |
 | Complex issue | $5.00 - $15.00 | $12.50 - $37.50 |
-
-> **Note:** These are estimates based on typical token usage. Actual costs vary by codebase size and issue complexity.
 
 ### Cost Optimization Strategies
 
