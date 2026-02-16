@@ -14,8 +14,9 @@
 3. [Key Features](#key-features)
 4. [Integration Workflow](#integration-workflow)
 5. [Setup & Configuration](#setup--configuration)
-6. [Using the Features](#using-the-features)
-7. [FAQ](#faq)
+6. [Settings Reference](#settings-reference)
+7. [Using the Features](#using-the-features)
+8. [FAQ](#faq)
 
 ---
 
@@ -275,21 +276,83 @@ You should see your GitHub account information.
 
 Auto Claude verifies access and loads repository metadata.
 
-### Investigation Settings
+---
 
-Go to **Project Settings → GitHub Integration → AI Investigation**:
+## Settings Reference
 
-**Fast Mode (Optional)**
-- Toggle **"Enable Fast Mode"** for 2.5x faster investigations
-- Uses premium Opus 4.6 pricing
-- Best for: Time-critical investigations, large codebases
+GitHub Issues settings are organized into two locations:
 
-**Model Selection**
-- **Standard Mode:** Balanced speed and cost
-- **Fast Mode:** Faster investigations, different pricing
-- Auto Claude switches automatically if you hit rate limits
+1. **Project Settings** → Per-project investigation behavior
+2. **Settings** → Agent → Global agent configuration for specialists
 
-> **Note:** See [Advanced AI Configuration](github-issues-advanced-ai-configuration.md) for details on pricing and performance tuning.
+### Project Settings (Project Settings → GitHub Integration → AI Investigation)
+
+These settings control how investigations behave for a specific project.
+
+#### Task Automation
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Auto-create tasks** | Automatically create kanban tasks from investigation results | Off |
+| **Auto-start tasks** | Auto-start build pipeline when tasks are created | Off |
+| **Pipeline mode** | Full / Skip to planning / Minimal | Full |
+
+#### GitHub Integration
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Auto-post to GitHub** | Automatically post investigation results to GitHub as comments | Off |
+| **Auto-close issues** | Close GitHub issues when linked task completes | Off |
+
+#### Investigation Behavior
+
+| Setting | Description | Default | Range |
+|---------|-------------|---------|-------|
+| **Max parallel investigations** | Maximum concurrent investigations | 3 | 1-10 |
+| **Fast mode investigations** | Use Opus 4.6 Fast Mode (2.5x faster, higher cost) | Off | Toggle |
+
+#### Label Filtering
+
+| Setting | Description |
+|---------|-------------|
+| **Label include filter** | Only auto-create tasks for issues with these labels |
+| **Label exclude filter** | Never auto-create tasks for issues with these labels |
+
+#### Investigation Labels
+
+Customize the labels applied to issues during the investigation lifecycle:
+
+| Stage | Default Label | Description |
+|-------|---------------|-------------|
+| Investigating | `auto-claude:investigating` | AI is investigating this issue |
+| Findings Ready | `auto-claude:findings-ready` | Investigation complete, findings available |
+| Task Created | `auto-claude:task-created` | Kanban task created from investigation |
+| Building | `auto-claude:building` | Task is being built by the pipeline |
+| Done | `auto-claude:done` | Investigation complete, issue resolved |
+
+You can customize the prefix, label names, colors, and descriptions.
+
+### Agent Settings (Settings → Agent → Investigation Agents)
+
+These global settings control which AI model and thinking level each specialist agent uses.
+
+| Specialist | Default Model | Default Thinking | Description |
+|------------|---------------|------------------|-------------|
+| **Root Cause Agent** | Opus | High | Traces the bug to its source code (most intensive) |
+| **Impact Agent** | Sonnet | Medium | Determines blast radius and severity |
+| **Fix Advisor Agent** | Sonnet | Medium | Suggests solution approaches |
+| **Reproducer Agent** | Sonnet | Low | Analyzes reproducibility and test coverage |
+
+**Understanding Models:**
+- **Opus** — Most capable, best for deep analysis (Root Cause)
+- **Sonnet** — Balanced capability and speed (Impact, Fix Advisor, Reproducer)
+
+**Understanding Thinking Levels:**
+- **High** — More thorough analysis, slower, higher cost
+- **Medium** — Balanced depth and speed
+- **Low** — Quick analysis, lower cost
+
+> **Tip:** The Root Cause Agent uses Opus + High thinking by default because root cause analysis is the most critical and token-intensive part of the investigation. Reducing this may impact investigation quality.
 
 ---
 
