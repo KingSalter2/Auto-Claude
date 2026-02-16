@@ -1173,12 +1173,16 @@ async function runInvestigation(
         // Non-fatal: will start fresh
       }
 
+      // Read investigation settings to get fastInvestigations flag
+      const investigationSettings = getInvestigationSettings(projectId);
+
       const args = [
         ...buildRunnerArgs(
           getRunnerPath(backendPath),
           project.path,
           'investigate',
           [String(issueNumber)],
+          { fastMode: investigationSettings.fastInvestigations ?? false },
         ),
         '--specialist-config', JSON.stringify(specialistConfig),
         ...resumeSessionsArg,
