@@ -13,6 +13,7 @@ from pathlib import Path
 
 # Memory integration for cross-session learning
 from agents.base import sanitize_error_message
+from agents.investigation_context import load_investigation_context
 from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
 from core.error_utils import is_rate_limit_error, is_tool_concurrency_error
@@ -126,6 +127,35 @@ async def run_qa_fixer_session(
         prompt += "\n\n" + fixer_memory_context
         print("✓ Memory context loaded for QA fixer")
         debug_success("qa_fixer", "Graphiti memory context loaded for fixer")
+
+    # Load investigation context for GitHub-sourced tasks
+    investigation_context = load_investigation_context(spec_dir)
+    if investigation_context:
+        # Format investigation context for the fixer
+        inv = investigation_context
+        inv_prompt = "\n## Investigation Context\n\n"
+        inv_prompt += "The original investigation identified:\n\n"
+
+        if inv.get("root_cause", {}).get("summary"):
+            inv_prompt += f"- **Root cause**: {inv['root_cause']['summary']}\n"
+
+        if inv.get("reproducer"):
+            inv_prompt += f"- **Reproducer**: {inv['reproducer']}\n"
+
+        if inv.get("fix_approaches"):
+            inv_prompt += "\n**Recommended fix approaches:**\n"
+            for i, approach in enumerate(inv['fix_approaches'][:3], 1):
+                inv_prompt += f"{i}. {approach.get('name', 'Approach')}: "
+                if approach.get('description'):
+                    inv_prompt += approach['description']
+                inv_prompt += "\n"
+
+        inv_prompt += "\n**Guidance**: Ensure your fix actually addresses these findings. "
+        inv_prompt += "Don't just make the QA errors go away — fix the underlying issue.\n"
+
+        prompt += inv_prompt
+        print("✓ Investigation context loaded for QA fixer")
+        debug_success("qa_fixer", "Investigation context loaded for fixer")
 
     # Add session context - use full path so agent can find files
     prompt += f"\n\n---\n\n**Fix Session**: {fix_session}\n"
