@@ -743,19 +743,54 @@ def _try_smart_merge_inner(
                     "preview": preview,
                 }
 
-        # All conflicts can be auto-merged or no conflicts
-        print(muted("  All changes compatible, proceeding with merge..."))
+        # All conflicts can be auto-merged or no conflicts - execute git merge
+        spec_branch = f"auto-claude/{spec_name}"
+        print(muted(f"  All changes compatible, merging {spec_branch}..."))
+
+        # Build merge command with conditional --no-commit flag
+        merge_cmd = ["merge", "--no-ff", spec_branch]
+        if no_commit:
+            merge_cmd.insert(1, "--no-commit")
+
+        # Execute git merge
+        merge_result = run_git(
+            merge_cmd,
+            cwd=project_dir,
+        )
+
+        if merge_result.returncode != 0:
+            if "already up to date" in merge_result.stdout.lower():
+                # Already up to date - treat as success
+                if progress_callback is not None:
+                    progress_callback(
+                        MergeProgressStage.COMPLETE,
+                        100,
+                        "Merge complete (already up to date)",
+                    )
+                return {
+                    "success": True,
+                    "stats": {
+                        "git_merge": True,
+                        "files_merged": 0,
+                        "auto_resolved": 0,
+                    },
+                }
+            else:
+                # Merge failed - abort to restore clean state and raise error
+                run_git(["merge", "--abort"], cwd=project_dir)
+                raise Exception(f"Git merge failed: {merge_result.stderr}")
 
         if progress_callback is not None:
             progress_callback(
                 MergeProgressStage.COMPLETE,
                 100,
-                f"Analysis complete ({files_to_merge} files compatible)",
+                f"Merge complete ({files_to_merge} files merged)",
             )
 
         return {
             "success": True,
             "stats": {
+                "git_merge": True,
                 "files_merged": files_to_merge,
                 "auto_resolved": auto_mergeable,
             },
