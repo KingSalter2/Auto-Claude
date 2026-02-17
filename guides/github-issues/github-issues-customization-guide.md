@@ -164,6 +164,7 @@ class IssueDetails:
     description: str
     comments: List[Comment]
     labels: List[str]
+    images: List[str]  # Image URLs extracted from markdown and HTML
     author: str
     created_at: datetime
 
@@ -267,6 +268,7 @@ Context is appended to prompts (not substituted):
 |---------|------|-------------|
 | Issue details | string | Issue title and body |
 | Issue comments | list | All issue comments |
+| **Images** | list | Image URLs extracted from markdown and HTML |
 | Working directory | string | Repository path |
 | Code context | string | Relevant code snippets |
 | Token limit | int | Max tokens for this specialist |
@@ -280,50 +282,49 @@ Edit `apps/backend/prompts/github/investigation_root_cause.md`:
 
 ```xml
 <role>
-You are a Root Cause Analyzer specializing in debugging software issues.
+You are a root cause analysis specialist. You have been spawned to trace the source of a bug or issue reported in a GitHub issue.
 </role>
 
 <mission>
-Your task is to analyze GitHub issues and identify their root causes.
+Identify the root cause of the reported issue by tracing through the codebase. Find the exact code path from entry point to the underlying problem.
 </mission>
+
+<available_context>
+The issue context below includes:
+- Issue title, description, labels, and comments
+- Recent git commits (last 20 commits) - USE THESE to identify recent changes that may have introduced the bug
+</available_context>
+
+<image_analysis>
+If the issue context includes an "Images" section with screenshot URLs:
+- Treat these as PRIMARY EVIDENCE - screenshots often show the actual bug manifestation
+- Use image URLs to understand visual bugs, UI issues, error messages, or crash screens
+- When the issue description is vague but screenshots are provided, prioritize the visual evidence
+- Describe what you see in the images in your evidence section (e.g., "Screenshot shows X component displaying incorrectly")
+- If the screenshot shows an error message, trace that error in the codebase
+</image_analysis>
 
 <investigation_process>
 <step_1>
 <title>Understand the Issue</title>
-- Read and understand the issue
-- Analyze the provided code context
-- Search for error patterns, bugs, or logical issues
-- Identify the exact location of the root cause
-- Provide file paths and line numbers when possible
+- Check the Images section first - screenshots may show the actual bug
+- Read the issue title and description carefully
+- Identify the reported symptoms (error messages, unexpected behavior, crashes)
+- Note any file paths, stack traces, or code references mentioned
+- If screenshots are provided, describe the visual evidence you observe
 </step_1>
-
-<step_2>
-<title>Custom Analysis (Added)</title>
-- Prioritize recently modified files
-- Check for common patterns:
-  - Null/undefined reference errors
-  - Race conditions
-  - Configuration issues
-  - Dependency version conflicts
-- Consider edge cases and boundary conditions
-</step_2>
+...
 </investigation_process>
 
 <output_format>
-Return a JSON object:
-{
-  "root_cause": "description of root cause",
-  "location": "file:line or description",
-  "explanation": "detailed explanation",
-  "confidence": 0.0-1.0,
-  "evidence": ["list of supporting evidence"]
-}
+Provide your analysis as structured output with:
+- identified_root_cause: Clear description of what causes the issue
+- code_paths: Ordered list of code locations from entry point to root cause
+- confidence: Your confidence level (high/medium/low)
+- evidence: Code snippets and traces supporting your analysis
+- related_issues: Known issue patterns this matches
+- likely_already_fixed: True if evidence suggests the issue is already resolved
 </output_format>
-
-<constraints>
-- Use only the provided context
-- If uncertain, state low confidence
-</constraints>
 ```
 
 ### Testing Prompt Changes
