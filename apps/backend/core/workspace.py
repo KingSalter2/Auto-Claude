@@ -769,6 +769,7 @@ def _try_smart_merge_inner(
                     )
                 return {
                     "success": True,
+                    "resolved_files": [],
                     "stats": {
                         "git_merge": True,
                         "files_merged": 0,
@@ -780,18 +781,30 @@ def _try_smart_merge_inner(
                 run_git(["merge", "--abort"], cwd=project_dir)
                 raise Exception(f"Git merge failed: {merge_result.stderr}")
 
+        # Get list of files that were actually merged
+        diff_result = run_git(
+            ["diff", "--cached", "--name-only"],
+            cwd=project_dir,
+        )
+        merged_files = [
+            f.strip()
+            for f in diff_result.stdout.splitlines()
+            if f.strip() and not _is_auto_claude_file(f.strip())
+        ]
+
         if progress_callback is not None:
             progress_callback(
                 MergeProgressStage.COMPLETE,
                 100,
-                f"Merge complete ({files_to_merge} files merged)",
+                f"Merge complete ({len(merged_files)} files merged)",
             )
 
         return {
             "success": True,
+            "resolved_files": merged_files,
             "stats": {
                 "git_merge": True,
-                "files_merged": files_to_merge,
+                "files_merged": len(merged_files),
                 "auto_resolved": auto_mergeable,
             },
         }
