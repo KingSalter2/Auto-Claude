@@ -32,23 +32,27 @@ export function useIssueListFiltering(issues: GitHubIssue[]) {
 
   // Filter and sort issues - memoized to avoid recomputation
   const filteredIssues = useMemo(() => {
-    // Early return if no filters active (except default status filter)
+    // Apply status filter first (this is the most common filter)
+    const statusFiltered = issues.filter((issue) => {
+      if (filters.statuses.length === 0) return true;
+      return filters.statuses.includes(issue.state as IssueStatusFilter);
+    });
+
+    // Early return if no other filters active
     if (
       !filters.searchQuery &&
       filters.reporters.length === 0 &&
-      filters.statuses.length === 1 &&
-      filters.statuses[0] === 'open' &&
       filters.sortBy === 'newest'
     ) {
       // Just apply sorting
-      return issues.slice().sort((a, b) => {
+      return statusFiltered.slice().sort((a, b) => {
         const aTime = new Date(a.createdAt).getTime();
         const bTime = new Date(b.createdAt).getTime();
         return bTime - aTime;
       });
     }
 
-    const filtered = issues.filter((issue) => {
+    const filtered = statusFiltered.filter((issue) => {
       // Search filter — matches title, body, and issue number
       if (filters.searchQuery) {
         const query = filters.searchQuery.toLowerCase();
@@ -64,13 +68,6 @@ export function useIssueListFiltering(issues: GitHubIssue[]) {
       if (filters.reporters.length > 0) {
         const authorLogin = issue.author?.login;
         if (!authorLogin || !filters.reporters.includes(authorLogin)) {
-          return false;
-        }
-      }
-
-      // Status filter (multi-select: open/closed)
-      if (filters.statuses.length > 0) {
-        if (!filters.statuses.includes(issue.state as IssueStatusFilter)) {
           return false;
         }
       }
