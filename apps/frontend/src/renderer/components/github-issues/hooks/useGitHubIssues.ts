@@ -1,18 +1,17 @@
 import { useEffect, useCallback, useRef, useMemo, useState } from "react";
 import {
   useIssuesStore,
-  useIssuesStoreWithSelector,
   useSyncStatusStore,
   loadGitHubIssues,
   loadMoreGitHubIssues,
-  loadAllGitHubIssues,
   checkGitHubConnection,
   shallow,
 } from "../../../stores/github";
 import type { FilterState } from "../types";
 
 export function useGitHubIssues(projectId: string | undefined) {
-  const { issues, isLoading, isLoadingMore, error, selectedIssueNumber, filterState, hasMore } = useIssuesStoreWithSelector(
+  // Single subscription using shallow comparison
+  const { issues, isLoading, isLoadingMore, error, selectedIssueNumber, filterState, hasMore } = useIssuesStore(
     (s) => ({
       issues: s.issues,
       isLoading: s.isLoading,
@@ -59,7 +58,6 @@ export function useGitHubIssues(projectId: string | undefined) {
       // Always fetch 'all' from API - let client-side filtering handle the rest
       loadGitHubIssues(projectId, 'all', false);
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: Intentional - filter is client-side only
   }, [projectId, syncStatus?.connected]);
 
   const handleRefresh = useCallback(() => {

@@ -1,6 +1,4 @@
-import { create } from 'zustand';
-import { useSyncExternalStore } from 'react';
-import { shallow } from '../utils';
+import { createWithEqualityFn } from 'zustand/traditional';
 import type { GitHubIssue } from '@shared/types';
 
 export type IssueFilterState = 'open' | 'closed' | 'all';
@@ -41,7 +39,7 @@ interface IssuesState {
   getOpenIssuesCount: () => number;
 }
 
-export const useIssuesStore = create<IssuesState>((set, get) => ({
+export const useIssuesStore = createWithEqualityFn<IssuesState>((set, get) => ({
   // Initial state
   issues: [],
   isLoading: false,
@@ -233,45 +231,3 @@ export async function importGitHubIssues(
   }
 }
 
-/**
- * Custom hook for using the issues store with shallow comparison.
- * This prevents unnecessary re-renders when only some store values change.
- */
-export function useIssuesStoreWithSelector<U>(
-  selector: (state: IssuesState) => U,
-  equalityFn?: (a: U, b: U) => boolean
-): U {
-  const store = useIssuesStore;
-
-  // Use a ref to store the latest selected value for comparison
-  const prevStateRef = { current: selector(store.getState()) };
-
-  const getSnapshot = () => {
-    return selector(store.getState());
-  };
-
-  const getServerSnapshot = () => {
-    return selector(store.getInitialState());
-  };
-
-  // Subscribe with custom comparison
-  const subscribe = (callback: () => void) => {
-    return store.subscribe((state, prevState) => {
-      const newSelected = selector(state);
-      const oldSelected = prevStateRef.current;
-
-      // If equality function provided and values are equal, don't trigger update
-      if (equalityFn && equalityFn(newSelected, oldSelected)) {
-        return;
-      }
-
-      prevStateRef.current = newSelected;
-      callback();
-    });
-  };
-
-  // Use useSyncExternalStore with our custom subscribe
-  const selectedValue = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-
-  return selectedValue;
-}

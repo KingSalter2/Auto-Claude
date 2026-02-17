@@ -12,7 +12,6 @@
 // Issues Store
 export {
   useIssuesStore,
-  useIssuesStoreWithSelector,
   loadGitHubIssues,
   loadMoreGitHubIssues,
   loadAllGitHubIssues,
