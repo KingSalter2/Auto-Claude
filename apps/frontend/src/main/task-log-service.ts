@@ -28,6 +28,7 @@ function findWorktreeSpecDir(projectPath: string, specId: string, specsRelPath: 
  */
 export class TaskLogService extends EventEmitter {
   private logCache: Map<string, TaskLogs> = new Map();
+  private cacheVersions: Map<string, number> = new Map();
   private pollIntervals: Map<string, NodeJS.Timeout> = new Map();
   // Store paths being watched for each specId (main + worktree)
   private watchedPaths: Map<string, { mainSpecDir: string; worktreeSpecDir: string | null; specsRelPath: string }> = new Map();
@@ -69,6 +70,7 @@ export class TaskLogService extends EventEmitter {
       });
 
       this.logCache.set(specDir, logs);
+      this.cacheVersions.set(specDir, (this.cacheVersions.get(specDir) ?? 0) + 1);
       return logs;
     } catch (error) {
       // JSON parse error - file may be mid-write, return cached version if available
@@ -388,9 +390,22 @@ export class TaskLogService extends EventEmitter {
         });
 
         const previousLogs = this.logCache.get(specDir);
+
+        // Capture version before load to detect whether a fresh parse succeeded
+        const versionBefore =
+          (this.cacheVersions.get(specDir) ?? 0) +
+          (currentWorktreeSpecDir ? (this.cacheVersions.get(currentWorktreeSpecDir) ?? 0) : 0);
+
         const logs = this.loadLogs(specDir);
 
-        if (logs) {
+        // Only emit when at least one fresh parse succeeded (version increased).
+        // If both paths returned cached data due to a mid-write JSON failure the
+        // version stays unchanged and we skip the emit to avoid oscillation.
+        const versionAfter =
+          (this.cacheVersions.get(specDir) ?? 0) +
+          (currentWorktreeSpecDir ? (this.cacheVersions.get(currentWorktreeSpecDir) ?? 0) : 0);
+
+        if (logs && versionAfter > versionBefore) {
           debugLog('[TaskLogService] Emitting logs-changed event:', {
             specId,
             entryCounts: {
@@ -405,8 +420,10 @@ export class TaskLogService extends EventEmitter {
 
           // Calculate and emit streaming updates for new entries
           this.emitNewEntries(specId, previousLogs, logs);
-        } else {
+        } else if (!logs) {
           debugWarn('[TaskLogService] No logs loaded after file change:', specId);
+        } else {
+          debugLog('[TaskLogService] Skipping emit - only cached data available (mid-write parse failure):', specId);
         }
       }
     }, this.POLL_INTERVAL_MS);
