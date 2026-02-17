@@ -53,6 +53,7 @@ vi.mock('electron', () => {
   // Mock BrowserWindow for sendDeviceCodeToRenderer
   const mockBrowserWindow = {
     getAllWindows: () => [{
+      isDestroyed: () => false,
       webContents: {
         send: vi.fn()
       }

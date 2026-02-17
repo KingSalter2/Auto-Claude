@@ -427,7 +427,9 @@ async def cmd_post_investigation(args) -> int:
 
         # Post it to GitHub
         try:
-            comment_id = await orchestrator._post_issue_comment(args.issue_number, comment_body)
+            comment_id = await orchestrator._post_issue_comment(
+                args.issue_number, comment_body
+            )
         except Exception as e:
             error_msg = f"Failed to post comment to GitHub: {str(e)}"
             safe_print(f"Error: {error_msg}")

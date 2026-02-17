@@ -207,7 +207,9 @@ class GitHubOrchestrator:
 
         # Read investigation label customization from config
         label_customization = self._load_investigation_label_customization()
-        self.label_manager = InvestigationLabelManager(customization=label_customization)
+        self.label_manager = InvestigationLabelManager(
+            customization=label_customization
+        )
 
     def _report_progress(
         self,
@@ -314,7 +316,7 @@ class GitHubOrchestrator:
             if config_path.exists():
                 import json
 
-                with open(config_path, "r") as f:
+                with open(config_path) as f:
                     config = json.load(f)
                 investigation_settings = config.get("investigation_settings", {})
                 return investigation_settings.get("labelCustomization")
@@ -1617,7 +1619,9 @@ class GitHubOrchestrator:
             # Update state to findings_ready, preserving started_at
             existing_state = load_investigation_state(self.project_dir, issue_number)
             started_at = (
-                existing_state.started_at if existing_state else datetime.now(timezone.utc).isoformat()
+                existing_state.started_at
+                if existing_state
+                else datetime.now(timezone.utc).isoformat()
             )
 
             save_investigation_state(

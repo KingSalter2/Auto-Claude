@@ -3,8 +3,37 @@ import fs from 'fs';
 
 // Mock child_process
 const mockExecFileSync = vi.fn();
+
+// Create a mock ChildProcess for spawn
+const createMockChildProcess = (output: string) => {
+  const mockProcess = {
+    stdout: {
+      on: vi.fn((event, callback) => {
+        if (event === 'data') {
+          // Call callback with data in next tick
+          process.nextTick(() => callback(output));
+        }
+        return mockProcess.stdout;
+      }),
+    },
+    stderr: {
+      on: vi.fn().mockReturnThis(),
+    },
+    on: vi.fn((event, callback) => {
+      if (event === 'close') {
+        // Call callback with exit code 0 in next tick
+        process.nextTick(() => callback(0));
+      }
+      return mockProcess;
+    }),
+  };
+
+  return mockProcess;
+};
+
 vi.mock('child_process', () => ({
   execFileSync: (...args: unknown[]) => mockExecFileSync(...args),
+  spawn: () => createMockChildProcess('https://github.com/owner/repo/issues/42\n'),
 }));
 
 // Mock electron

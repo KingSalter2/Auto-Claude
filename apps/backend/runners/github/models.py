@@ -1094,8 +1094,16 @@ class GitHubRunnerConfig:
             # Load fast_mode from investigation_settings (front-end uses camelCase "fastInvestigations")
             fast_mode=investigation_settings.get("fastInvestigations", False),
             # Load investigation settings from nested structure
-            investigation_auto_post=investigation_settings.get("autoPostToGitHub", False),
-            investigation_auto_close=investigation_settings.get("autoCloseIssues", False),
-            investigation_max_parallel=investigation_settings.get("maxParallelInvestigations", 3),
-            investigation_pipeline_mode=investigation_settings.get("pipelineMode", "full"),
+            investigation_auto_post=investigation_settings.get(
+                "autoPostToGitHub", False
+            ),
+            investigation_auto_close=investigation_settings.get(
+                "autoCloseIssues", False
+            ),
+            investigation_max_parallel=investigation_settings.get(
+                "maxParallelInvestigations", 3
+            ),
+            investigation_pipeline_mode=investigation_settings.get(
+                "pipelineMode", "full"
+            ),
         )

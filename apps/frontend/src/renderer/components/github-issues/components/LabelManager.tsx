@@ -53,7 +53,7 @@ export function LabelManager({
   }
 
   return (
-    <section className="space-y-2" aria-label="Label manager">
+    <section className="space-y-2" aria-label={t('labels.manage')}>
       {/* Current labels */}
       <div className="flex flex-wrap gap-1.5">
         {currentLabels.map((label) => {
@@ -76,7 +76,7 @@ export function LabelManager({
                   type="button"
                   className="ml-0.5 opacity-70 hover:opacity-100"
                   onClick={() => onRemoveLabel(label)}
-                  aria-label={`Remove label ${label}`}
+                  aria-label={t('labels.removeNamed', { name: label })}
                   style={labelColor ? { color: labelColor } : undefined}
                 >
                   <X className="h-3 w-3" />
@@ -94,7 +94,7 @@ export function LabelManager({
         className="h-7 text-xs gap-1"
         onClick={toggleDropdown}
         disabled={disabled || atLimit || isLoading}
-        aria-label="Add label"
+        aria-label={t('labels.add')}
       >
         <Plus className="h-3 w-3" />
         {t('labels.add')}
@@ -109,9 +109,9 @@ export function LabelManager({
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('labels.filter')}
             className="w-full px-2 py-1 text-xs border-b border-border bg-transparent focus:outline-none"
-            aria-label="Filter labels"
+            aria-label={t('labels.filter')}
           />
-          <div role="listbox" aria-label="Available labels">
+          <div role="listbox" aria-label={t('labels.available')}>
             {filteredLabels.map((label) => {
               const isApplied = currentLabels.includes(label.name);
               return (

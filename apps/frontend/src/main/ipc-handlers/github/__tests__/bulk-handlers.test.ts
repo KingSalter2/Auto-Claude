@@ -73,6 +73,7 @@ type HandlerFn = (event: unknown, ...args: unknown[]) => Promise<unknown>;
 const handlers: Record<string, HandlerFn> = {};
 
 const mockGetMainWindow = () => ({
+  isDestroyed: () => false,
   webContents: { send: mockSend },
 }) as unknown as import('electron').BrowserWindow;
 

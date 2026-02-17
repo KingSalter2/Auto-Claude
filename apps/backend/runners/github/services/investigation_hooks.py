@@ -30,22 +30,22 @@ except (ImportError, ValueError, SystemError):
     try:
         from services.io_utils import safe_print
     except (ImportError, ModuleNotFoundError):
-        from io_utils import safe_print
+        from core.io_utils import safe_print
 
 logger = logging.getLogger(__name__)
 
 # Shell operators and constructs that allow command chaining / injection.
 _DANGEROUS_PATTERNS = re.compile(
-    r'[;|&`]'
-    r'|\$\('
-    r'|\$\{'
-    r'|>\s'
-    r'|<\s'
-    r'|>>',
+    r"[;|&`]"
+    r"|\$\("
+    r"|\$\{"
+    r"|>\s"
+    r"|<\s"
+    r"|>>",
 )
 
 # find(1) flags that can execute arbitrary commands or delete files.
-_DANGEROUS_FIND_FLAGS = {'-exec', '-execdir', '-delete', '-ok', '-okdir'}
+_DANGEROUS_FIND_FLAGS = {"-exec", "-execdir", "-delete", "-ok", "-okdir"}
 
 # Commands that investigation agents are allowed to run.
 INVESTIGATION_BASH_ALLOWLIST: list[str] = [
@@ -110,14 +110,18 @@ def _is_command_safe(command: str) -> bool:
 
     # Check if the base command (or full prefix) is in the allowlist
     if not any(
-        base_cmd == allowed or base_cmd == allowed.split()[0] and command.startswith(allowed)
+        base_cmd == allowed
+        or base_cmd == allowed.split()[0]
+        and command.startswith(allowed)
         for allowed in INVESTIGATION_BASH_ALLOWLIST
     ):
-        if not any(command.startswith(allowed) for allowed in INVESTIGATION_BASH_ALLOWLIST):
+        if not any(
+            command.startswith(allowed) for allowed in INVESTIGATION_BASH_ALLOWLIST
+        ):
             return False
 
     # Extra guard for find: block flags that execute commands or delete files
-    if base_cmd == 'find':
+    if base_cmd == "find":
         lower_tokens = {t.lower() for t in tokens}
         if lower_tokens & _DANGEROUS_FIND_FLAGS:
             return False

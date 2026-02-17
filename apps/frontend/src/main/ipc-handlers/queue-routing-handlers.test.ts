@@ -16,7 +16,10 @@ vi.mock('electron', () => ({
   ipcMain: {
     handle: vi.fn()
   },
-  BrowserWindow: vi.fn()
+  BrowserWindow: {
+    fromWebContents: vi.fn(),
+    isDestroyed: vi.fn(() => false)
+  }
 }));
 
 describe('registerQueueRoutingHandlers', () => {
@@ -62,6 +65,7 @@ describe('registerQueueRoutingHandlers', () => {
 
     // Setup mock window
     mockWindow = {
+      isDestroyed: () => false,
       webContents: {
         send: vi.fn()
       } as unknown as Electron.WebContents

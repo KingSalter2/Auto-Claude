@@ -144,14 +144,18 @@ async def run_qa_fixer_session(
 
         if inv.get("fix_approaches"):
             inv_prompt += "\n**Recommended fix approaches:**\n"
-            for i, approach in enumerate(inv['fix_approaches'][:3], 1):
+            for i, approach in enumerate(inv["fix_approaches"][:3], 1):
                 inv_prompt += f"{i}. {approach.get('name', 'Approach')}: "
-                if approach.get('description'):
-                    inv_prompt += approach['description']
+                if approach.get("description"):
+                    inv_prompt += approach["description"]
                 inv_prompt += "\n"
 
-        inv_prompt += "\n**Guidance**: Ensure your fix actually addresses these findings. "
-        inv_prompt += "Don't just make the QA errors go away — fix the underlying issue.\n"
+        inv_prompt += (
+            "\n**Guidance**: Ensure your fix actually addresses these findings. "
+        )
+        inv_prompt += (
+            "Don't just make the QA errors go away — fix the underlying issue.\n"
+        )
 
         prompt += inv_prompt
         print("✓ Investigation context loaded for QA fixer")

@@ -560,10 +560,13 @@ class GHClient:
         endpoint = f"repos/{{owner}}/{{repo}}/issues/{issue_number}/comments"
         args = [
             "api",
-            "--method", "POST",
+            "--method",
+            "POST",
             endpoint,
-            "-f", f"body={body}",
-            "--jq", ".id",
+            "-f",
+            f"body={body}",
+            "--jq",
+            ".id",
         ]
         # Note: gh api doesn't use -R flag, the repo is already in the endpoint URL
         # Only add -R if we have a custom repo configured (not the default from git)
@@ -577,14 +580,25 @@ class GHClient:
         # Check for gh CLI errors
         if result.returncode != 0:
             stderr_lower = result.stderr.lower()
-            error_msg = result.stderr.strip() or f"gh CLI failed with exit code {result.returncode}"
+            error_msg = (
+                result.stderr.strip()
+                or f"gh CLI failed with exit code {result.returncode}"
+            )
 
             # Provide user-friendly error messages for common failure modes
-            if "401" in result.stderr or "unauthenticated" in stderr_lower or "not logged in" in stderr_lower:
+            if (
+                "401" in result.stderr
+                or "unauthenticated" in stderr_lower
+                or "not logged in" in stderr_lower
+            ):
                 raise GHCommandError(
                     "GitHub authentication failed. Please run 'gh auth login' to authenticate."
                 )
-            elif "403" in result.stderr or "429" in result.stderr or "rate limit" in stderr_lower:
+            elif (
+                "403" in result.stderr
+                or "429" in result.stderr
+                or "rate limit" in stderr_lower
+            ):
                 raise GHCommandError(
                     "GitHub API rate limit exceeded. Please wait a few minutes before trying again."
                 )
@@ -617,7 +631,9 @@ class GHClient:
             else:
                 raise ValueError(f"Invalid comment ID returned: {stdout}")
         except (ValueError, json.JSONDecodeError) as e:
-            logger.error("Failed to parse comment ID response for issue #%d: %s", issue_number, e)
+            logger.error(
+                "Failed to parse comment ID response for issue #%d: %s", issue_number, e
+            )
             logger.debug("Raw stdout (first 500 chars): %s", result.stdout[:500])
             logger.debug("Raw stderr (first 500 chars): %s", result.stderr[:500])
             raise ValueError(f"Failed to parse GitHub response: {str(e)}")

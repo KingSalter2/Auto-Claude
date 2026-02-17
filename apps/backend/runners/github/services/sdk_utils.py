@@ -630,7 +630,9 @@ async def process_sdk_stream(
                             # Capture validated StructuredOutput tool data as fallback
                             if tool_id in _pending_structured_output:
                                 if not is_error:
-                                    _pending_structured_output[tool_id]["_validated"] = True
+                                    _pending_structured_output[tool_id][
+                                        "_validated"
+                                    ] = True
                                 else:
                                     del _pending_structured_output[tool_id]
 

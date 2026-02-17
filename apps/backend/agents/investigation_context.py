@@ -52,7 +52,9 @@ def load_investigation_context(spec_dir: Path) -> dict[str, Any] | None:
         return None
 
 
-def load_investigation_for_qa(spec_dir: Path, base_branch: str) -> dict[str, Any] | None:
+def load_investigation_for_qa(
+    spec_dir: Path, base_branch: str
+) -> dict[str, Any] | None:
     """
     Load investigation context for QA validation.
 

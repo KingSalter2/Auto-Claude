@@ -24,7 +24,7 @@ export function useInvestigationData(taskId: string): UseInvestigationDataResult
 
         if (!cancelled) {
           if (data.success) {
-            setInvestigation(data.data);
+            setInvestigation(data.data ?? null);
           } else {
             // No investigation data is not an error - just return null
             setInvestigation(null);

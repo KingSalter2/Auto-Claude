@@ -137,7 +137,9 @@ async def run_qa_agent_session(
             inv_prompt += f"**Root Cause:** {inv['root_cause']['summary']}\n\n"
 
         if inv.get("root_cause", {}).get("evidence"):
-            inv_prompt += f"**Evidence of the Issue:**\n{inv['root_cause']['evidence']}\n\n"
+            inv_prompt += (
+                f"**Evidence of the Issue:**\n{inv['root_cause']['evidence']}\n\n"
+            )
 
         if inv.get("root_cause", {}).get("code_paths"):
             inv_prompt += "**Affected Code Paths:**\n"
@@ -175,7 +177,9 @@ async def run_qa_agent_session(
             if inv["impact"].get("blast_radius"):
                 inv_prompt += f"- **Blast Radius:** {inv['impact']['blast_radius']}\n"
             if inv["impact"].get("regression_risk"):
-                inv_prompt += f"- **Regression Risk:** {inv['impact']['regression_risk']}\n"
+                inv_prompt += (
+                    f"- **Regression Risk:** {inv['impact']['regression_risk']}\n"
+                )
             inv_prompt += "\n"
 
         inv_prompt += "**Validation Checklist:**\n"

@@ -82,6 +82,12 @@ export const taskMock = {
     data: { hasChanges: false }
   }),
 
+  // Investigation data operations
+  getInvestigationData: async (_taskId: string) => ({
+    success: true,
+    data: null
+  }),
+
   // Image operations
   loadImageThumbnail: async (_projectPath: string, _specId: string, _imagePath: string) => ({
     success: false,

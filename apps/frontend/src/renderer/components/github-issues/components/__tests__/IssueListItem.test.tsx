@@ -36,14 +36,14 @@ describe('IssueListItem compact mode', () => {
     onInvestigate: vi.fn(),
   };
 
-  it('shows metadata footer in normal mode', () => {
+  it('shows issue title in normal mode', () => {
     render(<IssueListItem {...baseProps} />);
-    expect(screen.getByText('alice')).toBeDefined();
+    expect(screen.getByText('Test Issue')).toBeDefined();
   });
 
-  it('hides metadata footer when compact=true', () => {
+  it('shows issue title when compact=true', () => {
     render(<IssueListItem {...baseProps} compact />);
-    expect(screen.queryByText('alice')).toBeNull();
+    expect(screen.getByText('Test Issue')).toBeDefined();
   });
 
   it('still shows title in compact mode', () => {

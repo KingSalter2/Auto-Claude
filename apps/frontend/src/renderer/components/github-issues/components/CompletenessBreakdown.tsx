@@ -3,6 +3,7 @@
  * Kept for backwards compatibility. Will be removed in a future cleanup pass.
  */
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Check, Circle, ChevronDown, ChevronRight } from 'lucide-react';
 import type { IssueEnrichment } from '@shared/types/enrichment';
 import { COMPLETENESS_WEIGHTS } from '@shared/constants/enrichment';
@@ -38,10 +39,11 @@ export function CompletenessBreakdown({
   score,
   onSectionClick,
 }: CompletenessBreakdownProps) {
+  const { t } = useTranslation('common');
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <section aria-label="Completeness score breakdown" className="space-y-2">
+    <section aria-label={t('completenessBreakdown.title')} className="space-y-2">
       {/* Header / toggle */}
       <button
         type="button"
@@ -74,9 +76,9 @@ export function CompletenessBreakdown({
             return (
               <li key={section} className="flex items-center gap-2 text-xs">
                 {filled ? (
-                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-label="Filled" />
+                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-label={t('completenessBreakdown.filled')} />
                 ) : (
-                  <Circle className="h-3.5 w-3.5 text-muted-foreground" aria-label="Empty" />
+                  <Circle className="h-3.5 w-3.5 text-muted-foreground" aria-label={t('completenessBreakdown.empty')} />
                 )}
                 <button
                   type="button"

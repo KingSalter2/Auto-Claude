@@ -789,7 +789,9 @@ async def run_autonomous_agent(
                 # Format investigation context for the prompt
                 inv = investigation_context
                 inv_prompt = "\n## GitHub Investigation Context\n\n"
-                inv_prompt += "This task was created from a GitHub issue investigation. "
+                inv_prompt += (
+                    "This task was created from a GitHub issue investigation. "
+                )
                 inv_prompt += "Use this context to guide your work.\n\n"
 
                 if inv.get("root_cause", {}).get("summary"):
@@ -851,7 +853,9 @@ async def run_autonomous_agent(
                         inv_prompt += f"- {step}\n"
                     test_approach = reproducer.get("suggested_test_approach")
                     if test_approach:
-                        inv_prompt += f"\n**Suggested Test Approach:** {test_approach}\n"
+                        inv_prompt += (
+                            f"\n**Suggested Test Approach:** {test_approach}\n"
+                        )
                     inv_prompt += "\n"
 
                 prompt += inv_prompt

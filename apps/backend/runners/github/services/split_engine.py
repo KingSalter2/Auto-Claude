@@ -15,14 +15,16 @@ from pathlib import Path
 try:
     from ...phase_config import get_model_betas, resolve_model_id
     from ..models import GitHubRunnerConfig
+    from .engine_base import EngineBase
     from .prompt_manager import PromptManager
 except (ImportError, ValueError, SystemError):
     from models import GitHubRunnerConfig
     from phase_config import get_model_betas, resolve_model_id
+    from services.engine_base import EngineBase
     from services.prompt_manager import PromptManager
 
 
-class SplitEngine:
+class SplitEngine(EngineBase):
     """Handles issue split suggestion via AI."""
 
     def __init__(
@@ -32,30 +34,8 @@ class SplitEngine:
         config: GitHubRunnerConfig,
         progress_callback=None,
     ):
-        self.project_dir = Path(project_dir)
-        self.github_dir = Path(github_dir)
-        self.config = config
-        self.progress_callback = progress_callback
+        super().__init__(project_dir, github_dir, config, progress_callback)
         self.prompt_manager = PromptManager()
-
-    def _report_progress(self, phase: str, progress: int, message: str, **kwargs):
-        """Report progress if callback is set."""
-        if self.progress_callback:
-            import sys
-
-            if "orchestrator" in sys.modules:
-                ProgressCallback = sys.modules["orchestrator"].ProgressCallback
-            else:
-                try:
-                    from ..orchestrator import ProgressCallback
-                except ImportError:
-                    from orchestrator import ProgressCallback
-
-            self.progress_callback(
-                ProgressCallback(
-                    phase=phase, progress=progress, message=message, **kwargs
-                )
-            )
 
     async def suggest_split(self, issue: dict) -> dict:
         """

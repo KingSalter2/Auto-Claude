@@ -77,6 +77,7 @@ describe('Task Logs Integration (IPC → Service → State)', () => {
 
     // Mock main window
     mockMainWindow = {
+      isDestroyed: () => false,
       webContents: {
         send: vi.fn()
       } as any

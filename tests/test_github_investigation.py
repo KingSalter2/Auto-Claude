@@ -839,6 +839,7 @@ class TestOrchestratorReportBuilding:
             issue_body="Steps to reproduce: 1. Open app 2. Click button",
             issue_labels=["bug", "urgent"],
             issue_comments=["I can reproduce this", "Same here"],
+            project_root=orchestrator.project_dir,
         )
         assert "42" in context
         assert "Test Bug" in context
@@ -855,6 +856,7 @@ class TestOrchestratorReportBuilding:
             issue_body="Body",
             issue_labels=[],
             issue_comments=[],
+            project_root=orchestrator.project_dir,
         )
         assert "(none)" in context
 
@@ -867,6 +869,7 @@ class TestOrchestratorReportBuilding:
             issue_body="Body",
             issue_labels=[],
             issue_comments=[long_comment],
+            project_root=orchestrator.project_dir,
         )
         assert "..." in context
         # The truncated comment should be at most 503 chars (500 + "...")

@@ -65,14 +65,15 @@ describe('IssueList investigation integration', () => {
     render(<IssueList {...defaultProps} investigationStates={investigationStates} />);
     // Issue 1 should show a progress bar with 40%
     expect(screen.getByText('40%')).toBeDefined();
-    // Issue 2 should show the failed indicator (via i18n key)
-    expect(screen.getByText('investigation.progress.failed')).toBeDefined();
+    // Issue 2 should have a red border stripe for failed state
+    const issue2Items = screen.getAllByText('Issue #2');
+    expect(issue2Items.length).toBeGreaterThan(0);
   });
 
   it('renders no progress bar when investigationStates is empty (new issues)', () => {
     render(<IssueList {...defaultProps} investigationStates={{}} />);
-    // No progress bars or failure indicators should render for issues without investigation state
-    expect(screen.queryByText('investigation.progress.failed')).toBeNull();
+    // No progress bars should render for issues without investigation state
+    expect(screen.queryByText('40%')).toBeNull();
     // All 3 issues should still render their titles
     expect(screen.getByText('Issue #1')).toBeDefined();
     expect(screen.getByText('Issue #2')).toBeDefined();

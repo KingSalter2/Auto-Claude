@@ -1986,6 +1986,7 @@ export function registerInvestigationHandlers(
             completedAt?: string;
             specId?: string;
             githubCommentId?: number;
+            postedAt?: string;
             wasInterrupted?: boolean;
             activityLog?: ActivityLogEntry[];
           }> = [];

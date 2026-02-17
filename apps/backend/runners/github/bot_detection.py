@@ -165,7 +165,9 @@ class BotDetector:
             Bot username or None if token not provided or invalid
         """
         if not self.bot_token:
-            logger.debug("[BotDetector] No bot token provided, cannot identify bot user")
+            logger.debug(
+                "[BotDetector] No bot token provided, cannot identify bot user"
+            )
             return None
 
         try:

@@ -67,7 +67,7 @@ export function AssigneeManager({
           type="button"
           className="hover:text-destructive"
           onClick={() => onRemoveAssignee(assignee.login)}
-          aria-label={`Remove assignee ${assignee.login}`}
+          aria-label={t('assignees.unassign')}
         >
           <X className="h-3 w-3" />
         </button>
@@ -82,7 +82,7 @@ export function AssigneeManager({
       className="h-6 text-xs gap-1 px-2"
       onClick={toggleDropdown}
       disabled={disabled}
-      aria-label="Assign"
+      aria-label={t('assignees.assign')}
     >
       <Plus className="h-3 w-3" />
       {t('assignees.assign')}
@@ -97,9 +97,9 @@ export function AssigneeManager({
         onChange={(e) => setSearch(e.target.value)}
         placeholder={t('assignees.search')}
         className="w-full px-2 py-1 text-xs border-b border-border bg-transparent focus:outline-none"
-        aria-label="Search collaborators"
+        aria-label={t('assignees.search')}
       />
-      <div role="listbox" aria-label="Available collaborators">
+      <div role="listbox" aria-label={t('assignees.title')}>
         {filteredCollaborators.map((login) => {
           const isAssigned = assignedLogins.has(login);
           return (
@@ -144,7 +144,7 @@ export function AssigneeManager({
 
   if (inline) {
     return (
-      <div className="relative flex items-center gap-1.5" aria-label="Assignee manager">
+      <div className="relative flex items-center gap-1.5" aria-label={t('assignees.manage')}>
         {assigneeChips}
         {assignButton}
         {dropdown}
@@ -153,7 +153,7 @@ export function AssigneeManager({
   }
 
   return (
-    <section className="space-y-2" aria-label="Assignee manager">
+    <section className="space-y-2" aria-label={t('assignees.manage')}>
       <div className="flex flex-wrap gap-1.5">
         {assigneeChips}
       </div>

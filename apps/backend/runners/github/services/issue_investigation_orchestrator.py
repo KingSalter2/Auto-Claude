@@ -64,7 +64,10 @@ except (ImportError, ValueError, SystemError):
             save_specialist_session,
         )
         from services.io_utils import safe_print
-        from services.parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+        from services.parallel_agent_base import (
+            ParallelAgentOrchestrator,
+            SpecialistConfig,
+        )
         from services.sdk_utils import _get_tool_detail
     except (ImportError, ModuleNotFoundError):
         from investigation_hooks import emit_json_event
@@ -95,7 +98,13 @@ logger = logging.getLogger(__name__)
 # Specialist Timeout Configuration
 # =============================================================================
 
-SPECIALIST_TIMEOUT_SECONDS = 900  # 15 minutes per specialist
+# Specialist timeout: 15 minutes per specialist
+# This allows sufficient time for deep codebase analysis, including:
+# - Repository indexing and search operations
+# - Multi-file trace analysis for root cause
+# - Complex dependency graph exploration
+# - Test execution and coverage analysis
+SPECIALIST_TIMEOUT_SECONDS = 900  # 15 minutes
 
 
 async def _run_with_timeout(coro, name: str, timeout: int = SPECIALIST_TIMEOUT_SECONDS):
@@ -112,13 +121,24 @@ async def _run_with_timeout(coro, name: str, timeout: int = SPECIALIST_TIMEOUT_S
 # =============================================================================
 
 # Per-specialist max_tokens configuration (Opus 4.6 supports up to 128K)
-# Root cause gets highest limit for deep analysis
+#
+# Root cause gets highest limit for deep analysis:
+# - Multi-file tracing across entire codebase
+# - Complex dependency chain analysis
+# - Historical git log exploration
+# - Pattern matching across modules
+#
+# Other specialists use standard limit:
+# - Component mapping and impact assessment
+# - Fix approach generation
+# - Test coverage and reproducibility analysis
+#
 # Note: Values are 1 token lower than API max to reserve space for message separator
 SPECIALIST_MAX_TOKENS = {
-    "root_cause": 127999,   # Maximum for complex multi-file tracing (API max: 128000)
-    "impact": 63999,         # Standard for component mapping (API max: 64000)
-    "fix_advisor": 63999,    # Standard for fix approaches (API max: 64000)
-    "reproducer": 63999,     # Standard for test coverage analysis (API max: 64000)
+    "root_cause": 127999,  # Maximum for complex multi-file tracing (API max: 128000)
+    "impact": 63999,  # Standard for component mapping (API max: 64000)
+    "fix_advisor": 63999,  # Standard for fix approaches (API max: 64000)
+    "reproducer": 63999,  # Standard for test coverage analysis (API max: 64000)
 }
 
 # =============================================================================
@@ -186,6 +206,53 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         """Signal the investigation to cancel."""
         self._cancel_event.set()
 
+    def _create_cancelled_report(
+        self,
+        issue_number: int,
+        issue_title: str,
+        investigation_id: str,
+    ) -> InvestigationReport:
+        """Create a report for a cancelled investigation.
+
+        Args:
+            issue_number: GitHub issue number
+            issue_title: Issue title
+            investigation_id: Unique investigation ID
+
+        Returns:
+            InvestigationReport with placeholder values for cancelled state
+        """
+        return InvestigationReport(
+            issue_number=issue_number,
+            issue_title=issue_title,
+            investigation_id=investigation_id,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            ai_summary="Investigation was cancelled.",
+            severity="medium",
+            likely_resolved=False,
+            root_cause=RootCauseAnalysis(
+                identified_root_cause="Investigation cancelled",
+                confidence="low",
+                evidence="",
+            ),
+            impact=ImpactAssessment(
+                severity="medium",
+                blast_radius="Unknown (cancelled)",
+                user_impact="Unknown (cancelled)",
+                regression_risk="Unknown",
+            ),
+            fix_advice=FixAdvice(),
+            reproduction=ReproductionAnalysis(
+                reproducible="unlikely",
+                test_coverage={
+                    "has_existing_tests": False,
+                    "test_files": [],
+                    "coverage_assessment": "Unknown (cancelled)",
+                },
+                suggested_test_approach="Unknown (cancelled)",
+            ),
+        )
+
     async def investigate(
         self,
         issue_number: int,
@@ -230,35 +297,10 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         if self._cancel_event.is_set():
             logger.info("Investigation cancelled before context gathering")
             emit_json_event("investigation_cancelled", "orchestrator")
-            return InvestigationReport(
+            return self._create_cancelled_report(
                 issue_number=issue_number,
                 issue_title=issue_title,
                 investigation_id=investigation_id,
-                timestamp=datetime.now(timezone.utc).isoformat(),
-                ai_summary="Investigation was cancelled.",
-                severity="medium",
-                likely_resolved=False,
-                root_cause=RootCauseAnalysis(
-                    identified_root_cause="Investigation cancelled",
-                    confidence="low",
-                    evidence="",
-                ),
-                impact=ImpactAssessment(
-                    severity="medium",
-                    blast_radius="Unknown (cancelled)",
-                    user_impact="Unknown (cancelled)",
-                    regression_risk="Unknown",
-                ),
-                fix_advice=FixAdvice(),
-                reproduction=ReproductionAnalysis(
-                    reproducible="unlikely",
-                    test_coverage={
-                        "has_existing_tests": False,
-                        "test_files": [],
-                        "coverage_assessment": "Unknown (cancelled)",
-                    },
-                    suggested_test_approach="Unknown (cancelled)",
-                ),
             )
 
         # Build issue context for all specialists
@@ -292,35 +334,10 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         if self._cancel_event.is_set():
             logger.info("Investigation cancelled before specialist dispatch")
             emit_json_event("investigation_cancelled", "orchestrator")
-            return InvestigationReport(
+            return self._create_cancelled_report(
                 issue_number=issue_number,
                 issue_title=issue_title,
                 investigation_id=investigation_id,
-                timestamp=datetime.now(timezone.utc).isoformat(),
-                ai_summary="Investigation was cancelled.",
-                severity="medium",
-                likely_resolved=False,
-                root_cause=RootCauseAnalysis(
-                    identified_root_cause="Investigation cancelled",
-                    confidence="low",
-                    evidence="",
-                ),
-                impact=ImpactAssessment(
-                    severity="medium",
-                    blast_radius="Unknown (cancelled)",
-                    user_impact="Unknown (cancelled)",
-                    regression_risk="Unknown",
-                ),
-                fix_advice=FixAdvice(),
-                reproduction=ReproductionAnalysis(
-                    reproducible="unlikely",
-                    test_coverage={
-                        "has_existing_tests": False,
-                        "test_files": [],
-                        "coverage_assessment": "Unknown (cancelled)",
-                    },
-                    suggested_test_approach="Unknown (cancelled)",
-                ),
             )
 
         self._report_progress(
@@ -345,35 +362,10 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         if self._cancel_event.is_set():
             logger.info("Investigation cancelled after specialist execution")
             emit_json_event("investigation_cancelled", "orchestrator")
-            return InvestigationReport(
+            return self._create_cancelled_report(
                 issue_number=issue_number,
                 issue_title=issue_title,
                 investigation_id=investigation_id,
-                timestamp=datetime.now(timezone.utc).isoformat(),
-                ai_summary="Investigation was cancelled.",
-                severity="medium",
-                likely_resolved=False,
-                root_cause=RootCauseAnalysis(
-                    identified_root_cause="Investigation cancelled",
-                    confidence="low",
-                    evidence="",
-                ),
-                impact=ImpactAssessment(
-                    severity="medium",
-                    blast_radius="Unknown (cancelled)",
-                    user_impact="Unknown (cancelled)",
-                    regression_risk="Unknown",
-                ),
-                fix_advice=FixAdvice(),
-                reproduction=ReproductionAnalysis(
-                    reproducible="unlikely",
-                    test_coverage={
-                        "has_existing_tests": False,
-                        "test_files": [],
-                        "coverage_assessment": "Unknown (cancelled)",
-                    },
-                    suggested_test_approach="Unknown (cancelled)",
-                ),
             )
 
         self._report_progress(
@@ -427,8 +419,15 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         """
         try:
             result = subprocess.run(
-                ["git", "log", "--oneline", "-n", str(max_count), "--date=short",
-                 "--format=%h | %ad | %s"],
+                [
+                    "git",
+                    "log",
+                    "--oneline",
+                    "-n",
+                    str(max_count),
+                    "--date=short",
+                    "--format=%h | %ad | %s",
+                ],
                 cwd=project_root,
                 capture_output=True,
                 text=True,
@@ -542,7 +541,7 @@ Use Read, Grep, and Glob tools to explore the codebase.
             return ""
 
         code_paths_str = ""
-        if hasattr(root_cause, 'code_paths') and root_cause.code_paths:
+        if hasattr(root_cause, "code_paths") and root_cause.code_paths:
             # Validate code_paths is a list of strings before formatting
             paths = root_cause.code_paths
             if isinstance(paths, list) and all(isinstance(p, str) for p in paths):
@@ -603,8 +602,12 @@ the root cause — focus on your specialty using these findings as ground truth.
         """
         PHASE_1_NAMES = {"root_cause", "reproducer"}
 
-        phase_1_specs = [s for s in INVESTIGATION_SPECIALISTS if s.name in PHASE_1_NAMES]
-        phase_2_specs = [s for s in INVESTIGATION_SPECIALISTS if s.name not in PHASE_1_NAMES]
+        phase_1_specs = [
+            s for s in INVESTIGATION_SPECIALISTS if s.name in PHASE_1_NAMES
+        ]
+        phase_2_specs = [
+            s for s in INVESTIGATION_SPECIALISTS if s.name not in PHASE_1_NAMES
+        ]
 
         # Shared completion counter for incremental progress reporting
         _agents_done = 0
@@ -619,11 +622,19 @@ the root cause — focus on your specialty using these findings as ground truth.
                 model_str = resolve_model_id(model_str)
             thinking_lvl = sc.get("thinking", fallback_thinking_level)
             # Use per-specialist max_tokens if available, otherwise fallback to thinking level
-            budget = SPECIALIST_MAX_TOKENS.get(cfg_name, get_thinking_budget(thinking_lvl))
+            budget = SPECIALIST_MAX_TOKENS.get(
+                cfg_name, get_thinking_budget(thinking_lvl)
+            )
             return model_str, budget, thinking_lvl
 
         # Build coroutine factories so failed specialists can be retried
-        def _make_specialist_factory(cfg: SpecialistConfig, model: str, budget: int | None, thinking_lvl: str = "medium", root_cause_ctx: str = ""):
+        def _make_specialist_factory(
+            cfg: SpecialistConfig,
+            model: str,
+            budget: int | None,
+            thinking_lvl: str = "medium",
+            root_cause_ctx: str = "",
+        ):
             """Create a 0-arg callable that returns a fresh coroutine."""
 
             def factory():
@@ -635,9 +646,7 @@ the root cause — focus on your specialty using these findings as ground truth.
                     _schema_class.model_json_schema() if _schema_class else None
                 )
                 # Look up resume session ID for this specialist
-                _resume_id = (
-                    resume_sessions.get(cfg.name) if resume_sessions else None
-                )
+                _resume_id = resume_sessions.get(cfg.name) if resume_sessions else None
                 # Track tool_id -> tool_name so on_tool_result can include the tool name
                 _tool_names: dict[str, str] = {}
 
@@ -653,7 +662,9 @@ the root cause — focus on your specialty using these findings as ground truth.
                         detail=_get_tool_detail(name, inp),
                     )
 
-                def _on_tool_result(tid, err, content, _name=cfg.name, _map=_tool_names):
+                def _on_tool_result(
+                    tid, err, content, _name=cfg.name, _map=_tool_names
+                ):
                     tool = _map.pop(tid, None)
                     # StructuredOutput is an internal SDK tool — don't show in UI
                     if tool == "StructuredOutput":
@@ -692,7 +703,9 @@ the root cause — focus on your specialty using these findings as ground truth.
             """Wrap a retry coroutine with agent_started/agent_done events."""
             emit_json_event("agent_started", agent_name)
             try:
-                result = await _run_with_timeout(coro, agent_name, SPECIALIST_TIMEOUT_SECONDS)
+                result = await _run_with_timeout(
+                    coro, agent_name, SPECIALIST_TIMEOUT_SECONDS
+                )
                 if isinstance(result, TimeoutError):
                     emit_json_event(
                         "agent_done",
@@ -736,7 +749,9 @@ the root cause — focus on your specialty using these findings as ground truth.
             emit_json_event("agent_started", cfg.name)
 
             try:
-                result = await _run_with_timeout(coro, cfg.name, SPECIALIST_TIMEOUT_SECONDS)
+                result = await _run_with_timeout(
+                    coro, cfg.name, SPECIALIST_TIMEOUT_SECONDS
+                )
                 # _run_with_timeout returns a TimeoutError instance (not raised) on timeout
                 if isinstance(result, TimeoutError):
                     emit_json_event(
@@ -782,7 +797,8 @@ the root cause — focus on your specialty using these findings as ground truth.
 
         # === Phase 1: root_cause + reproducer ===
         self._report_progress(
-            "investigating", 20,
+            "investigating",
+            20,
             "Phase 1: Root Cause Agent + Reproducer Agent...",
             issue_number=issue_number,
         )
@@ -793,16 +809,20 @@ the root cause — focus on your specialty using these findings as ground truth.
         phase_1_retry_configs = []
         for cfg in phase_1_specs:
             model, budget, thinking_lvl = _resolve_specialist(cfg.name)
-            factory = _make_specialist_factory(cfg, model, budget, thinking_lvl=thinking_lvl)
-            phase_1_coroutines.append(
-                _agent_lifecycle_wrapper(cfg, factory(), 20, 15)
+            factory = _make_specialist_factory(
+                cfg, model, budget, thinking_lvl=thinking_lvl
             )
+            phase_1_coroutines.append(_agent_lifecycle_wrapper(cfg, factory(), 20, 15))
             phase_1_retry_factories.append(factory)
             # Create a simplified lifecycle wrapper for retries (without progress tracking)
-            phase_1_retry_configs.append({
-                "name": cfg.name,
-                "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(name, coro),
-            })
+            phase_1_retry_configs.append(
+                {
+                    "name": cfg.name,
+                    "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(
+                        name, coro
+                    ),
+                }
+            )
 
         phase_1_results = await self._run_parallel_specialists(
             tasks=phase_1_coroutines,
@@ -815,10 +835,16 @@ the root cause — focus on your specialty using these findings as ground truth.
         phase_1_result_map: dict[str, dict[str, Any]] = {}
         for i, cfg in enumerate(phase_1_specs):
             result = phase_1_results[i] if i < len(phase_1_results) else None
-            phase_1_result_map[cfg.name] = result if result is not None else {
-                "result_text": "", "structured_output": None,
-                "error": "Specialist did not complete", "msg_count": 0,
-            }
+            phase_1_result_map[cfg.name] = (
+                result
+                if result is not None
+                else {
+                    "result_text": "",
+                    "structured_output": None,
+                    "error": "Specialist did not complete",
+                    "msg_count": 0,
+                }
+            )
 
         # Parse root cause for context injection into Phase 2
         root_cause_parsed = self._parse_specialist_result(
@@ -846,7 +872,8 @@ the root cause — focus on your specialty using these findings as ground truth.
 
         # === Phase 2: impact + fix_advisor (with root cause context) ===
         self._report_progress(
-            "investigating", 55,
+            "investigating",
+            55,
             "Phase 2: Impact Agent + Fix Advisor Agent...",
             issue_number=issue_number,
         )
@@ -857,16 +884,24 @@ the root cause — focus on your specialty using these findings as ground truth.
         phase_2_retry_configs = []
         for cfg in phase_2_specs:
             model, budget, thinking_lvl = _resolve_specialist(cfg.name)
-            factory = _make_specialist_factory(cfg, model, budget, thinking_lvl=thinking_lvl, root_cause_ctx=root_cause_ctx)
-            phase_2_coroutines.append(
-                _agent_lifecycle_wrapper(cfg, factory(), 55, 13)
+            factory = _make_specialist_factory(
+                cfg,
+                model,
+                budget,
+                thinking_lvl=thinking_lvl,
+                root_cause_ctx=root_cause_ctx,
             )
+            phase_2_coroutines.append(_agent_lifecycle_wrapper(cfg, factory(), 55, 13))
             phase_2_retry_factories.append(factory)
             # Create a simplified lifecycle wrapper for retries (without progress tracking)
-            phase_2_retry_configs.append({
-                "name": cfg.name,
-                "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(name, coro),
-            })
+            phase_2_retry_configs.append(
+                {
+                    "name": cfg.name,
+                    "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(
+                        name, coro
+                    ),
+                }
+            )
 
         phase_2_results = await self._run_parallel_specialists(
             tasks=phase_2_coroutines,
@@ -879,10 +914,16 @@ the root cause — focus on your specialty using these findings as ground truth.
         phase_2_result_map: dict[str, dict[str, Any]] = {}
         for i, cfg in enumerate(phase_2_specs):
             result = phase_2_results[i] if i < len(phase_2_results) else None
-            phase_2_result_map[cfg.name] = result if result is not None else {
-                "result_text": "", "structured_output": None,
-                "error": "Specialist did not complete", "msg_count": 0,
-            }
+            phase_2_result_map[cfg.name] = (
+                result
+                if result is not None
+                else {
+                    "result_text": "",
+                    "structured_output": None,
+                    "error": "Specialist did not complete",
+                    "msg_count": 0,
+                }
+            )
 
         # Combine all results
         all_results = {**phase_1_result_map, **phase_2_result_map}
@@ -900,7 +941,9 @@ the root cause — focus on your specialty using these findings as ground truth.
                             result["session_id"],
                         )
                     except Exception as e:
-                        logger.warning(f"Failed to save session ID for {config.name}: {e}")
+                        logger.warning(
+                            f"Failed to save session ID for {config.name}: {e}"
+                        )
 
         return all_results
 
@@ -1035,9 +1078,7 @@ the root cause — focus on your specialty using these findings as ground truth.
                 f"[Investigation] Failed to parse {name} output: {e}",
                 exc_info=True,
             )
-            safe_print(
-                f"[Investigation] {name}: schema validation failed: {e}"
-            )
+            safe_print(f"[Investigation] {name}: schema validation failed: {e}")
             return None
 
     def _generate_summary(

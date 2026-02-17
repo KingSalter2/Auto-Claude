@@ -19,7 +19,7 @@ export function BulkResultsPanel({
 
   return (
     <section
-      aria-label="Bulk operation results"
+      aria-label={t('bulk.actions')}
       className="rounded-md border border-border bg-card p-3 space-y-2"
     >
       {/* Summary */}
@@ -51,9 +51,9 @@ export function BulkResultsPanel({
               className="flex items-center gap-2 text-xs"
             >
               {item.status === 'success' ? (
-                <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-label="Success" />
+                <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-label={t('labels.success')} />
               ) : (
-                <X className="h-3.5 w-3.5 text-destructive" aria-label="Failed" />
+                <X className="h-3.5 w-3.5 text-destructive" aria-label={t('labels.error')} />
               )}
               <span>#{item.issueNumber}</span>
               {item.error && (

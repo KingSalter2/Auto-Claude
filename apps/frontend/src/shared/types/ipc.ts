@@ -825,6 +825,9 @@ export interface ElectronAPI {
   watchTaskLogs: (projectId: string, specId: string) => Promise<IPCResult>;
   unwatchTaskLogs: (specId: string) => Promise<IPCResult>;
 
+  // Investigation data operations
+  getInvestigationData: (taskId: string) => Promise<IPCResult<import('./investigation').InvestigationData | null>>;
+
   // Task logs event listeners
   onTaskLogsChanged: (
     callback: (specId: string, logs: TaskLogs) => void

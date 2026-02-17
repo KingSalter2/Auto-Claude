@@ -197,12 +197,12 @@ class ParallelAgentOrchestrator:
 
             # Get thinking budget - use explicit budget if provided, otherwise derive from thinking level
             if thinking_budget is not None:
-                thinking_kwargs = {
-                    "max_thinking_tokens": thinking_budget
-                }
+                thinking_kwargs = {"max_thinking_tokens": thinking_budget}
             else:
                 # Use per-specialist thinking level when provided
-                effective_thinking = thinking_level or self.config.thinking_level or "medium"
+                effective_thinking = (
+                    thinking_level or self.config.thinking_level or "medium"
+                )
                 thinking_kwargs = get_thinking_kwargs_for_model(
                     model, effective_thinking
                 )
@@ -235,7 +235,9 @@ class ParallelAgentOrchestrator:
             # Resume previous session if session ID provided
             if resume_session_id:
                 client.options.resume = resume_session_id
-                safe_print(f"[{log_name}] Resuming session: {resume_session_id[:20]}...")
+                safe_print(
+                    f"[{log_name}] Resuming session: {resume_session_id[:20]}..."
+                )
 
             # Add investigation Bash safety hook if agent has Bash access
             if "Bash" in config.tools:

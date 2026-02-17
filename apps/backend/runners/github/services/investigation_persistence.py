@@ -31,8 +31,12 @@ try:
     from .investigation_models import InvestigationReport, InvestigationState
 except (ImportError, ValueError, SystemError):
     from core.file_utils import atomic_write, write_json_atomic
+
     try:
-        from services.investigation_models import InvestigationReport, InvestigationState
+        from services.investigation_models import (
+            InvestigationReport,
+            InvestigationState,
+        )
     except (ImportError, ModuleNotFoundError):
         from investigation_models import InvestigationReport, InvestigationState
 
