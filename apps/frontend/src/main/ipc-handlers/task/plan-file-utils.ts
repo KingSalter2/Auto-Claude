@@ -38,7 +38,7 @@ async function withPlanLock<T>(planPath: string, operation: () => Promise<T>): P
   const currentLock = planLocks.get(planPath) || Promise.resolve();
 
   // Create a new promise that will resolve after our operation completes
-  let resolve: () => void;
+  let resolve: () => void = () => {};
   const newLock = new Promise<void>((r) => { resolve = r; });
   planLocks.set(planPath, newLock);
 
@@ -49,7 +49,7 @@ async function withPlanLock<T>(planPath: string, operation: () => Promise<T>): P
     return await operation();
   } finally {
     // Release the lock
-    resolve?.();
+    resolve();
     // Clean up if this was the last operation
     if (planLocks.get(planPath) === newLock) {
       planLocks.delete(planPath);

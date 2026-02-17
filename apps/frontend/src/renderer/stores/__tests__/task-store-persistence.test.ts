@@ -326,7 +326,7 @@ describe('task-store-persistence', () => {
     });
 
     it('should set loading state during IPC call', async () => {
-      let resolveGetTasks: (value: any) => void;
+      let resolveGetTasks: (value: any) => void = () => {};
       const getTasksPromise = new Promise((resolve) => {
         resolveGetTasks = resolve;
       });
@@ -340,7 +340,7 @@ describe('task-store-persistence', () => {
       expect(loadingState.isLoading).toBe(true);
 
       // Resolve the IPC call
-      resolveGetTasks?.({
+      resolveGetTasks({
         success: true,
         data: []
       });

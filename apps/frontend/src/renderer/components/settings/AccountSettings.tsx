@@ -154,6 +154,79 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     }
   }, []);
 
+  // Load priority order from settings
+  const loadPriorityOrder = async () => {
+    try {
+      const result = await window.electronAPI.getAccountPriorityOrder();
+      if (result.success && result.data) {
+        setPriorityOrder(result.data);
+      }
+    } catch (err) {
+      console.warn('[AccountSettings] Failed to load priority order:', err);
+    }
+  };
+
+  // Save priority order
+  const handlePriorityReorder = async (newOrder: string[]) => {
+    setPriorityOrder(newOrder);
+    setIsSavingPriority(true);
+    try {
+      await window.electronAPI.setAccountPriorityOrder(newOrder);
+    } catch (err) {
+      console.warn('[AccountSettings] Failed to save priority order:', err);
+      toast({
+        variant: 'destructive',
+        title: t('accounts.toast.settingsUpdateFailed'),
+        description: t('accounts.toast.tryAgain'),
+      });
+    } finally {
+      setIsSavingPriority(false);
+    }
+  };
+
+  // Load auto-switch settings
+  const loadAutoSwitchSettings = async () => {
+    setIsLoadingAutoSwitch(true);
+    try {
+      const result = await window.electronAPI.getAutoSwitchSettings();
+      if (result.success && result.data) {
+        setAutoSwitchSettings(result.data);
+      }
+    } catch (err) {
+      console.warn('[AccountSettings] Failed to load auto-switch settings:', err);
+    } finally {
+      setIsLoadingAutoSwitch(false);
+    }
+  };
+
+  // Load Claude profiles
+  const loadClaudeProfiles = async () => {
+    setIsLoadingProfiles(true);
+    try {
+      const result = await window.electronAPI.getClaudeProfiles();
+      if (result.success && result.data) {
+        setClaudeProfiles(result.data.profiles);
+        setActiveClaudeProfileId(result.data.activeProfileId);
+        await loadGlobalClaudeProfiles();
+      } else if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.loadProfilesFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
+      }
+    } catch (err) {
+      console.warn('[AccountSettings] Failed to load Claude profiles:', err);
+      toast({
+        variant: 'destructive',
+        title: t('accounts.toast.loadProfilesFailed'),
+        description: t('accounts.toast.tryAgain'),
+      });
+    } finally {
+      setIsLoadingProfiles(false);
+    }
+  };
+
   // Build unified accounts list from both OAuth and API profiles
   const buildUnifiedAccounts = useCallback((): UnifiedAccount[] => {
     const unifiedList: UnifiedAccount[] = [];
@@ -215,36 +288,6 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
 
   const unifiedAccounts = buildUnifiedAccounts();
 
-  // Load priority order from settings
-  const loadPriorityOrder = async () => {
-    try {
-      const result = await window.electronAPI.getAccountPriorityOrder();
-      if (result.success && result.data) {
-        setPriorityOrder(result.data);
-      }
-    } catch (err) {
-      console.warn('[AccountSettings] Failed to load priority order:', err);
-    }
-  };
-
-  // Save priority order
-  const handlePriorityReorder = async (newOrder: string[]) => {
-    setPriorityOrder(newOrder);
-    setIsSavingPriority(true);
-    try {
-      await window.electronAPI.setAccountPriorityOrder(newOrder);
-    } catch (err) {
-      console.warn('[AccountSettings] Failed to save priority order:', err);
-      toast({
-        variant: 'destructive',
-        title: t('accounts.toast.settingsUpdateFailed'),
-        description: t('accounts.toast.tryAgain'),
-      });
-    } finally {
-      setIsSavingPriority(false);
-    }
-  };
-
   // Load data when section is opened
   useEffect(() => {
     if (isOpen) {
@@ -256,7 +299,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
       loadProfileUsageData(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, loadProfileUsageData, loadAutoSwitchSettings, loadClaudeProfiles, loadPriorityOrder]);
+  }, [isOpen, loadProfileUsageData]);
 
   // Subscribe to usage updates for real-time data
   useEffect(() => {
@@ -276,33 +319,6 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
   // ============================================
   // Claude Code (OAuth) handlers
   // ============================================
-  const loadClaudeProfiles = async () => {
-    setIsLoadingProfiles(true);
-    try {
-      const result = await window.electronAPI.getClaudeProfiles();
-      if (result.success && result.data) {
-        setClaudeProfiles(result.data.profiles);
-        setActiveClaudeProfileId(result.data.activeProfileId);
-        await loadGlobalClaudeProfiles();
-      } else if (!result.success) {
-        toast({
-          variant: 'destructive',
-          title: t('accounts.toast.loadProfilesFailed'),
-          description: result.error || t('accounts.toast.tryAgain'),
-        });
-      }
-    } catch (err) {
-      console.warn('[AccountSettings] Failed to load Claude profiles:', err);
-      toast({
-        variant: 'destructive',
-        title: t('accounts.toast.loadProfilesFailed'),
-        description: t('accounts.toast.tryAgain'),
-      });
-    } finally {
-      setIsLoadingProfiles(false);
-    }
-  };
-
   const handleAddClaudeProfile = async () => {
     if (!newProfileName.trim()) return;
 
@@ -619,20 +635,6 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
   // ============================================
   // Auto-switch settings handlers (shared)
   // ============================================
-  const loadAutoSwitchSettings = async () => {
-    setIsLoadingAutoSwitch(true);
-    try {
-      const result = await window.electronAPI.getAutoSwitchSettings();
-      if (result.success && result.data) {
-        setAutoSwitchSettings(result.data);
-      }
-    } catch (err) {
-      console.warn('[AccountSettings] Failed to load auto-switch settings:', err);
-    } finally {
-      setIsLoadingAutoSwitch(false);
-    }
-  };
-
   const handleUpdateAutoSwitch = async (updates: Partial<ClaudeAutoSwitchSettings>) => {
     setIsLoadingAutoSwitch(true);
     try {

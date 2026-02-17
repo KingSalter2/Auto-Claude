@@ -70,22 +70,6 @@ export function GitHubIntegration({
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [branchesError, setBranchesError] = useState<string | null>(null);
 
-  // Fetch repos when entering oauth-success mode
-  useEffect(() => {
-    if (authMode === 'oauth-success') {
-      fetchUserRepos();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authMode, fetchUserRepos]);
-
-  // Fetch branches when GitHub is enabled and project path is available
-  useEffect(() => {
-    if (envConfig?.githubEnabled && projectPath) {
-      fetchBranches();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [envConfig?.githubEnabled, projectPath, fetchBranches]);
-
   /**
    * Handler for branch selection changes.
    * Updates BOTH project.settings.mainBranch (for Electron app) and envConfig.defaultBranch (for CLI backward compatibility).
@@ -169,6 +153,22 @@ export function GitHubIntegration({
       setIsLoadingRepos(false);
     }
   };
+
+  // Fetch repos when entering oauth-success mode
+  useEffect(() => {
+    if (authMode === 'oauth-success') {
+      fetchUserRepos();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authMode]);
+
+  // Fetch branches when GitHub is enabled and project path is available
+  useEffect(() => {
+    if (envConfig?.githubEnabled && projectPath) {
+      fetchBranches();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envConfig?.githubEnabled, projectPath]);
 
   // Build branch options for Combobox using shared utility
   // Must be called before early return to satisfy React hooks rules

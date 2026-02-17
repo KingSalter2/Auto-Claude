@@ -16,7 +16,7 @@ export async function withEnrichmentLock<T>(
 ): Promise<T> {
   const currentLock = enrichmentLocks.get(filePath) || Promise.resolve();
 
-  let resolve: () => void;
+  let resolve: () => void = () => {};
   const newLock = new Promise<void>((r) => {
     resolve = r;
   });
@@ -26,7 +26,7 @@ export async function withEnrichmentLock<T>(
     await currentLock;
     return await operation();
   } finally {
-    resolve?.();
+    resolve();
     if (enrichmentLocks.get(filePath) === newLock) {
       enrichmentLocks.delete(filePath);
     }

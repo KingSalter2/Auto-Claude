@@ -73,6 +73,17 @@ export function SDKRateLimitModal() {
     swappedTo?: string;
   } | null>(null);
 
+  const loadAutoSwitchSettings = async () => {
+    try {
+      const result = await window.electronAPI.getAutoSwitchSettings();
+      if (result.success && result.data) {
+        setAutoSwitchEnabled(result.data.autoSwitchOnRateLimit);
+      }
+    } catch (err) {
+      debugError('[SDKRateLimitModal] Failed to load auto-switch settings:', err);
+    }
+  };
+
   // Load profiles and auto-switch settings when modal opens
   useEffect(() => {
     if (isSDKModalOpen) {
@@ -95,7 +106,7 @@ export function SDKRateLimitModal() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSDKModalOpen, sdkRateLimitInfo, profiles, loadAutoSwitchSettings]);
+  }, [isSDKModalOpen, sdkRateLimitInfo, profiles]);
 
   // Reset selection when modal closes
   useEffect(() => {
@@ -106,17 +117,6 @@ export function SDKRateLimitModal() {
       setNewProfileName('');
     }
   }, [isSDKModalOpen]);
-
-  const loadAutoSwitchSettings = async () => {
-    try {
-      const result = await window.electronAPI.getAutoSwitchSettings();
-      if (result.success && result.data) {
-        setAutoSwitchEnabled(result.data.autoSwitchOnRateLimit);
-      }
-    } catch (err) {
-      debugError('[SDKRateLimitModal] Failed to load auto-switch settings:', err);
-    }
-  };
 
   const handleAutoSwitchToggle = async (enabled: boolean) => {
     setIsLoadingSettings(true);

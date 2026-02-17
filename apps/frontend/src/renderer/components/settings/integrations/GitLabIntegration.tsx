@@ -79,49 +79,6 @@ export function GitLabIntegration({
   debugLog('Render - projectPath:', projectPath);
   debugLog('Render - envConfig:', envConfig ? { gitlabEnabled: envConfig.gitlabEnabled, hasToken: !!envConfig.gitlabToken, defaultBranch: envConfig.defaultBranch } : null);
 
-  // Fetch projects when entering oauth-success mode
-  useEffect(() => {
-    if (authMode === 'oauth-success') {
-      fetchUserProjects();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authMode, fetchUserProjects]);
-
-  // Check glab CLI on mount
-  useEffect(() => {
-    const checkGlab = async () => {
-      setIsCheckingGlab(true);
-      try {
-        const result = await window.electronAPI.checkGitLabCli();
-        debugLog('checkGitLabCli result:', result);
-        if (result.success && result.data) {
-          setGlabInstalled(result.data.installed);
-          setGlabVersion(result.data.version || null);
-        } else {
-          setGlabInstalled(false);
-        }
-      } catch (error) {
-        debugLog('Error checking glab CLI:', error);
-        setGlabInstalled(false);
-      } finally {
-        setIsCheckingGlab(false);
-      }
-    };
-    checkGlab();
-  }, []);
-
-  // Fetch branches when GitLab is enabled and project path is available
-  useEffect(() => {
-    debugLog(`useEffect[branches] - gitlabEnabled: ${envConfig?.gitlabEnabled}, projectPath: ${projectPath}`);
-    if (envConfig?.gitlabEnabled && projectPath) {
-      debugLog('useEffect[branches] - Triggering fetchBranches');
-      fetchBranches();
-    } else {
-      debugLog('useEffect[branches] - Skipping fetchBranches (conditions not met)');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [envConfig?.gitlabEnabled, projectPath, fetchBranches]);
-
   /**
    * Handler for branch selection changes.
    * Updates BOTH project.settings.mainBranch (for Electron app) and envConfig.defaultBranch (for CLI backward compatibility).
@@ -205,6 +162,49 @@ export function GitLabIntegration({
       setIsLoadingProjects(false);
     }
   };
+
+  // Check glab CLI on mount
+  useEffect(() => {
+    const checkGlab = async () => {
+      setIsCheckingGlab(true);
+      try {
+        const result = await window.electronAPI.checkGitLabCli();
+        debugLog('checkGitLabCli result:', result);
+        if (result.success && result.data) {
+          setGlabInstalled(result.data.installed);
+          setGlabVersion(result.data.version || null);
+        } else {
+          setGlabInstalled(false);
+        }
+      } catch (error) {
+        debugLog('Error checking glab CLI:', error);
+        setGlabInstalled(false);
+      } finally {
+        setIsCheckingGlab(false);
+      }
+    };
+    checkGlab();
+  }, []);
+
+  // Fetch projects when entering oauth-success mode
+  useEffect(() => {
+    if (authMode === 'oauth-success') {
+      fetchUserProjects();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authMode]);
+
+  // Fetch branches when GitLab is enabled and project path is available
+  useEffect(() => {
+    debugLog(`useEffect[branches] - gitlabEnabled: ${envConfig?.gitlabEnabled}, projectPath: ${projectPath}`);
+    if (envConfig?.gitlabEnabled && projectPath) {
+      debugLog('useEffect[branches] - Triggering fetchBranches');
+      fetchBranches();
+    } else {
+      debugLog('useEffect[branches] - Skipping fetchBranches (conditions not met)');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [envConfig?.gitlabEnabled, projectPath]);
 
   if (!envConfig) {
     debugLog('No envConfig, returning null');
