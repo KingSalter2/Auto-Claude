@@ -70,7 +70,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
-  const tasks = useTaskStore((state) => state.tasks);
+  const tasks = useTaskStore((state) => state.tasks.filter(t => t.metadata?.githubIssueNumber));
   const debouncedTasks = useDebounce(tasks, 300); // Debounce by 300ms
 
   const {
