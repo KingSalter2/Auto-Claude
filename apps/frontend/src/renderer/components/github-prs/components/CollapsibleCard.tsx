@@ -59,7 +59,7 @@ export function CollapsibleCard({
           </div>
         </div>
       </CollapsibleTrigger>
-      <CollapsibleContent>
+      <CollapsibleContent className="min-w-0">
         {children}
       </CollapsibleContent>
     </Collapsible>

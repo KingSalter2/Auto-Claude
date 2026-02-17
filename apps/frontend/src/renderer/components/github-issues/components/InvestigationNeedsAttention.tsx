@@ -259,9 +259,9 @@ export function InvestigationNeedsAttention({
         </Button>
       ) : undefined}
     >
-      <div className="p-4 pt-0">
+      <div className="p-4 pt-0 min-w-0">
         {/* Vertical timeline — same pattern as ReviewStatusTree */}
-        <div className="relative pl-2 ml-2 border-l border-border/50 space-y-4 pt-4">
+        <div className="relative pl-2 ml-2 border-l border-border/50 space-y-4 pt-4 min-w-0">
           {steps.map((step) => (
             <div key={step.id} className="relative flex items-start gap-3 pl-4">
               {/* Node dot on the timeline line */}
@@ -323,7 +323,7 @@ export function InvestigationNeedsAttention({
       </div>
 
       {/* Action buttons — always visible */}
-      <div className="flex flex-wrap gap-2 mx-4 mb-4 pt-3 border-t border-border/50">
+      <div className="flex flex-wrap gap-2 mx-4 mb-4 pt-3 border-t border-border/50 min-w-0">
         {/* Dismiss */}
         {onDismissIssue && state !== 'done' && (
           <DropdownMenu>
