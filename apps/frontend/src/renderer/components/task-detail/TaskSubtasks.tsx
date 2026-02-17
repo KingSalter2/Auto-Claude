@@ -1,10 +1,10 @@
 import { CheckCircle2, Clock, XCircle, AlertCircle, ListChecks, FileCode } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { cn, calculateProgress } from '../../lib/utils';
 import type { Task } from '../../../shared/types';
-import { SUBTASK_TITLE_MAX_LENGTH } from '../../../shared/utils/subtask-title';
 
 interface TaskSubtasksProps {
   task: Task;
@@ -21,6 +21,51 @@ function getSubtaskStatusIcon(status: string) {
     default:
       return <AlertCircle className="h-4 w-4 text-muted-foreground" />;
   }
+}
+
+function OverflowDescription({ text }: { text: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  const checkOverflow = useCallback(() => {
+    const el = ref.current;
+    if (el) {
+      setIsOverflowing(el.scrollHeight > el.clientHeight);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+    const observer = new ResizeObserver(checkOverflow);
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+    return () => observer.disconnect();
+  }, [checkOverflow, text]);
+
+  if (isOverflowing) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="mt-1 text-xs text-muted-foreground line-clamp-2 text-left break-words w-full cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
+          >
+            {text}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="max-w-sm">
+          <p className="text-xs">{text}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <p ref={ref} className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
+      {text}
+    </p>
+  );
 }
 
 export function TaskSubtasks({ task }: TaskSubtasksProps) {
@@ -74,25 +119,7 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                     </span>
                   </div>
                   {subtask.description && subtask.description !== subtask.title && (
-                    subtask.description.length > SUBTASK_TITLE_MAX_LENGTH ? (
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <button
-                            type="button"
-                            className="mt-1 text-xs text-muted-foreground line-clamp-2 text-left break-words w-full cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
-                          >
-                            {subtask.description}
-                          </button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-sm">
-                          <p className="text-xs">{subtask.description}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
-                        {subtask.description}
-                      </p>
-                    )
+                    <OverflowDescription text={subtask.description} />
                   )}
                   {subtask.files && subtask.files.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1">

@@ -4,13 +4,17 @@
  */
 export const SUBTASK_TITLE_MAX_LENGTH = 80;
 
+// Common abbreviations that end with a period but don't end a sentence
+const ABBREVIATIONS = /(?:Dr|Mr|Ms|Mrs|Jr|Sr|Prof|St|vs|etc|e\.g|i\.e|a\.m|p\.m|no|vol|dept|est|approx|incl|govt|corp|assn|bros|co|ltd|inc)$/i;
+
 /**
  * Extract a concise title from a subtask description.
  *
  * Strategy:
  * 1. Return '' for empty/undefined input (lets i18n fallback activate in UI)
  * 2. If description fits within maxLength, return as-is
- * 3. Try extracting the first sentence (split on '. ' or ': ' or terminal period)
+ * 3. Try extracting the first sentence (split on '. ' or ': ' or terminal period),
+ *    skipping splits on common abbreviations (Dr., e.g., etc.)
  * 4. If first sentence fits, return it (strip trailing period)
  * 5. Otherwise truncate at last word boundary and append ellipsis
  */
@@ -21,14 +25,22 @@ export function extractSubtaskTitle(description: string | undefined | null, maxL
 
   const trimmed = description.trim();
 
-  // First, try to extract first sentence via '. ', ': ', or period+newline
-  const sentenceMatch = trimmed.match(/^(.+?)(?:\.(?:\s|\n)|:\s)/);
-  if (sentenceMatch) {
-    const sentence = sentenceMatch[1].trim();
+  // Try to extract first sentence via '. ', ': ', or period+newline,
+  // skipping splits on common abbreviations
+  const boundaryPattern = /(?:\.\s|:\s)/g;
+  let match: RegExpExecArray | null;
+  while ((match = boundaryPattern.exec(trimmed)) !== null) {
+    const prefix = trimmed.substring(0, match.index);
+    // Skip if the period follows a common abbreviation
+    if (match[0].startsWith('.') && ABBREVIATIONS.test(prefix)) {
+      continue;
+    }
+    const sentence = prefix.trim();
     if (sentence.length > 0 && sentence.length <= maxLength) {
       return sentence;
     }
-    // If first sentence is too long, fall through to word-boundary truncation
+    // First real sentence boundary found but too long - fall through to truncation
+    break;
   }
 
   // Handle single sentence ending with terminal period (strip it if it's the only sentence)

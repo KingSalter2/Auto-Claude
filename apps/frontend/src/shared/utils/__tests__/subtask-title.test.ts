@@ -35,7 +35,7 @@ describe('extractSubtaskTitle', () => {
       const desc = 'This is a very long description that does not have any sentence boundaries and keeps going on and on without stopping at all';
       const result = extractSubtaskTitle(desc);
       expect(result.endsWith('\u2026')).toBe(true);
-      expect(result.length).toBeLessThanOrEqual(81); // 80 + ellipsis char
+      expect(result.length).toBeLessThanOrEqual(80); // content + ellipsis char within maxLength
       // Should end with a space before the truncation point (word boundary)
       const withoutEllipsis = result.slice(0, -1);
       expect(desc.charAt(withoutEllipsis.length)).toMatch(/\s/);
@@ -84,7 +84,7 @@ describe('extractSubtaskTitle', () => {
       const desc = 'This is a medium length description that exceeds forty characters';
       const result = extractSubtaskTitle(desc, 40);
       // Should truncate since > 40 chars
-      expect(result.length).toBeLessThanOrEqual(41);
+      expect(result.length).toBeLessThanOrEqual(40);
     });
 
     it('should return short description as-is with large maxLength', () => {
@@ -109,12 +109,39 @@ describe('extractSubtaskTitle', () => {
       const result = extractSubtaskTitle(desc);
       // Should truncate at word boundary since sentence is too long
       expect(result.endsWith('\u2026')).toBe(true);
-      expect(result.length).toBeLessThanOrEqual(81);
+      expect(result.length).toBeLessThanOrEqual(80);
     });
 
     it('should handle period followed by newline', () => {
       const desc = 'Fix the login button.\nThen update the tests.';
       expect(extractSubtaskTitle(desc)).toBe('Fix the login button');
+    });
+  });
+
+  describe('abbreviation handling', () => {
+    it('should not split on "Dr. " abbreviation', () => {
+      const desc = 'Dr. Smith should fix the login button styling issue';
+      expect(extractSubtaskTitle(desc)).toBe(desc);
+    });
+
+    it('should not split on "e.g. " abbreviation', () => {
+      const desc = 'Use a framework e.g. React for building the component';
+      expect(extractSubtaskTitle(desc)).toBe(desc);
+    });
+
+    it('should not split on "i.e. " abbreviation', () => {
+      const desc = 'Fix the main module i.e. the auth handler for the app';
+      expect(extractSubtaskTitle(desc)).toBe(desc);
+    });
+
+    it('should split on real sentence boundary after abbreviation', () => {
+      const desc = 'Dr. Smith fixed the bug. Then we deployed the application to production servers and ran the full test suite.';
+      expect(extractSubtaskTitle(desc)).toBe('Dr. Smith fixed the bug');
+    });
+
+    it('should not split on "etc. " abbreviation', () => {
+      const desc = 'Update icons, fonts, etc. to match the new design system specifications';
+      expect(extractSubtaskTitle(desc)).toBe(desc);
     });
   });
 
