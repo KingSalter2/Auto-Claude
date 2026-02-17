@@ -47,6 +47,23 @@ import { useToast } from "../hooks/use-toast";
 import type { GitHubIssue, InvestigationState, InvestigationDismissReason, SuggestedLabel } from "../../shared/types";
 import type { GitHubIssuesProps } from "./github-issues/types";
 
+// Debounce hook for high-frequency updates
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesProps) {
   const { t } = useTranslation("common");
   const { toast } = useToast();
@@ -54,6 +71,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const tasks = useTaskStore((state) => state.tasks);
+  const debouncedTasks = useDebounce(tasks, 300); // Debounce by 300ms
 
   const {
     syncStatus,
@@ -399,12 +417,12 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
 
     // Build a set of specIds from current tasks for fast lookup
     const taskSpecIds = new Set<string>();
-    for (const task of tasks) {
+    for (const task of debouncedTasks) {
       const specId = task.specId || task.id;
       if (specId) taskSpecIds.add(specId);
     }
 
-    for (const task of tasks) {
+    for (const task of debouncedTasks) {
       const issueNumber = task.metadata?.githubIssueNumber;
       if (!issueNumber || !task.status) continue;
 
@@ -424,7 +442,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         investigationStore.clearLinkedTask(projectId, inv.issueNumber);
       }
     }
-  }, [tasks, selectedProject?.id, investigationStore]);
+  }, [debouncedTasks, selectedProject?.id, investigationStore]);
 
   // Auto-close GitHub issues when linked task reaches "done" and autoCloseIssues is enabled
   const autoClosedRef = useRef<Set<number>>(new Set());
