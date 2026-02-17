@@ -44,7 +44,6 @@ import {
 } from "./ui/alert-dialog";
 import { useMutationStore } from "../stores/github/mutation-store";
 import { useToast } from "../hooks/use-toast";
-import { useRenderCount } from "../hooks/useRenderCount";
 import type { GitHubIssue, InvestigationState, InvestigationDismissReason, SuggestedLabel } from "../../shared/types";
 import type { GitHubIssuesProps } from "./github-issues/types";
 
@@ -68,9 +67,6 @@ function useDebounce<T>(value: T, delay: number): T {
 export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesProps) {
   const { t } = useTranslation("common");
   const { toast } = useToast();
-
-  // Performance monitoring (dev only) - always call hook, it exits early in prod
-  useRenderCount('GitHubIssues', 5000);
 
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);

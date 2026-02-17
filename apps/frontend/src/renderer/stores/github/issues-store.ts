@@ -1,4 +1,4 @@
-import { createWithEqualityFn } from 'zustand/traditional';
+import { create } from 'zustand';
 import type { GitHubIssue } from '@shared/types';
 
 export type IssueFilterState = 'open' | 'closed' | 'all';
@@ -39,7 +39,7 @@ interface IssuesState {
   getOpenIssuesCount: () => number;
 }
 
-export const useIssuesStore = createWithEqualityFn<IssuesState>((set, get) => ({
+export const useIssuesStore = create<IssuesState>((set, get) => ({
   // Initial state
   issues: [],
   isLoading: false,

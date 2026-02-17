@@ -51,9 +51,6 @@ export {
   checkGitHubConnection
 } from './sync-status-store';
 
-// Utilities
-export { shallow } from '../utils';
-
 /**
  * Initialize all global GitHub listeners.
  * Call this once at app startup.
