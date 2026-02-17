@@ -505,8 +505,32 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         issue_comments: list[str],
         project_root: Path,
     ) -> str:
-        """Build the issue context string injected into all specialist prompts."""
+        """Build the issue context string injected into all specialist prompts.
+
+        Extracts and lists any image URLs found in the issue body or comments.
+        """
         labels_str = ", ".join(issue_labels) if issue_labels else "(none)"
+
+        # Extract image URLs from issue body
+        body_images = extract_image_urls(issue_body)
+
+        # Extract image URLs from comments
+        comment_images: set[str] = set()
+        for comment in issue_comments:
+            comment_images.update(extract_image_urls(comment))
+
+        # Combine all images (deduplicated via set)
+        all_images = sorted(set(body_images) | comment_images)
+
+        # Build images section if any were found
+        images_section = ""
+        if all_images:
+            images_list = "\n".join(f"- {url}" for url in all_images[:20])  # Limit to 20 images
+            images_section = f"""
+
+### Images ({len(all_images)} found)
+{images_list}
+"""
 
         comments_section = ""
         if issue_comments:
@@ -528,7 +552,7 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
 
 **Title:** {issue_title}
 **Labels:** {labels_str}
-
+{images_section}
 ### Description
 {issue_body or "(No description provided)"}
 {comments_section}
