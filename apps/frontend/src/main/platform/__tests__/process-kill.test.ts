@@ -84,21 +84,28 @@ describe('killProcessGracefully', () => {
       mockPlatform('win32');
     });
 
-    it('calls process.kill() without signal argument', () => {
+    it('spawns taskkill immediately for graceful kill', () => {
       killProcessGracefully(mockProcess);
-      expect(mockProcess.kill).toHaveBeenCalledWith();
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'C:\\Windows\\System32\\taskkill.exe',
+        ['/pid', '12345', '/t'],
+        expect.objectContaining({
+          stdio: 'ignore',
+          detached: false
+        })
+      );
     });
 
-    it('schedules taskkill as fallback after timeout', () => {
+    it('schedules force taskkill as fallback after timeout', () => {
       killProcessGracefully(mockProcess);
 
-      // Verify taskkill not called yet
-      expect(mockSpawn).not.toHaveBeenCalled();
+      // Verify first taskkill (graceful) was called
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
 
       // Advance past the timeout
       vi.advanceTimersByTime(GRACEFUL_KILL_TIMEOUT_MS);
 
-      // Verify taskkill was called with correct arguments
+      // Verify force taskkill was called with correct arguments
       expect(mockSpawn).toHaveBeenCalledWith(
         'C:\\Windows\\System32\\taskkill.exe',
         ['/pid', '12345', '/f', '/t'],
@@ -109,7 +116,7 @@ describe('killProcessGracefully', () => {
       );
     });
 
-    it('skips taskkill if process exits before timeout', () => {
+    it('skips force taskkill if process exits before timeout', () => {
       killProcessGracefully(mockProcess);
 
       // Simulate process exit before timeout
@@ -118,12 +125,12 @@ describe('killProcessGracefully', () => {
       // Advance past the timeout
       vi.advanceTimersByTime(GRACEFUL_KILL_TIMEOUT_MS);
 
-      // Verify taskkill was NOT called
-      expect(mockSpawn).not.toHaveBeenCalled();
+      // Verify only graceful taskkill was called, not force
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
     });
 
     it('runs taskkill even if .kill() throws (Issue #1 fix)', () => {
-      // Make .kill() throw an error
+      // Make .kill() throw an error - though Windows no longer calls .kill()
       (mockProcess.kill as ReturnType<typeof vi.fn>).mockImplementation(() => {
         throw new Error('Process already dead');
       });
@@ -131,10 +138,17 @@ describe('killProcessGracefully', () => {
       // Should not throw
       expect(() => killProcessGracefully(mockProcess)).not.toThrow();
 
+      // Graceful taskkill should have been called immediately
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'C:\\Windows\\System32\\taskkill.exe',
+        ['/pid', '12345', '/t'],
+        expect.any(Object)
+      );
+
       // Advance past the timeout
       vi.advanceTimersByTime(GRACEFUL_KILL_TIMEOUT_MS);
 
-      // taskkill should still be called - this is the key assertion for Issue #1
+      // Force taskkill should also be called as fallback
       expect(mockSpawn).toHaveBeenCalledWith(
         'C:\\Windows\\System32\\taskkill.exe',
         ['/pid', '12345', '/f', '/t'],
@@ -232,13 +246,16 @@ describe('killProcessGracefully', () => {
       const customTimeout = 1000;
       killProcessGracefully(mockProcess, { timeoutMs: customTimeout });
 
-      // Should not trigger at default timeout
-      vi.advanceTimersByTime(customTimeout - 1);
-      expect(mockSpawn).not.toHaveBeenCalled();
+      // Graceful taskkill should be called immediately
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
 
-      // Should trigger at custom timeout
+      // Force taskkill should not be called before custom timeout
+      vi.advanceTimersByTime(customTimeout - 1);
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
+
+      // Force taskkill should trigger at custom timeout
       vi.advanceTimersByTime(1);
-      expect(mockSpawn).toHaveBeenCalled();
+      expect(mockSpawn).toHaveBeenCalledTimes(2);
     });
 
     it('logs debug messages when debug is enabled', () => {
@@ -251,7 +268,7 @@ describe('killProcessGracefully', () => {
 
       expect(warnSpy).toHaveBeenCalledWith(
         '[TestPrefix]',
-        'Graceful kill signal sent'
+        'Graceful kill signal sent (taskkill /t)'
       );
 
       warnSpy.mockRestore();
@@ -329,15 +346,18 @@ describe('killProcessGracefully', () => {
 
       killProcessGracefully(mockProcess);
 
+      // Graceful taskkill should have been called immediately
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
+
       // Simulate process error before timeout
       mockProcess.emit('error', new Error('spawn failed'));
 
       // clearTimeout should have been called
       expect(clearTimeoutSpy).toHaveBeenCalled();
 
-      // Advance past timeout - should not call taskkill
+      // Advance past timeout - should not call force taskkill (still only 1 call)
       vi.advanceTimersByTime(GRACEFUL_KILL_TIMEOUT_MS);
-      expect(mockSpawn).not.toHaveBeenCalled();
+      expect(mockSpawn).toHaveBeenCalledTimes(1);
 
       clearTimeoutSpy.mockRestore();
     });

@@ -2,16 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import fs from 'fs';
 
 // Mock child_process
-const mockExecFileSync = vi.fn();
+const mockSpawnCalls: Array<{ command: string; args: string[]; options: unknown }> = [];
+let mockSpawnOutput = 'https://github.com/owner/repo/issues/42\n';
+let mockSpawnShouldFail = false;
 
-// Create a mock ChildProcess for spawn
-const createMockChildProcess = (output: string) => {
+const mockSpawn = vi.fn((command: string, args: string[], options: unknown) => {
+  mockSpawnCalls.push({ command, args, options });
   const mockProcess = {
     stdout: {
       on: vi.fn((event, callback) => {
         if (event === 'data') {
-          // Call callback with data in next tick
-          process.nextTick(() => callback(output));
+          process.nextTick(() => callback(mockSpawnOutput));
         }
         return mockProcess.stdout;
       }),
@@ -21,19 +22,27 @@ const createMockChildProcess = (output: string) => {
     },
     on: vi.fn((event, callback) => {
       if (event === 'close') {
-        // Call callback with exit code 0 in next tick
-        process.nextTick(() => callback(0));
+        process.nextTick(() => {
+          if (mockSpawnShouldFail) {
+            callback(1);
+          } else {
+            callback(0);
+          }
+        });
+      } else if (event === 'error') {
+        if (mockSpawnShouldFail) {
+          process.nextTick(() => callback(new Error('gh: authentication required')));
+        }
       }
       return mockProcess;
     }),
+    unref: vi.fn(),
   };
-
   return mockProcess;
-};
+});
 
 vi.mock('child_process', () => ({
-  execFileSync: (...args: unknown[]) => mockExecFileSync(...args),
-  spawn: () => createMockChildProcess('https://github.com/owner/repo/issues/42\n'),
+  spawn: (...args: unknown[]) => mockSpawn(...args),
 }));
 
 // Mock electron
@@ -104,6 +113,9 @@ const handlers: Record<string, HandleHandlerFn> = {};
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockSpawnCalls.length = 0;
+  mockSpawnOutput = 'https://github.com/owner/repo/issues/42\n';
+  mockSpawnShouldFail = false;
 
   (ipcMain.handle as ReturnType<typeof vi.fn>).mockImplementation(
     (channel: string, handler: HandleHandlerFn) => {
@@ -119,8 +131,6 @@ const call = (projectId: string, params: { title: string; body: string; labels?:
 
 describe('createIssue handler', () => {
   it('creates issue with title and body via temp file', async () => {
-    mockExecFileSync.mockReturnValue(Buffer.from('https://github.com/owner/repo/issues/42\n'));
-
     const result = await call('test-project', {
       title: 'New Bug',
       body: 'Bug description',
@@ -132,35 +142,33 @@ describe('createIssue handler', () => {
   });
 
   it('creates issue with labels', async () => {
-    mockExecFileSync.mockReturnValue(Buffer.from('https://github.com/owner/repo/issues/10\n'));
-
     await call('test-project', {
       title: 'Feature',
       body: 'Feature description',
       labels: ['enhancement', 'priority:high'],
     });
 
-    const ghArgs = mockExecFileSync.mock.calls[0][1] as string[];
-    expect(ghArgs).toContain('--label');
-    expect(ghArgs).toContain('enhancement,priority:high');
+    const spawnCall = mockSpawnCalls.find(c => c.args.includes('--label'));
+    expect(spawnCall).toBeDefined();
+    expect(spawnCall?.args).toContain('--label');
+    expect(spawnCall?.args).toContain('enhancement,priority:high');
   });
 
   it('creates issue with assignees', async () => {
-    mockExecFileSync.mockReturnValue(Buffer.from('https://github.com/owner/repo/issues/11\n'));
-
     await call('test-project', {
       title: 'Task',
       body: 'Task body',
       assignees: ['user1', 'user2'],
     });
 
-    const ghArgs = mockExecFileSync.mock.calls[0][1] as string[];
-    expect(ghArgs).toContain('--assignee');
-    expect(ghArgs).toContain('user1,user2');
+    const spawnCall = mockSpawnCalls.find(c => c.args.includes('--assignee'));
+    expect(spawnCall).toBeDefined();
+    expect(spawnCall?.args).toContain('--assignee');
+    expect(spawnCall?.args).toContain('user1,user2');
   });
 
   it('returns issue number and URL from gh CLI output', async () => {
-    mockExecFileSync.mockReturnValue(Buffer.from('https://github.com/myorg/myrepo/issues/99\n'));
+    mockSpawnOutput = 'https://github.com/myorg/myrepo/issues/99\n';
 
     const result = await call('test-project', {
       title: 'Test',
@@ -186,9 +194,7 @@ describe('createIssue handler', () => {
   });
 
   it('handles gh CLI error', async () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw new Error('gh: authentication required');
-    });
+    mockSpawnShouldFail = true;
 
     await expect(call('test-project', {
       title: 'Test',
@@ -197,17 +203,13 @@ describe('createIssue handler', () => {
   });
 
   it('cleans up temp file on success', async () => {
-    mockExecFileSync.mockReturnValue(Buffer.from('https://github.com/o/r/issues/1\n'));
-
     await call('test-project', { title: 'Test', body: 'Body' });
 
     expect(fs.unlinkSync).toHaveBeenCalled();
   });
 
   it('cleans up temp file on failure', async () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw new Error('Failed');
-    });
+    mockSpawnShouldFail = true;
 
     try {
       await call('test-project', { title: 'Test', body: 'Body' });

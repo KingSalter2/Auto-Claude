@@ -3,13 +3,41 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { I18nextProvider } from 'react-i18next';
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
 import { AssigneeManager } from '../AssigneeManager';
 
 const collaborators = ['alice', 'bob', 'charlie'];
 
+// Create test i18n instance
+const testI18n = i18n.createInstance();
+testI18n.use(initReactI18next).init({
+  lng: 'en',
+  fallbackLng: 'en',
+  defaultNS: 'common',
+  ns: ['common'],
+  resources: {
+    en: {
+      common: {
+        'assignees.title': 'Assignees',
+        'assignees.manage': 'Manage assignees',
+        'assignees.assign': 'Assign',
+        'assignees.unassign': 'Unassign',
+        'assignees.search': 'Search collaborators...',
+        'assignees.noMatch': 'No matching collaborators'
+      }
+    }
+  }
+});
+
+function renderWithI18n(ui: React.ReactElement) {
+  return render(<I18nextProvider i18n={testI18n}>{ui}</I18nextProvider>);
+}
+
 describe('AssigneeManager', () => {
   it('renders current assignees', () => {
-    render(
+    renderWithI18n(
       <AssigneeManager
         currentAssignees={[
           { login: 'alice', avatarUrl: 'https://example.com/alice.png' },
@@ -26,7 +54,7 @@ describe('AssigneeManager', () => {
 
   it('remove button fires onRemoveAssignee', () => {
     const onRemoveAssignee = vi.fn();
-    render(
+    const { container } = renderWithI18n(
       <AssigneeManager
         currentAssignees={[{ login: 'alice' }]}
         collaborators={collaborators}
@@ -34,14 +62,15 @@ describe('AssigneeManager', () => {
         onRemoveAssignee={onRemoveAssignee}
       />,
     );
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Remove assignee alice' }),
-    );
+    // Find the button by aria-label (the component uses 'Unassign' as aria-label)
+    const button = container.querySelector('button[aria-label="Unassign"]');
+    expect(button).not.toBeNull();
+    fireEvent.click(button!);
     expect(onRemoveAssignee).toHaveBeenCalledWith('alice');
   });
 
   it('assign button opens dropdown', () => {
-    render(
+    renderWithI18n(
       <AssigneeManager
         currentAssignees={[]}
         collaborators={collaborators}
@@ -56,7 +85,7 @@ describe('AssigneeManager', () => {
 
   it('selecting fires onAddAssignee', () => {
     const onAddAssignee = vi.fn();
-    render(
+    renderWithI18n(
       <AssigneeManager
         currentAssignees={[]}
         collaborators={collaborators}
@@ -71,7 +100,7 @@ describe('AssigneeManager', () => {
 
   it('Enter key on option fires onAddAssignee', () => {
     const onAddAssignee = vi.fn();
-    render(
+    renderWithI18n(
       <AssigneeManager
         currentAssignees={[]}
         collaborators={collaborators}
@@ -87,7 +116,7 @@ describe('AssigneeManager', () => {
 
   it('Space key on option fires onAddAssignee', () => {
     const onAddAssignee = vi.fn();
-    render(
+    renderWithI18n(
       <AssigneeManager
         currentAssignees={[]}
         collaborators={collaborators}
@@ -102,7 +131,7 @@ describe('AssigneeManager', () => {
   });
 
   it('Escape key closes dropdown', () => {
-    render(
+    renderWithI18n(
       <AssigneeManager
         currentAssignees={[]}
         collaborators={collaborators}
@@ -119,7 +148,7 @@ describe('AssigneeManager', () => {
 
   it('Enter key does not fire onAddAssignee for already-assigned user', () => {
     const onAddAssignee = vi.fn();
-    render(
+    renderWithI18n(
       <AssigneeManager
         currentAssignees={[{ login: 'alice' }]}
         collaborators={collaborators}
@@ -134,7 +163,7 @@ describe('AssigneeManager', () => {
   });
 
   it('aria-label present on container', () => {
-    const { container } = render(
+    const { container } = renderWithI18n(
       <AssigneeManager
         currentAssignees={[]}
         collaborators={collaborators}
@@ -142,7 +171,7 @@ describe('AssigneeManager', () => {
         onRemoveAssignee={vi.fn()}
       />,
     );
-    const el = container.querySelector('[aria-label="Assignee manager"]');
+    const el = container.querySelector('[aria-label="Manage assignees"]');
     expect(el).not.toBeNull();
   });
 });
