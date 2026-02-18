@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock, XCircle, AlertCircle, ListChecks, FileCode } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '../ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -24,37 +24,29 @@ function getSubtaskStatusIcon(status: string) {
 }
 
 function OverflowDescription({ text }: { text: string }) {
-  const ref = useRef<HTMLElement>(null);
+  const ref = useRef<HTMLParagraphElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
 
-  const checkOverflow = useCallback(() => {
-    const el = ref.current;
-    if (el) {
-      setIsOverflowing(el.scrollHeight > el.clientHeight);
-    }
-  }, []);
-
   useEffect(() => {
-    checkOverflow();
-    const observer = new ResizeObserver(checkOverflow);
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setIsOverflowing(el.scrollHeight > el.clientHeight);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
     return () => observer.disconnect();
-  }, [checkOverflow, text, isOverflowing]);
+  }, [text]);
+
+  const content = (
+    <p ref={ref} className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
+      {text}
+    </p>
+  );
 
   if (isOverflowing) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            ref={ref as React.RefObject<HTMLButtonElement | null>}
-            type="button"
-            className="mt-1 text-xs text-muted-foreground line-clamp-2 text-left break-words w-full cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
-          >
-            {text}
-          </button>
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{content}</TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-sm">
           <p className="text-xs">{text}</p>
         </TooltipContent>
@@ -62,11 +54,7 @@ function OverflowDescription({ text }: { text: string }) {
     );
   }
 
-  return (
-    <p ref={ref as React.RefObject<HTMLParagraphElement | null>} className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
-      {text}
-    </p>
-  );
+  return content;
 }
 
 export function TaskSubtasks({ task }: TaskSubtasksProps) {

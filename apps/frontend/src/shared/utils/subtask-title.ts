@@ -25,6 +25,19 @@ export function extractSubtaskTitle(description: string | undefined | null, maxL
 
   const trimmed = description.trim();
 
+  // Short enough — return as-is unless the string contains a period-whitespace
+  // sentence boundary (e.g. "Sentence one.\nSentence two."), in which case we
+  // still extract the first sentence.  Colon-space (": ") alone is NOT treated
+  // as a sentence boundary for short strings to avoid splitting title-style
+  // prefixes like "Fix: do the thing".
+  if (trimmed.length <= maxLength && !/\.\s/.test(trimmed)) {
+    if (/\.\s*$/.test(trimmed)) {
+      const stripped = trimmed.replace(/\.\s*$/, '');
+      if (!ABBREVIATIONS.test(stripped)) return stripped;
+    }
+    return trimmed;
+  }
+
   // Try to extract first sentence via '. ', ': ', or period+newline,
   // skipping splits on common abbreviations
   const boundaryPattern = /(?:\.\s|:\s)/g;
@@ -51,6 +64,8 @@ export function extractSubtaskTitle(description: string | undefined | null, maxL
     }
   }
 
+  // Short enough — return as-is (abbreviation periods kept the string out of
+  // the early-return path above, but no real sentence boundary was found)
   if (trimmed.length <= maxLength) {
     return trimmed;
   }
