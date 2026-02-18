@@ -49,7 +49,9 @@ export function extractSubtaskTitle(description: string | undefined | null, maxL
   while ((match = boundaryPattern.exec(trimmed)) !== null) {
     const prefix = trimmed.substring(0, match.index);
     // Skip colon-space for short strings (title-style prefixes like "Fix: do the thing")
-    if (match[0].startsWith(':') && trimmed.length <= maxLength) {
+    // Also skip if the prefix before the colon is too short (< 15 chars), which would
+    // produce a degenerate/meaningless title (e.g. "Fix" from "Fix: align the items...").
+    if (match[0].startsWith(':') && (trimmed.length <= maxLength || prefix.trim().length < 15)) {
       continue;
     }
     // Skip if the period follows a common abbreviation
