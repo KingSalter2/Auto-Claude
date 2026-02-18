@@ -1,49 +1,48 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import fs from 'fs';
 
-// Mock child_process
+// Mock child_process - must be at top level due to hoisting
 const mockSpawnCalls: Array<{ command: string; args: string[]; options: unknown }> = [];
 let mockSpawnOutput = 'https://github.com/owner/repo/issues/42\n';
 let mockSpawnShouldFail = false;
 
-const mockSpawn = vi.fn((command: string, args: string[], options: unknown) => {
-  mockSpawnCalls.push({ command, args, options });
-  const mockProcess = {
-    stdout: {
-      on: vi.fn((event, callback) => {
-        if (event === 'data') {
-          process.nextTick(() => callback(mockSpawnOutput));
-        }
-        return mockProcess.stdout;
-      }),
-    },
-    stderr: {
-      on: vi.fn().mockReturnThis(),
-    },
-    on: vi.fn((event, callback) => {
-      if (event === 'close') {
-        process.nextTick(() => {
-          if (mockSpawnShouldFail) {
-            callback(1);
-          } else {
-            callback(0);
+vi.mock('child_process', async () => {
+  return {
+    spawn: vi.fn((command: string, args: string[], options: unknown) => {
+      mockSpawnCalls.push({ command, args, options });
+
+      const mockProcess = {
+        stdout: {
+          on: vi.fn((event: string, callback: (data: unknown) => void) => {
+            if (event === 'data') {
+              process.nextTick(() => callback(mockSpawnOutput));
+            }
+          }),
+        },
+        stderr: {
+          on: vi.fn().mockReturnThis(),
+        },
+        on: vi.fn((event: string, callback: (code: unknown) => void) => {
+          if (event === 'close') {
+            process.nextTick(() => {
+              if (mockSpawnShouldFail) {
+                callback(1);
+              } else {
+                callback(0);
+              }
+            });
+          } else if (event === 'error') {
+            if (mockSpawnShouldFail) {
+              process.nextTick(() => callback(new Error('gh: authentication required')));
+            }
           }
-        });
-      } else if (event === 'error') {
-        if (mockSpawnShouldFail) {
-          process.nextTick(() => callback(new Error('gh: authentication required')));
-        }
-      }
+        }),
+        unref: vi.fn(),
+      };
+
       return mockProcess;
     }),
-    unref: vi.fn(),
   };
-  return mockProcess;
 });
-
-vi.mock('child_process', () => ({
-  spawn: (...args: unknown[]) => mockSpawn(...args),
-}));
 
 // Mock electron
 vi.mock('electron', () => ({
@@ -106,6 +105,7 @@ vi.mock('path', () => ({
 
 import { ipcMain } from 'electron';
 import { registerIssueCreateHandler } from '../issue-create-handler';
+import fs from 'fs';
 
 // Collect registered handlers
 type HandleHandlerFn = (event: unknown, ...args: unknown[]) => Promise<unknown>;
@@ -214,7 +214,7 @@ describe('createIssue handler', () => {
     try {
       await call('test-project', { title: 'Test', body: 'Body' });
     } catch {
-            // Expected
+      // Expected
     }
 
     expect(fs.unlinkSync).toHaveBeenCalled();
