@@ -34,26 +34,22 @@ function OverflowDescription({ text }: { text: string }) {
     const observer = new ResizeObserver(check);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [el]);
+  }, [el, text]);
 
-  const content = (
-    <p ref={setEl} className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
-      {text}
-    </p>
-  );
-
-  if (isOverflowing) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{content}</TooltipTrigger>
+  return (
+    <Tooltip open={isOverflowing ? undefined : false}>
+      <TooltipTrigger asChild>
+        <p ref={setEl} className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
+          {text}
+        </p>
+      </TooltipTrigger>
+      {isOverflowing && (
         <TooltipContent side="bottom" className="max-w-sm">
           <p className="text-xs">{text}</p>
         </TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return content;
+      )}
+    </Tooltip>
+  );
 }
 
 export function TaskSubtasks({ task }: TaskSubtasksProps) {

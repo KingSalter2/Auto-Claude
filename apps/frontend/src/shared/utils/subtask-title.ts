@@ -25,6 +25,8 @@ export function extractSubtaskTitle(description: string | undefined | null, maxL
     return '';
   }
 
+  if (maxLength < 1) return '';
+
   const trimmed = description.trim();
 
   // Short enough — return as-is unless the string contains a period-whitespace
