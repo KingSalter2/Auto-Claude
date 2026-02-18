@@ -41,7 +41,7 @@ function OverflowDescription({ text }: { text: string }) {
       observer.observe(ref.current);
     }
     return () => observer.disconnect();
-  }, [checkOverflow, text]);
+  }, [checkOverflow, text, isOverflowing]);
 
   if (isOverflowing) {
     return (
