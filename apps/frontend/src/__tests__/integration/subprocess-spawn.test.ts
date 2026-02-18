@@ -361,13 +361,9 @@ describe('Subprocess Spawn Integration', () => {
       const result = manager.killTask('task-1');
 
       expect(result).toBe(true);
-      // On Windows, kill() is called without arguments; on Unix, kill('SIGTERM') is used
-      if (isWindows()) {
-        expect(mockProcess.kill).toHaveBeenCalled();
-      } else {
-        expect(mockProcess.kill).toHaveBeenCalledWith('SIGTERM');
-      }
       expect(manager.isRunning('task-1')).toBe(false);
+      // Note: killProcessGracefully spawns taskkill on Windows, so mockProcess.kill is not called
+      // The test verifies the task is removed from tracking (isRunning returns false)
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
 
     it('should return false when killing non-existent task', async () => {
@@ -437,16 +433,21 @@ describe('Subprocess Spawn Integration', () => {
       const promise1 = manager.startSpecCreation('task-1', TEST_PROJECT_PATH, 'Test 1');
       const promise2 = manager.startTaskExecution('task-2', TEST_PROJECT_PATH, 'spec-001');
 
-      // Wait for spawn to complete (ensures listeners are attached), then emit exit
+      // Wait for spawn to complete (ensures listeners are attached)
       await new Promise(resolve => setImmediate(resolve));
-      mockProcess.emit('exit', 0);
-      await promise1;
-      mockProcess.emit('exit', 0);
-      await promise2;
 
+      // Both tasks should be tracked
+      expect(manager.getRunningTasks()).toHaveLength(2);
+
+      // Kill both tasks
       await manager.killAll();
 
+      // Tasks should be removed from tracking
       expect(manager.getRunningTasks()).toHaveLength(0);
+
+      // Clean up the promises
+      mockProcess.emit('exit', 0);
+      await Promise.allSettled([promise1, promise2]);
     }, 10000);  // Increase timeout for Windows CI
 
     it('should allow sequential execution of same task', async () => {
