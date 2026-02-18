@@ -1,5 +1,6 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import react from '@vitejs/plugin-react';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { resolve } from 'path';
 import { config as dotenvConfig } from 'dotenv';
 
@@ -21,38 +22,72 @@ const sentryDefines = {
   '__SENTRY_PROFILES_SAMPLE_RATE__': JSON.stringify(process.env.SENTRY_PROFILES_SAMPLE_RATE || '0.1'),
 };
 
+/**
+ * Sentry source map upload configuration.
+ *
+ * Uploads source maps during CI builds so production stack traces are readable.
+ * Only activates when SENTRY_AUTH_TOKEN is set (CI builds via GitHub secrets).
+ * Source maps are NOT shipped to users — they're uploaded to Sentry then stripped.
+ */
+const hasSentryUploadConfig = !!(
+  process.env.SENTRY_AUTH_TOKEN &&
+  process.env.SENTRY_ORG &&
+  process.env.SENTRY_PROJECT
+);
+
+function createSentryPlugin() {
+  if (!hasSentryUploadConfig) {
+    return [];
+  }
+  return [
+    sentryVitePlugin({
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      sourcemaps: {
+        filesToDeleteAfterUpload: ['**/*.js.map'],
+      },
+      telemetry: false,
+    }),
+  ];
+}
+
 export default defineConfig({
   main: {
     define: sentryDefines,
-    plugins: [externalizeDepsPlugin({
-      // Bundle these packages into the main process (they won't be in node_modules in packaged app)
-      exclude: [
-        'uuid',
-        'chokidar',
-        'dotenv',
-        'electron-log',
-        'proper-lockfile',
-        'semver',
-        'zod',
-        '@anthropic-ai/sdk',
-        'kuzu',
-        'electron-updater',
-        '@electron-toolkit/utils',
-        // Sentry and its transitive dependencies (opentelemetry -> debug -> ms)
-        '@sentry/electron',
-        '@sentry/core',
-        '@sentry/node',
-        '@sentry/utils',
-        '@opentelemetry/instrumentation',
-        'debug',
-        'ms',
-        // Minimatch for glob pattern matching in worktree handlers
-        'minimatch',
-        // XState for task state machine
-        'xstate'
-      ]
-    })],
+    plugins: [
+      externalizeDepsPlugin({
+        // Bundle these packages into the main process (they won't be in node_modules in packaged app)
+        exclude: [
+          'uuid',
+          'chokidar',
+          'dotenv',
+          'electron-log',
+          'proper-lockfile',
+          'semver',
+          'zod',
+          '@anthropic-ai/sdk',
+          'kuzu',
+          'electron-updater',
+          '@electron-toolkit/utils',
+          // Sentry and its transitive dependencies (opentelemetry -> debug -> ms)
+          '@sentry/electron',
+          '@sentry/core',
+          '@sentry/node',
+          '@sentry/utils',
+          '@opentelemetry/instrumentation',
+          'debug',
+          'ms',
+          // Minimatch for glob pattern matching in worktree handlers
+          'minimatch',
+          // XState for task state machine
+          'xstate'
+        ]
+      }),
+      ...createSentryPlugin(),
+    ],
     build: {
+      sourcemap: true,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
@@ -76,13 +111,14 @@ export default defineConfig({
     define: sentryDefines,
     root: resolve(__dirname, 'src/renderer'),
     build: {
+      sourcemap: true,
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'src/renderer/index.html')
         }
       }
     },
-    plugins: [react()],
+    plugins: [react(), ...createSentryPlugin()],
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src/renderer'),

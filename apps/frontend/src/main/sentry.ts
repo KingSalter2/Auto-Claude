@@ -13,7 +13,7 @@
  */
 
 import * as Sentry from '@sentry/electron/main';
-import { app, ipcMain } from 'electron';
+import { app, crashReporter, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import { readSettingsFile } from './settings-utils';
 import { DEFAULT_APP_SETTINGS } from '../shared/constants';
 import { IPC_CHANNELS } from '../shared/constants/ipc';
@@ -141,6 +141,31 @@ export function initSentryMain(): void {
     enabled: shouldEnable,
   });
 
+  // Start Electron's native crash reporter for catching GPU process crashes,
+  // native module segfaults (node-pty, etc.), and V8 snapshot failures.
+  // Sentry's JS-level handlers can't catch these — they require minidump ingestion.
+  if (shouldEnable) {
+    try {
+      // Extract the public key and project ID from the DSN
+      // DSN format: https://<public_key>@<host>/<project_id>
+      const dsnUrl = new URL(cachedDsn);
+      const publicKey = dsnUrl.username;
+      const projectId = dsnUrl.pathname.slice(1);
+      const sentryHost = dsnUrl.hostname;
+
+      if (publicKey && projectId) {
+        crashReporter.start({
+          submitURL: `https://${sentryHost}/api/${projectId}/minidump/?sentry_key=${publicKey}`,
+          uploadToServer: true,
+          compress: true,
+        });
+        console.log('[Sentry] Native crash reporter started (minidump ingestion)');
+      }
+    } catch (error) {
+      console.warn('[Sentry] Failed to start native crash reporter:', error);
+    }
+  }
+
   // Listen for settings changes from renderer process
   ipcMain.on(IPC_CHANNELS.SENTRY_STATE_CHANGED, (_event, enabled: boolean) => {
     sentryEnabledState = enabled;
@@ -198,6 +223,34 @@ export function safeCaptureException(error: Error, context?: SentryCaptureContex
   try {
     Sentry.captureException(error, context);
   } catch { /* Sentry not initialized */ }
+}
+
+/**
+ * Wrap an ipcMain.handle callback with automatic Sentry error capture.
+ *
+ * Catches any errors thrown by the handler, reports them to Sentry with
+ * the IPC channel name as a tag, then re-throws so the renderer still
+ * receives the error.
+ *
+ * Usage:
+ * ```typescript
+ * ipcMain.handle('my-channel', withSentryIpc('my-channel', async (event, arg) => {
+ *   return await doSomething(arg);
+ * }));
+ * ```
+ */
+export function withSentryIpc<T>(
+  channel: string,
+  handler: (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<T>
+): (event: IpcMainInvokeEvent, ...args: unknown[]) => Promise<T> {
+  return async (event: IpcMainInvokeEvent, ...args: unknown[]): Promise<T> => {
+    try {
+      return await handler(event, ...args);
+    } catch (error) {
+      safeCaptureException(error as Error, { tags: { ipc_channel: channel } });
+      throw error;
+    }
+  };
 }
 
 /**
