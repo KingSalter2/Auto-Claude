@@ -143,6 +143,11 @@ describe('extractSubtaskTitle', () => {
       const desc = 'Update icons, fonts, etc. to match the new design system specifications';
       expect(extractSubtaskTitle(desc)).toBe(desc);
     });
+
+    it('should strip trailing period while preserving abbreviation periods', () => {
+      const desc = 'Talk to Dr. Jones.';
+      expect(extractSubtaskTitle(desc)).toBe('Talk to Dr. Jones');
+    });
   });
 
   describe('degenerate truncation cases', () => {

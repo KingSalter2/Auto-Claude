@@ -24,7 +24,7 @@ function getSubtaskStatusIcon(status: string) {
 }
 
 function OverflowDescription({ text }: { text: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
+  const ref = useRef<HTMLElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
 
   const checkOverflow = useCallback(() => {
@@ -48,6 +48,7 @@ function OverflowDescription({ text }: { text: string }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <button
+            ref={ref as React.RefObject<HTMLButtonElement | null>}
             type="button"
             className="mt-1 text-xs text-muted-foreground line-clamp-2 text-left break-words w-full cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded"
           >
@@ -62,7 +63,7 @@ function OverflowDescription({ text }: { text: string }) {
   }
 
   return (
-    <p ref={ref} className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
+    <p ref={ref as React.RefObject<HTMLParagraphElement | null>} className="mt-1 text-xs text-muted-foreground line-clamp-2 break-words">
       {text}
     </p>
   );

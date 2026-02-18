@@ -43,13 +43,12 @@ export function extractSubtaskTitle(description: string | undefined | null, maxL
     break;
   }
 
-  // Handle single sentence ending with terminal period (strip it if it's the only sentence)
-  if (trimmed.endsWith('.') && !trimmed.includes('. ') && !trimmed.includes(':\n') && !trimmed.includes('.\n') && !trimmed.includes(': ')) {
-    const withoutPeriod = trimmed.slice(0, -1);
-    if (withoutPeriod.length <= maxLength) {
-      return withoutPeriod;
+  // Strip trailing period if it ends the only sentence (not an abbreviation)
+  if (/\.\s*$/.test(trimmed)) {
+    const stripped = trimmed.replace(/\.\s*$/, '');
+    if (!ABBREVIATIONS.test(stripped) && stripped.length <= maxLength) {
+      return stripped;
     }
-    // Continue to truncation logic below if sentence is too long even without period
   }
 
   if (trimmed.length <= maxLength) {
@@ -60,7 +59,7 @@ export function extractSubtaskTitle(description: string | undefined | null, maxL
   const truncated = trimmed.substring(0, maxLength);
   const lastSpace = truncated.lastIndexOf(' ');
 
-  // Reserve space for ellipsis when truncating
+  // Truncate at last word boundary and append ellipsis
   if (lastSpace > 0) {
     return `${trimmed.substring(0, lastSpace)}\u2026`;
   }
