@@ -73,17 +73,13 @@ export function writeSettingsFile(settings: Record<string, unknown>): void {
 export async function readSettingsFileAsync(): Promise<Record<string, unknown> | undefined> {
   const settingsPath = getSettingsPath();
 
-  try {
-    await fsPromises.access(settingsPath);
-  } catch {
-          return undefined;
-  }
-
+  // Direct read attempt to avoid TOCTOU race condition
   try {
     const content = await fsPromises.readFile(settingsPath, 'utf-8');
     return JSON.parse(content);
-  } catch {
-          // Return undefined on parse error - caller will use defaults
+  } catch (error: unknown) {
+    // ENOENT = file doesn't exist, return undefined
+    // Other errors also return undefined - caller will use defaults
     return undefined;
   }
 }

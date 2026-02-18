@@ -517,9 +517,8 @@ Report findings with specific file paths, line numbers, and code evidence.
                 result = SpecialistResponse.model_validate(structured_output)
 
                 for f in result.findings:
-                    finding_id = hashlib.md5(
+                    finding_id = hashlib.sha256(
                         f"{f.file}:{f.line}:{f.title}".encode(),
-                        usedforsecurity=False,
                     ).hexdigest()[:12]
 
                     category = map_category(f.category)
@@ -593,9 +592,8 @@ Report findings with specific file paths, line numbers, and code evidence.
                 line = f.get("line", 0) or 0
                 title = f.get("title", "Unknown issue")
 
-                finding_id = hashlib.md5(
+                finding_id = hashlib.sha256(
                     f"{file_path}:{line}:{title}".encode(),
-                    usedforsecurity=False,
                 ).hexdigest()[:12]
 
                 category = map_category(f.get("category", "quality"))
@@ -890,9 +888,8 @@ The SDK will run invoked agents in parallel automatically.
         Returns:
             PRReviewFinding instance
         """
-        finding_id = hashlib.md5(
+        finding_id = hashlib.sha256(
             f"{finding_data.file}:{finding_data.line}:{finding_data.title}".encode(),
-            usedforsecurity=False,
         ).hexdigest()[:12]
 
         category = map_category(finding_data.category)
@@ -1430,9 +1427,8 @@ The SDK will run invoked agents in parallel automatically.
         Returns:
             PRReviewFinding instance
         """
-        finding_id = hashlib.md5(
+        finding_id = hashlib.sha256(
             f"{f_data.get('file', 'unknown')}:{f_data.get('line', 0)}:{f_data.get('title', 'Untitled')}".encode(),
-            usedforsecurity=False,
         ).hexdigest()[:12]
 
         category = map_category(f_data.get("category", "quality"))

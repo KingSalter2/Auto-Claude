@@ -85,3 +85,8 @@ def __getattr__(name: str) -> object:
             _loaded[name] = getattr(module, attr_name)
         return _loaded[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    """Expose lazy imports in dir() and for static analysis."""
+    return list(_LAZY_IMPORTS.keys())

@@ -930,9 +930,12 @@ async function autoPostInvestigationToGitHub(
 
     // Persist githubCommentId and postedAt to investigation state file
     const stateFile = path.join(project.path, '.auto-claude', 'issues', `${issueNumber}`, 'investigation_state.json');
-    const existingState: Record<string, unknown> = fs.existsSync(stateFile)
-      ? JSON.parse(fs.readFileSync(stateFile, 'utf-8'))
-      : {};
+    let existingState: Record<string, unknown> = {};
+    try {
+      existingState = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+    } catch {
+      // File doesn't exist or is invalid - start with empty state
+    }
     fs.writeFileSync(stateFile, JSON.stringify({
       ...existingState,
       github_comment_id: postResult.commentId,
@@ -1286,9 +1289,12 @@ async function runInvestigation(
         const issueStateDir = path.join(project.path, '.auto-claude', 'issues', `${issueNumber}`);
         fs.mkdirSync(issueStateDir, { recursive: true });
         const stateFile = path.join(issueStateDir, 'investigation_state.json');
-        const existingState: Record<string, unknown> = fs.existsSync(stateFile)
-          ? JSON.parse(fs.readFileSync(stateFile, 'utf-8'))
-          : {};
+        let existingState: Record<string, unknown> = {};
+        try {
+          existingState = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+        } catch {
+          // File doesn't exist or is invalid - start with empty state
+        }
         fs.writeFileSync(stateFile, JSON.stringify({
           ...existingState,
           issue_number: issueNumber,
@@ -1852,11 +1858,18 @@ export function registerInvestigationHandlers(
             const planPath = path.join(existingSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
 
             try {
-              if (fs.existsSync(planPath)) {
+              // Try to read and update the plan - handle missing file gracefully
+              try {
                 const plan = JSON.parse(fs.readFileSync(planPath, 'utf-8'));
                 plan.description = taskDescription;
                 plan.updated_at = new Date().toISOString();
                 fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+              } catch (readErr) {
+                // Plan file doesn't exist or can't be read - skip update
+                debugLog('Plan file not found or invalid, skipping update', {
+                  specId: existingSpecId,
+                  error: readErr instanceof Error ? readErr.message : String(readErr),
+                });
               }
             } catch (updateErr) {
               debugLog('Failed to update existing spec plan', {
@@ -1912,9 +1925,12 @@ export function registerInvestigationHandlers(
 
           // Persist spec_id to investigation state file so the UI knows a task was created
           const stateFile = path.join(project.path, '.auto-claude', 'issues', `${issueNumber}`, 'investigation_state.json');
-          const existingState: Record<string, unknown> = fs.existsSync(stateFile)
-            ? JSON.parse(fs.readFileSync(stateFile, 'utf-8'))
-            : {};
+          let existingState: Record<string, unknown> = {};
+          try {
+            existingState = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+          } catch {
+            // File doesn't exist or is invalid - start with empty state
+          }
           fs.writeFileSync(stateFile, JSON.stringify({
             ...existingState,
             spec_id: specData.specId,
@@ -2070,9 +2086,12 @@ export function registerInvestigationHandlers(
 
           // Persist githubCommentId and postedAt to investigation state file
           const stateFile = path.join(project.path, '.auto-claude', 'issues', `${issueNumber}`, 'investigation_state.json');
-          const existingState: Record<string, unknown> = fs.existsSync(stateFile)
-            ? JSON.parse(fs.readFileSync(stateFile, 'utf-8'))
-            : {};
+          let existingState: Record<string, unknown> = {};
+          try {
+            existingState = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
+          } catch {
+            // File doesn't exist or is invalid - start with empty state
+          }
           fs.writeFileSync(stateFile, JSON.stringify({
             ...existingState,
             github_comment_id: postResult.commentId,

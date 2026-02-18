@@ -10,6 +10,7 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { execFileSync } from 'child_process';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
@@ -41,13 +42,15 @@ const MAX_TEMP_FILE_SIZE = 65_536; // Match GitHub's limit
 
 /**
  * Write content to a temp file, returning the path.
+ * Uses crypto.randomBytes for secure unique filename generation.
  * Caller is responsible for cleanup via cleanupTempFile.
  */
 function writeTempFile(prefix: string, content: string): string {
   if (Buffer.byteLength(content, 'utf-8') > MAX_TEMP_FILE_SIZE) {
     throw new Error(`Content exceeds maximum size of ${MAX_TEMP_FILE_SIZE} bytes`);
   }
-  const tmpPath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const randomSuffix = crypto.randomBytes(8).toString('hex');
+  const tmpPath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${randomSuffix}`);
   fs.writeFileSync(tmpPath, content, 'utf-8');
   return tmpPath;
 }

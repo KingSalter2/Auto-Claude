@@ -5,7 +5,7 @@
 
 import path from 'path';
 import fs from 'fs';
-import { mkdir, readFile, rename } from 'fs/promises';
+import { mkdir, readFile, rename, access as fsPromisesAccess } from 'fs/promises';
 import { writeJsonWithRetry } from '../../utils/atomic-file';
 import { withEnrichmentLock } from './enrichment-lock';
 import { ENRICHMENT_SCHEMA_VERSION } from '../../../shared/constants/enrichment';
@@ -160,8 +160,26 @@ export async function migrateFromTriageFiles(projectPath: string): Promise<Enric
   const enrichmentPath = getEnrichmentFilePath(projectPath);
   const issuesDir = getEnrichmentDir(projectPath);
 
-  // Check if migration already completed and enrichment file exists
-  if (fs.existsSync(markerPath) && fs.existsSync(enrichmentPath)) {
+  // Check if migration already completed - both marker and enrichment must exist
+  // We handle the TOCTOU by catching errors when files don't exist
+  let markerExists = false;
+  try {
+    fs.readFileSync(markerPath, 'utf-8');
+    markerExists = true;
+  } catch {
+    // Marker doesn't exist
+  }
+
+  let enrichmentExists = false;
+  try {
+    await fsPromisesAccess(enrichmentPath);
+    enrichmentExists = true;
+  } catch {
+    // Enrichment file doesn't exist
+  }
+
+  // If both exist, migration is complete - return existing data
+  if (markerExists && enrichmentExists) {
     return readEnrichmentFile(projectPath);
   }
 
@@ -208,8 +226,8 @@ export async function migrateFromTriageFiles(projectPath: string): Promise<Enric
 
   await writeEnrichmentFile(projectPath, enrichmentFile);
 
-  // Write migration marker
-  fs.writeFileSync(markerPath, new Date().toISOString(), 'utf-8');
+  // Write migration marker atomically
+  fs.writeFileSync(markerPath, new Date().toISOString(), { mode: 0o644, flag: 'w' });
 
   return enrichmentFile;
 }

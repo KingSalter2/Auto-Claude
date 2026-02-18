@@ -8,6 +8,7 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { spawn } from 'child_process';
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -25,9 +26,11 @@ const MAX_TITLE_LENGTH = 256;
 
 /**
  * Write content to a temp file and return the path.
+ * Uses crypto.randomBytes for secure unique filename generation.
  */
 function writeTempFile(prefix: string, content: string): string {
-  const tmpPath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const randomSuffix = crypto.randomBytes(8).toString('hex');
+  const tmpPath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${randomSuffix}`);
   fs.writeFileSync(tmpPath, content, 'utf-8');
   return tmpPath;
 }
