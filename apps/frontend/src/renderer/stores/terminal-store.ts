@@ -125,6 +125,12 @@ const AUTO_RESUME_INITIAL_DELAY_MS = 1500;
 const AUTO_RESUME_STAGGER_MS = 500;
 
 // Auto-resume queue state (single-threaded JS assumption - see processAutoResumeQueue)
+//
+// Mutex invariant: The active-terminal effect (which triggers enqueueAutoResume) and
+// processAutoResumeQueue / resumeAllPendingClaude are mutually coordinated through
+// clearAutoResumeQueue(). When a project switch or "Resume All" occurs, clearAutoResumeQueue()
+// cancels any pending timer, empties the queue, and bumps autoResumeGeneration to abort
+// any in-flight processing run. This ensures only one resumption path is active at a time.
 let autoResumeQueue: string[] = [];
 let autoResumeTimer: ReturnType<typeof setTimeout> | null = null;
 let autoResumeProcessing = false;
@@ -674,13 +680,14 @@ export const useTerminalStore = create<TerminalState>((set, get) => ({
     }
     isResumingAll = true;
 
-    // Capture generation BEFORE clearAutoResumeQueue() bumps it, so this call
-    // doesn't immediately invalidate itself, but CAN be cancelled by external calls
-    const generation = autoResumeGeneration;
-
     try {
       // Clear auto-resume queue to prevent redundant processing
       clearAutoResumeQueue();
+
+      // Capture generation AFTER clearAutoResumeQueue() bumps it, so this call
+      // doesn't immediately self-cancel, but CAN be cancelled by subsequent external
+      // calls to clearAutoResumeQueue() (e.g., project switch)
+      const generation = autoResumeGeneration;
 
       const state = get();
 
