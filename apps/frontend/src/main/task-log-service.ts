@@ -446,6 +446,16 @@ export class TaskLogService extends EventEmitter {
       debugLog('[TaskLogService.stopWatching] Stopping watch for spec:', specId);
       clearInterval(interval);
       this.pollIntervals.delete(specId);
+
+      // Clean up cacheVersions for the watched paths to prevent stale version counters
+      const watchedInfo = this.watchedPaths.get(specId);
+      if (watchedInfo) {
+        this.cacheVersions.delete(watchedInfo.mainSpecDir);
+        if (watchedInfo.worktreeSpecDir) {
+          this.cacheVersions.delete(watchedInfo.worktreeSpecDir);
+        }
+      }
+
       this.watchedPaths.delete(specId);
     }
   }
@@ -530,6 +540,7 @@ export class TaskLogService extends EventEmitter {
    */
   clearCache(specDir: string): void {
     this.logCache.delete(specDir);
+    this.cacheVersions.delete(specDir);
   }
 
   /**
