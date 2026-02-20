@@ -63,7 +63,7 @@ def _estimate_complexity(subtask: dict | None) -> str:
 
 def _get_staleness(obs: Observation) -> float:
     """Get staleness score from observation metadata. Defaults to 0.0 (fresh)."""
-    return float(obs.metadata.get("staleness", 0.0))
+    return float(obs.metadata.get("staleness_score", 0.0))
 
 
 def _is_pinned(obs: Observation) -> bool:

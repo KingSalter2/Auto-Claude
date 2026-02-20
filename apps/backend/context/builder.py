@@ -34,6 +34,31 @@ class ContextBuilder:
         self.categorizer = FileCategorizer()
         self.pattern_discoverer = PatternDiscoverer(self.project_dir)
 
+    def _get_observation_block(
+        self,
+        project_id: str | None = None,
+        spec_id: str | None = None,
+        subtask: dict | None = None,
+    ) -> str:
+        """Get observer memory observation block if enabled.
+
+        Shared helper used by both sync and async context builders.
+        """
+        if not is_observer_enabled():
+            return ""
+        try:
+            _project_id = project_id or str(self.project_dir)
+            _spec_id = spec_id or ""
+            return get_observations_context(
+                project_id=_project_id,
+                spec_id=_spec_id,
+                project_dir=str(self.project_dir),
+                subtask=subtask,
+            )
+        except Exception:
+            # Observer is optional - fail gracefully
+            return ""
+
     def _load_project_index(self) -> dict:
         """Load project index from file or create new one (.auto-claude is the installed instance)."""
         index_file = self.project_dir / ".auto-claude" / "project_index.json"
@@ -132,20 +157,7 @@ class ContextBuilder:
                 graph_hints = []
 
         # Get observer memory observations
-        observation_block = ""
-        if is_observer_enabled():
-            try:
-                _project_id = project_id or str(self.project_dir)
-                _spec_id = spec_id or ""
-                observation_block = get_observations_context(
-                    project_id=_project_id,
-                    spec_id=_spec_id,
-                    project_dir=str(self.project_dir),
-                    subtask=subtask,
-                )
-            except Exception:
-                # Observer is optional - fail gracefully
-                observation_block = ""
+        observation_block = self._get_observation_block(project_id, spec_id, subtask)
 
         return TaskContext(
             task_description=task,
@@ -233,20 +245,7 @@ class ContextBuilder:
             graph_hints = await fetch_graph_hints(task, str(self.project_dir))
 
         # Get observer memory observations
-        observation_block = ""
-        if is_observer_enabled():
-            try:
-                _project_id = project_id or str(self.project_dir)
-                _spec_id = spec_id or ""
-                observation_block = get_observations_context(
-                    project_id=_project_id,
-                    spec_id=_spec_id,
-                    project_dir=str(self.project_dir),
-                    subtask=subtask,
-                )
-            except Exception:
-                # Observer is optional - fail gracefully
-                observation_block = ""
+        observation_block = self._get_observation_block(project_id, spec_id, subtask)
 
         return TaskContext(
             task_description=task,

@@ -70,11 +70,12 @@ def _publish_event(
         # event_bus.publish is a coroutine but we fire-and-forget
         import asyncio
 
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
+        try:
+            loop = asyncio.get_running_loop()
             loop.create_task(event_bus.publish(event))
-        else:
-            loop.run_until_complete(event_bus.publish(event))
+        except RuntimeError:
+            # No running event loop — create one
+            asyncio.run(event_bus.publish(event))
     except Exception:
         logger.debug("Failed to publish observer event: %s", event_type, exc_info=True)
 
@@ -101,8 +102,12 @@ async def start_observer(
             logger.debug("Observer disabled via config")
             return None
 
+        import hashlib
+
         event_bus = SessionEventBus()
-        store = ObservationStore(project_id)
+        project_hash = hashlib.sha256(project_id.encode()).hexdigest()[:12]
+        base_dir = Path.home() / ".auto-claude" / "observations" / project_hash
+        store = ObservationStore(base_dir)
         agent = ObserverAgent(
             config=config,
             event_bus=event_bus,
@@ -113,7 +118,9 @@ async def start_observer(
             project_dir=project_dir,
         )
         task = asyncio.create_task(agent.run())
-        logger.info("Observer agent started for spec=%s session=%d", spec_id, session_num)
+        logger.info(
+            "Observer agent started for spec=%s session=%d", spec_id, session_num
+        )
         return event_bus, agent, task
     except Exception:
         logger.warning("Failed to start observer agent", exc_info=True)
@@ -135,9 +142,7 @@ async def stop_observer(
         try:
             from observer.models import SessionEvent
 
-            end_event = SessionEvent(
-                event_type="session_end", data={}, source="agent"
-            )
+            end_event = SessionEvent(event_type="session_end", data={}, source="agent")
             await event_bus.publish(end_event)
         except Exception:
             logger.debug("Failed to publish session_end event", exc_info=True)
@@ -146,7 +151,9 @@ async def stop_observer(
         try:
             await asyncio.wait_for(task, timeout=timeout)
         except asyncio.TimeoutError:
-            logger.warning("Observer task did not finish within %.1fs, cancelling", timeout)
+            logger.warning(
+                "Observer task did not finish within %.1fs, cancelling", timeout
+            )
             task.cancel()
             try:
                 await task
@@ -625,10 +632,16 @@ async def run_agent_session(
                             )
                         # Publish to observer event bus
                         if event_bus and block.text.strip():
-                            _publish_event(event_bus, "assistant_text", {
-                                "text": block.text[:2000],
-                                "phase": phase.value,
-                            })
+                            from observer.security import redact_secrets
+
+                            _publish_event(
+                                event_bus,
+                                "assistant_text",
+                                {
+                                    "text": redact_secrets(block.text[:2000]),
+                                    "phase": phase.value,
+                                },
+                            )
                     elif block_type == "ToolUseBlock" and hasattr(block, "name"):
                         tool_name = block.name
                         tool_input_display = None
@@ -682,11 +695,15 @@ async def run_agent_session(
 
                         # Publish tool call to observer event bus
                         if event_bus:
-                            _publish_event(event_bus, "tool_call", {
-                                "tool_name": tool_name,
-                                "tool_input": tool_input_display,
-                                "phase": phase.value,
-                            })
+                            _publish_event(
+                                event_bus,
+                                "tool_call",
+                                {
+                                    "tool_name": tool_name,
+                                    "tool_input": tool_input_display,
+                                    "phase": phase.value,
+                                },
+                            )
 
             # Handle UserMessage (tool results)
             elif msg_type == "UserMessage" and hasattr(msg, "content"):
@@ -770,12 +787,20 @@ async def run_agent_session(
 
                         # Publish tool result to observer event bus
                         if event_bus and current_tool:
-                            _publish_event(event_bus, "tool_result", {
-                                "tool_name": current_tool,
-                                "is_error": is_error,
-                                "result": str(result_content)[:2000],
-                                "phase": phase.value,
-                            })
+                            from observer.security import redact_secrets
+
+                            _publish_event(
+                                event_bus,
+                                "tool_result",
+                                {
+                                    "tool_name": current_tool,
+                                    "is_error": is_error,
+                                    "result": redact_secrets(
+                                        str(result_content)[:2000]
+                                    ),
+                                    "phase": phase.value,
+                                },
+                            )
 
                         current_tool = None
 

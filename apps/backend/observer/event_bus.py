@@ -40,6 +40,8 @@ class SessionEventBus:
     def __init__(self, maxsize: int = 10000) -> None:
         self._queue: asyncio.Queue[SessionEvent] = asyncio.Queue(maxsize=maxsize)
         self._stats = EventBusStats()
+        # Shadow list for peek semantics without relying on asyncio.Queue internals
+        self._buffered: list[SessionEvent] = []
 
     async def publish(self, event: dict[str, Any] | SessionEvent) -> None:
         """Publish an event to the bus (non-blocking).
@@ -59,6 +61,7 @@ class SessionEventBus:
 
         try:
             self._queue.put_nowait(event)
+            self._buffered.append(event)
             self._stats.events_published += 1
         except asyncio.QueueFull:
             self._stats.events_dropped += 1
@@ -76,6 +79,11 @@ class SessionEventBus:
         """
         while True:
             event = await self._queue.get()
+            # Remove from shadow list (first matching instance)
+            try:
+                self._buffered.remove(event)
+            except ValueError:
+                pass
             yield event
 
     async def drain(self) -> list[SessionEvent]:
@@ -90,19 +98,19 @@ class SessionEventBus:
                 events.append(self._queue.get_nowait())
             except asyncio.QueueEmpty:
                 break
+        self._buffered.clear()
         return events
 
     def get_buffered_events(self) -> list[SessionEvent]:
         """Peek at all currently buffered events without removing them.
 
-        Note: This accesses the internal queue deque directly for
-        peek semantics. The returned list is a snapshot.
+        Returns a snapshot of events currently in the queue using
+        a shadow list (avoids accessing private asyncio.Queue internals).
 
         Returns:
             List of events currently in the queue.
         """
-        # asyncio.Queue stores items in _queue (a collections.deque)
-        return list(self._queue._queue)  # type: ignore[attr-defined]
+        return list(self._buffered)
 
     def qsize(self) -> int:
         """Return the number of events currently in the queue."""

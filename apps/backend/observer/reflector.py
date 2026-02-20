@@ -63,15 +63,32 @@ class SimpleReflector:
         Observations are compared pairwise within the same category. When a
         duplicate pair is found the older observation is dropped.
 
+        Partitions by category first for O(n*k) complexity instead of O(n^2),
+        where k is the max observations in a single category.
+
         Returns a new list (input is not mutated).
         """
-        # Sort newest-first so the first occurrence we keep is the newest
-        sorted_obs = sorted(observations, key=lambda o: o.timestamp, reverse=True)
-        kept: list[Observation] = []
+        from collections import defaultdict
 
-        for obs in sorted_obs:
-            if not any(self.is_duplicate(obs, existing) for existing in kept):
-                kept.append(obs)
+        # Partition by category to avoid cross-category comparisons
+        by_category: dict[str, list[Observation]] = defaultdict(list)
+        for obs in observations:
+            cat_key = (
+                obs.category.value
+                if hasattr(obs.category, "value")
+                else str(obs.category)
+            )
+            by_category[cat_key].append(obs)
+
+        kept: list[Observation] = []
+        for _cat, cat_obs in by_category.items():
+            # Sort newest-first so the first occurrence we keep is the newest
+            sorted_cat = sorted(cat_obs, key=lambda o: o.timestamp, reverse=True)
+            cat_kept: list[Observation] = []
+            for obs in sorted_cat:
+                if not any(self.is_duplicate(obs, existing) for existing in cat_kept):
+                    cat_kept.append(obs)
+            kept.extend(cat_kept)
 
         return kept
 

@@ -514,21 +514,8 @@ async def save_session_memory(
         )
         file_result = (False, "none")
 
-    # Attempt to flush observer observations (best-effort)
-    try:
-        config = ObserverConfig.from_env()
-        if config.enabled:
-            if is_debug_enabled():
-                debug("memory", "Observer flush triggered after session save")
-    except Exception as e:
-        logger.warning("Observer flush failed: %s", e)
-        capture_exception(
-            e,
-            operation="save_session_memory_observer_flush",
-            subtask_id=subtask_id,
-            session_num=session_num,
-            spec_dir=str(spec_dir),
-        )
+    # Note: Observer observations are flushed in-band by the ObserverAgent
+    # during session execution, not here. No separate flush needed.
 
     return file_result
 

@@ -485,44 +485,36 @@ export interface FileNode {
 // ============================================
 
 export type ObservationCategory =
-  | 'architecture_pattern'
-  | 'code_quality'
-  | 'performance'
-  | 'security'
-  | 'testing_gap'
-  | 'dependency_risk'
-  | 'convention_violation'
-  | 'technical_debt'
-  | 'documentation_gap'
-  | 'error_pattern'
-  | 'integration_issue'
-  | 'improvement_opportunity';
+  | 'architecture_decision'
+  | 'code_pattern'
+  | 'error_resolution'
+  | 'dependency_insight'
+  | 'testing_insight'
+  | 'performance_finding'
+  | 'security_concern'
+  | 'api_behavior'
+  | 'configuration_gotcha'
+  | 'workflow_preference'
+  | 'file_relationship'
+  | 'build_system';
 
 export type ObservationPriority = 'critical' | 'high' | 'medium' | 'low';
 
-export type ObservationStatus = 'active' | 'archived' | 'merged' | 'invalidated';
+export type ObservationStatus = 'active' | 'archived' | 'merged' | 'pruned';
 
 export interface Observation {
   id: string;
   timestamp: string;
-  observation_date: string;
-  referenced_date?: string;
-  relative_offset?: string;
   category: ObservationCategory;
   priority: ObservationPriority;
   content: string;
-  evidence?: string;
-  spec_id?: string;
-  project_id?: string;
-  subtask_id?: string;
-  phase?: string;
-  session_num?: number;
-  agent_type?: string;
-  terminal_id?: string;
+  source: string;
   status: ObservationStatus;
-  merged_into?: string;
-  validated_at?: string;
-  staleness_score?: number;
+  context?: string;
+  file_path?: string;
+  tags?: string[];
+  metadata?: Record<string, unknown>;
+  spec_id?: string;
   pin?: boolean;
 }
 

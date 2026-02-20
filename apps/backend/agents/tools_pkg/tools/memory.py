@@ -406,10 +406,10 @@ def create_memory_tools(spec_dir: Path, project_dir: Path) -> list:
                             else str(obs.priority),
                             "source": obs.source,
                             "tags": obs.tags,
-                            "created_at": obs.created_at
-                            if isinstance(obs.created_at, str)
-                            else obs.created_at.isoformat()
-                            if obs.created_at
+                            "created_at": obs.timestamp
+                            if isinstance(obs.timestamp, str)
+                            else obs.timestamp.isoformat()
+                            if obs.timestamp
                             else None,
                         }
                     )

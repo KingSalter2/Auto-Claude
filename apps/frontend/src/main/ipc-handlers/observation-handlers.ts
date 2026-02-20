@@ -18,28 +18,29 @@ import type {
 } from '../../shared/types';
 
 /**
- * Get the base observations directory for a project
+ * Validate that a projectHash or id is safe (alphanumeric/hyphens/underscores only).
+ * Prevents path traversal attacks via ".." or "/" in user-supplied values.
+ */
+function isValidPathSegment(value: string): boolean {
+  return /^[a-zA-Z0-9_-]+$/.test(value);
+}
+
+/**
+ * Get the base observations directory for a project.
+ * Validates projectHash to prevent path traversal.
  */
 function getObservationsDir(projectHash: string): string {
-  const home = app.getPath('home');
-  return path.join(home, '.auto-claude', 'observations', projectHash, 'observations');
-}
-
-/**
- * Get the base project directory for observations
- */
-function getProjectObsDir(projectHash: string): string {
-  const home = app.getPath('home');
-  return path.join(home, '.auto-claude', 'observations', projectHash);
-}
-
-/**
- * Ensure the observations directory exists
- */
-function ensureDir(dir: string): void {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
+  if (!isValidPathSegment(projectHash)) {
+    throw new Error(`Invalid projectHash: ${projectHash}`);
   }
+  const home = app.getPath('home');
+  const dir = path.join(home, '.auto-claude', 'observations', projectHash, 'observations');
+  // Verify resolved path is still under the expected base
+  const base = path.join(home, '.auto-claude', 'observations');
+  if (!dir.startsWith(base)) {
+    throw new Error('Path traversal detected');
+  }
+  return dir;
 }
 
 /**
@@ -110,7 +111,8 @@ export function registerObservationHandlers(): void {
         observations = observations.filter(
           (obs) =>
             obs.content.toLowerCase().includes(lowerQuery) ||
-            (obs.evidence && obs.evidence.toLowerCase().includes(lowerQuery))
+            (obs.context && obs.context.toLowerCase().includes(lowerQuery)) ||
+            (obs.source && obs.source.toLowerCase().includes(lowerQuery))
         );
 
         // Filter by category
@@ -138,6 +140,9 @@ export function registerObservationHandlers(): void {
     IPC_CHANNELS.OBSERVATION_GET,
     async (_event, projectHash: string, id: string): Promise<IPCResult<Observation>> => {
       try {
+        if (!isValidPathSegment(id)) {
+          return { success: false, error: `Invalid observation id: ${id}` };
+        }
         const filePath = path.join(getObservationsDir(projectHash), `${id}.json`);
         if (!fs.existsSync(filePath)) {
           return { success: false, error: `Observation not found: ${id}` };
@@ -156,6 +161,9 @@ export function registerObservationHandlers(): void {
     IPC_CHANNELS.OBSERVATION_PIN,
     async (_event, projectHash: string, id: string, pinned: boolean): Promise<IPCResult<void>> => {
       try {
+        if (!isValidPathSegment(id)) {
+          return { success: false, error: `Invalid observation id: ${id}` };
+        }
         const filePath = path.join(getObservationsDir(projectHash), `${id}.json`);
         if (!fs.existsSync(filePath)) {
           return { success: false, error: `Observation not found: ${id}` };
@@ -183,6 +191,9 @@ export function registerObservationHandlers(): void {
       fields: Partial<Observation>
     ): Promise<IPCResult<void>> => {
       try {
+        if (!isValidPathSegment(id)) {
+          return { success: false, error: `Invalid observation id: ${id}` };
+        }
         const filePath = path.join(getObservationsDir(projectHash), `${id}.json`);
         if (!fs.existsSync(filePath)) {
           return { success: false, error: `Observation not found: ${id}` };
@@ -206,6 +217,9 @@ export function registerObservationHandlers(): void {
     IPC_CHANNELS.OBSERVATION_DELETE,
     async (_event, projectHash: string, id: string): Promise<IPCResult<void>> => {
       try {
+        if (!isValidPathSegment(id)) {
+          return { success: false, error: `Invalid observation id: ${id}` };
+        }
         const filePath = path.join(getObservationsDir(projectHash), `${id}.json`);
         if (!fs.existsSync(filePath)) {
           return { success: false, error: `Observation not found: ${id}` };
@@ -224,6 +238,9 @@ export function registerObservationHandlers(): void {
     IPC_CHANNELS.OBSERVATION_PROMOTE,
     async (_event, projectHash: string, id: string): Promise<IPCResult<void>> => {
       try {
+        if (!isValidPathSegment(id)) {
+          return { success: false, error: `Invalid observation id: ${id}` };
+        }
         const filePath = path.join(getObservationsDir(projectHash), `${id}.json`);
         if (!fs.existsSync(filePath)) {
           return { success: false, error: `Observation not found: ${id}` };

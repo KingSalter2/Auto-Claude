@@ -89,15 +89,21 @@ class ObservationStore:
         """Save an observation to disk with secret redaction.
 
         Applies redact_secrets() to content and context before writing.
+        Creates a copy to avoid mutating the caller's object.
         Uses atomic write-and-rename to prevent corruption.
         """
-        # Redact secrets before persisting
-        observation.content = redact_secrets(observation.content)
-        if observation.context:
-            observation.context = redact_secrets(observation.context)
+        import copy
 
-        data = observation.to_dict()
-        self._atomic_write(self._obs_path(observation.id), data)
+        # Work on a copy to avoid mutating the caller's object
+        obs_copy = copy.deepcopy(observation)
+
+        # Redact secrets before persisting
+        obs_copy.content = redact_secrets(obs_copy.content)
+        if obs_copy.context:
+            obs_copy.context = redact_secrets(obs_copy.context)
+
+        data = obs_copy.to_dict()
+        self._atomic_write(self._obs_path(obs_copy.id), data)
 
     def get(self, obs_id: str) -> Observation | None:
         """Get a single observation by ID."""

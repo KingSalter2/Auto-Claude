@@ -42,7 +42,7 @@ def _make_obs(
     category=ObservationCategory.CODE_PATTERN,
 ) -> Observation:
     """Helper to create an observation with common defaults."""
-    metadata = {"staleness": staleness}
+    metadata = {"staleness_score": staleness}
     if pinned:
         metadata["pinned"] = True
     return Observation(

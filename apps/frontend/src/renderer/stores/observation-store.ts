@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import type { Observation, ObservationStats, ObservationCategory } from '../../shared/types';
+import type { ElectronAPI } from '../../preload/api';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Observation API methods added by subtask-6-5
-const api = () => window.electronAPI as any;
+const api = () => window.electronAPI as ElectronAPI;
 
 interface ObservationState {
   // Data

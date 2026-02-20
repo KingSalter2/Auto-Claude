@@ -44,7 +44,11 @@ export function ObservationCard({
   const categoryColor = observationCategoryColors[observation.category] || '';
   const priorityColor = observationPriorityColors[observation.priority] || '';
   const categoryLabel = observation.category.replace(/_/g, ' ');
-  const stalenessScore = observation.staleness_score ?? 0;
+  const metadata = observation.metadata ?? {};
+  const stalenessScore = (metadata.staleness_score as number) ?? 0;
+  const agentType = metadata.agent_type as string | undefined;
+  const sessionNum = metadata.session_num as number | undefined;
+  const evidence = observation.context;
 
   return (
     <Card className="bg-muted/30 border-border/50 hover:border-border transition-colors">
@@ -81,14 +85,14 @@ export function ObservationCard({
                     {observation.spec_id}
                   </span>
                 )}
-                {observation.session_num !== undefined && (
+                {sessionNum !== undefined && (
                   <span className="text-xs text-muted-foreground">
-                    {t('common:session')} #{observation.session_num}
+                    {t('common:session')} #{sessionNum}
                   </span>
                 )}
-                {observation.agent_type && (
+                {agentType && (
                   <Badge variant="secondary" className="text-xs px-1.5 py-0">
-                    {observation.agent_type}
+                    {agentType}
                   </Badge>
                 )}
               </div>
@@ -113,7 +117,7 @@ export function ObservationCard({
               </div>
             </div>
           </div>
-          {observation.evidence && (
+          {evidence && (
             <Button
               variant="ghost"
               size="sm"
@@ -136,10 +140,10 @@ export function ObservationCard({
         </div>
 
         {/* Expanded Evidence */}
-        {expanded && observation.evidence && (
+        {expanded && evidence && (
           <div className="mt-4 pt-4 border-t border-border/50">
             <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono p-3 bg-background rounded-lg max-h-64 overflow-auto border border-border/50">
-              {observation.evidence}
+              {evidence}
             </pre>
           </div>
         )}

@@ -313,6 +313,9 @@ class ObserverAgent:
                         priority=priority,
                         file_path=item.get("source_file"),
                         metadata={
+                            "spec_id": self.spec_id,
+                            "project_id": self.project_id,
+                            "session_num": self.session_num,
                             "session_event_type": item.get(
                                 "session_event_type", "unknown"
                             ),
