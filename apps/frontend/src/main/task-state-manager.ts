@@ -362,7 +362,12 @@ export class TaskStateManager {
 
     const phase = XSTATE_TO_PHASE[xstateState] || 'idle';
 
-    // Emit execution progress with the phase derived from XState
+    // Emit execution progress with the phase derived from XState.
+    // IMPORTANT: Do NOT use Date.now() as sequenceNumber here — doing so would
+    // permanently block all subsequent agent execution-progress events, because
+    // the agent uses small sequential integers (1, 2, 3…) that are always less
+    // than a timestamp. Instead emit with sequenceNumber=0 so the agent's own
+    // events can continue updating phaseProgress once the phase is established.
     safeSendToRenderer(
       this.getMainWindow,
       IPC_CHANNELS.TASK_EXECUTION_PROGRESS,
@@ -372,7 +377,7 @@ export class TaskStateManager {
         phaseProgress: phase === 'complete' ? 100 : 50,
         overallProgress: phase === 'complete' ? 100 : 50,
         message: `State: ${xstateState}`,
-        sequenceNumber: Date.now()  // Use timestamp as sequence to ensure it's newer
+        sequenceNumber: 0
       },
       projectId
     );
