@@ -413,7 +413,12 @@ export function registerSettingsHandlers(
         // Load current settings using shared helper
         const savedSettings = readSettingsFile();
         const currentSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
-        const newSettings = { ...currentSettings, ...settings };
+
+        // Strip providerAccounts and globalPriorityOrder — these are managed
+        // exclusively by their dedicated IPC handlers (PROVIDER_ACCOUNTS_*)
+        // to prevent the general settings save from clobbering them.
+        const { providerAccounts: _pa, globalPriorityOrder: _gpo, ...safeSettings } = settings;
+        const newSettings = { ...currentSettings, ...safeSettings };
 
         // Sync defaultModel when agent profile changes (#414)
         if (settings.selectedAgentProfile) {

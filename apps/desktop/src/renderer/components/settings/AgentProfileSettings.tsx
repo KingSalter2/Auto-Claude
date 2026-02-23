@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useActiveProvider } from '../../hooks/useActiveProvider';
+import { getProviderModelLabel } from '../../../shared/utils/model-display';
 import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw, Settings2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
@@ -45,6 +47,7 @@ const iconMap: Record<string, React.ElementType> = {
 export function AgentProfileSettings() {
   const { t } = useTranslation('settings');
   const settings = useSettingsStore((state) => state.settings);
+  const { provider: activeProvider } = useActiveProvider();
   const selectedProfileId = settings.selectedAgentProfile || 'auto';
   const [showPhaseConfig, setShowPhaseConfig] = useState(true);
 
@@ -117,6 +120,9 @@ export function AgentProfileSettings() {
    * Get human-readable model label
    */
   const getModelLabel = (modelValue: string): string => {
+    if (activeProvider) {
+      return getProviderModelLabel(modelValue, activeProvider);
+    }
     const model = AVAILABLE_MODELS.find((m) => m.value === modelValue);
     return model?.label || modelValue;
   };

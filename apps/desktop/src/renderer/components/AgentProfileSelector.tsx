@@ -9,6 +9,8 @@
  */
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useActiveProvider } from '../hooks/useActiveProvider';
+import { getProviderModelLabel } from '../../shared/utils/model-display';
 import { Brain, Scale, Zap, Sliders, Sparkles, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Label } from './ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
@@ -85,6 +87,7 @@ export function AgentProfileSelector({
   disabled
 }: AgentProfileSelectorProps) {
   const { t } = useTranslation('settings');
+  const { provider: activeProvider } = useActiveProvider();
   const [showPhaseDetails, setShowPhaseDetails] = useState(false);
 
   const isCustom = profileId === 'custom';
@@ -182,7 +185,9 @@ export function AgentProfileSelector({
           <SelectContent>
             {DEFAULT_AGENT_PROFILES.map((profile) => {
               const ProfileIcon = iconMap[profile.icon || 'Scale'] || Scale;
-              const modelLabel = AVAILABLE_MODELS.find(m => m.value === profile.model)?.label;
+              const modelLabel = activeProvider
+                ? getProviderModelLabel(profile.model, activeProvider)
+                : AVAILABLE_MODELS.find(m => m.value === profile.model)?.label;
               return (
                 <SelectItem key={profile.id} value={profile.id}>
                   <div className="flex items-center gap-2">
@@ -250,7 +255,9 @@ export function AgentProfileSelector({
             <div className="px-4 pb-4 -mt-1">
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {(Object.keys(PHASE_LABEL_KEYS) as Array<keyof PhaseModelConfig>).map((phase) => {
-                  const modelLabel = AVAILABLE_MODELS.find(m => m.value === currentPhaseModels[phase])?.label?.replace('Claude ', '') || currentPhaseModels[phase];
+                  const modelLabel = activeProvider
+                    ? getProviderModelLabel(currentPhaseModels[phase], activeProvider)
+                    : (AVAILABLE_MODELS.find(m => m.value === currentPhaseModels[phase])?.label?.replace('Claude ', '') || currentPhaseModels[phase]);
                   return (
                     <div key={phase} className="flex items-center justify-between rounded bg-background/50 px-2 py-1">
                       <span className="text-muted-foreground">{t(PHASE_LABEL_KEYS[phase].label)}:</span>

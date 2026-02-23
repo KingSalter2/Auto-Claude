@@ -17,6 +17,7 @@ import {
 } from './ui/tooltip';
 import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../stores/settings-store';
+import { useActiveProvider } from '../hooks/useActiveProvider';
 import { formatTimeRemaining, localizeUsageWindowLabel, hasHardcodedText } from '../../shared/utils/format-time';
 import type { ClaudeUsageSnapshot } from '../../shared/types/agent';
 
@@ -96,16 +97,7 @@ export function AuthStatusIndicator() {
       (hasHardcodedText(usage?.sessionResetTime) ? undefined : usage?.sessionResetTime))
     : (hasHardcodedText(usage?.sessionResetTime) ? undefined : usage?.sessionResetTime);
 
-  // Get the active account: first in globalPriorityOrder that exists in providerAccounts
-  const activeAccount = useMemo(() => {
-    const order = settings.globalPriorityOrder ?? [];
-    for (const id of order) {
-      const account = providerAccounts.find(a => a.id === id);
-      if (account) return account;
-    }
-    // Fallback: first provider account
-    return providerAccounts[0] ?? null;
-  }, [providerAccounts, settings.globalPriorityOrder]);
+  const { account: activeAccount } = useActiveProvider();
 
   const Icon = !activeAccount ? Server : activeAccount.authType === 'oauth' ? Lock : Key;
 

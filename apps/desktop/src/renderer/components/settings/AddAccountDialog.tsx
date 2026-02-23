@@ -60,6 +60,9 @@ export function AddAccountDialog({
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [showFallbackTerminal, setShowFallbackTerminal] = useState(false);
 
+  // Tracks whether the account was auto-saved after OAuth success
+  const [accountSaved, setAccountSaved] = useState(false);
+
   // AuthTerminal fallback state
   const [fallbackTerminalId, setFallbackTerminalId] = useState<string | null>(null);
   const [fallbackConfigDir, setFallbackConfigDir] = useState<string | null>(null);
@@ -83,6 +86,7 @@ export function AddAccountDialog({
       setOauthEmail(null);
       setOauthProfileId(null);
       setOauthError(null);
+      setAccountSaved(false);
       setShowFallbackTerminal(false);
       setFallbackTerminalId(null);
       setFallbackConfigDir(null);
@@ -123,6 +127,30 @@ export function AddAccountDialog({
   const isCodexOAuth = provider === 'openai' && authType === 'oauth';
 
   const isBaseUrlRequired = provider === 'ollama' || provider === 'azure' || provider === 'openai-compatible';
+
+  // Auto-save for Anthropic OAuth on success (mirrors the Codex auto-save behavior)
+  useEffect(() => {
+    if (oauthStatus !== 'success' || isCodexOAuth || accountSaved || !name.trim()) return;
+
+    const autoSave = async () => {
+      const payload = {
+        provider,
+        name: name.trim(),
+        authType: 'oauth' as const,
+        billingModel: 'subscription' as const,
+        claudeProfileId: oauthProfileId ?? undefined,
+      };
+      const result = await addProviderAccount(payload);
+      if (result.success) {
+        setAccountSaved(true);
+        toast({
+          title: t('providers.dialog.toast.added'),
+          description: name.trim(),
+        });
+      }
+    };
+    autoSave();
+  }, [oauthStatus, isCodexOAuth, accountSaved, name, provider, oauthProfileId, addProviderAccount, toast, t]);
 
   const canSave = () => {
     if (!name.trim()) return false;
@@ -503,14 +531,22 @@ export function AddAccountDialog({
         )}
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSaving || isAuthInProgress}>
-            {t('providers.dialog.cancel')}
-          </Button>
-          {(isOAuthOnly ? oauthStatus === 'success' : true) && (
-            <Button onClick={handleSave} disabled={!canSave() || isSaving}>
-              {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isEditing ? t('providers.dialog.save') : t('providers.dialog.add')}
+          {accountSaved ? (
+            <Button onClick={() => onOpenChange(false)}>
+              {t('providers.dialog.close')}
             </Button>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSaving || isAuthInProgress}>
+                {t('providers.dialog.cancel')}
+              </Button>
+              {(isOAuthOnly ? oauthStatus === 'success' : true) && (
+                <Button onClick={handleSave} disabled={!canSave() || isSaving}>
+                  {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {isEditing ? t('providers.dialog.save') : t('providers.dialog.add')}
+                </Button>
+              )}
+            </>
           )}
         </DialogFooter>
       </DialogContent>

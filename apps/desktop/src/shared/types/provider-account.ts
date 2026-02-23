@@ -27,11 +27,14 @@ export interface ProviderAccount {
   rateLimitEvents?: ClaudeRateLimitEvent[];
 }
 
+export type ProviderCategory = 'popular' | 'infrastructure' | 'local';
+
 /** Provider display metadata for UI rendering */
 export interface ProviderInfo {
   id: BuiltinProvider;
   name: string;
   description: string;
+  category: ProviderCategory;
   authMethods: ('oauth' | 'api-key')[];
   envVars: string[];
   configFields: ('baseUrl' | 'region')[];

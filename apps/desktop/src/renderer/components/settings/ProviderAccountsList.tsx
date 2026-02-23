@@ -16,13 +16,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '../ui/alert-dialog';
-import type { BuiltinProvider, ProviderAccount } from '@shared/types/provider-account';
+import type { BuiltinProvider, ProviderAccount, ProviderCategory } from '@shared/types/provider-account';
 
 export function ProviderAccountsList() {
   const { t } = useTranslation('settings');
   const {
     deleteProviderAccount,
-    getProviderAccounts,
+    providerAccounts,
     checkEnvCredentials,
     loadProviderAccounts,
     envCredentials,
@@ -55,7 +55,7 @@ export function ProviderAccountsList() {
     });
   }, [loadProviderAccounts, checkEnvCredentials]);
 
-  const allAccounts = getProviderAccounts();
+  const allAccounts = providerAccounts;
 
   // Group accounts by provider, preserving PROVIDER_REGISTRY order
   const accountsByProvider = PROVIDER_REGISTRY.reduce<Map<BuiltinProvider, ProviderAccount[]>>(
@@ -66,13 +66,24 @@ export function ProviderAccountsList() {
     new Map()
   );
 
-  // Sort: providers with accounts first, then empty
+  // Sort: providers with accounts first within each category, then empty
   const sortedProviders = [...PROVIDER_REGISTRY].sort((a, b) => {
     const aCount = accountsByProvider.get(a.id)?.length ?? 0;
     const bCount = accountsByProvider.get(b.id)?.length ?? 0;
     if (aCount > 0 && bCount === 0) return -1;
     if (aCount === 0 && bCount > 0) return 1;
     return 0;
+  });
+
+  const CATEGORY_ORDER: { key: ProviderCategory; labelKey: string }[] = [
+    { key: 'popular', labelKey: 'providers.categories.popular' },
+    { key: 'infrastructure', labelKey: 'providers.categories.infrastructure' },
+    { key: 'local', labelKey: 'providers.categories.local' },
+  ];
+
+  const categories = CATEGORY_ORDER.map(({ key, labelKey }) => {
+    const providers = sortedProviders.filter(p => p.category === key);
+    return { key, label: t(labelKey), providers };
   });
 
   const handleAddAccount = (provider: BuiltinProvider, authType: 'oauth' | 'api-key') => {
@@ -123,22 +134,33 @@ export function ProviderAccountsList() {
   }
 
   return (
-    <div className="space-y-3">
-      {sortedProviders.map((providerInfo) => {
-        const accounts = accountsByProvider.get(providerInfo.id) ?? [];
-        // Check if any env var is detected for this provider
-        const envDetected = providerInfo.envVars.some(v => envCredentials?.[v]);
-
+    <div className="space-y-5">
+      {categories.map(({ key, label, providers: categoryProviders }) => {
+        if (categoryProviders.length === 0) return null;
         return (
-          <ProviderSection
-            key={providerInfo.id}
-            provider={providerInfo}
-            accounts={accounts}
-            envDetected={envDetected}
-            onAddAccount={handleAddAccount}
-            onEditAccount={handleEditAccount}
-            onDeleteAccount={handleDeleteAccount}
-          />
+          <div key={key} className="space-y-2">
+            <div className="flex items-center gap-2 pt-1 first:pt-0">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                {label}
+              </span>
+              <div className="flex-1 h-px bg-border/40" />
+            </div>
+            {categoryProviders.map((providerInfo) => {
+              const accounts = accountsByProvider.get(providerInfo.id) ?? [];
+              const envDetected = providerInfo.envVars.some(v => envCredentials?.[v]);
+              return (
+                <ProviderSection
+                  key={providerInfo.id}
+                  provider={providerInfo}
+                  accounts={accounts}
+                  envDetected={envDetected}
+                  onAddAccount={handleAddAccount}
+                  onEditAccount={handleEditAccount}
+                  onDeleteAccount={handleDeleteAccount}
+                />
+              );
+            })}
+          </div>
         );
       })}
 

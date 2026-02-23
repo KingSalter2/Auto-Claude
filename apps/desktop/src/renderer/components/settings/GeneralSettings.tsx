@@ -7,6 +7,7 @@ import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
 import { AgentProfileSettings } from './AgentProfileSettings';
 import { MultiProviderModelSelect } from './MultiProviderModelSelect';
+import { ProviderModelOverrides } from './ProviderModelOverrides';
 import {
   AVAILABLE_MODELS,
   THINKING_LEVELS,
@@ -230,6 +231,9 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             </div>
           </div>
         </SettingsSection>
+
+        {/* Provider Model Mapping */}
+        <ProviderModelOverrides />
       </div>
     );
   }

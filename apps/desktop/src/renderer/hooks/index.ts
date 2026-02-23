@@ -8,3 +8,4 @@ export {
 } from './useResolvedAgentSettings';
 export { useVirtualizedTree } from './useVirtualizedTree';
 export { useTerminalProfileChange } from './useTerminalProfileChange';
+export { useActiveProvider, type ActiveProviderInfo } from './useActiveProvider';

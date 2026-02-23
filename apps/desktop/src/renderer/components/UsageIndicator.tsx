@@ -10,7 +10,7 @@
  * - Pay-per-use / non-Anthropic providers: shows "Unlimited" badge
  */
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Activity, TrendingUp, AlertCircle, Clock, ChevronRight, Info, LogIn } from 'lucide-react';
 import {
   Popover,
@@ -28,8 +28,8 @@ import { formatTimeRemaining, localizeUsageWindowLabel, hasHardcodedText } from 
 import type { ClaudeUsageSnapshot, ProfileUsageSummary } from '../../shared/types/agent';
 import type { AppSection } from './settings/AppSettings';
 import { useSettingsStore } from '../stores/settings-store';
+import { useActiveProvider } from '../hooks/useActiveProvider';
 import { PROVIDER_REGISTRY } from '@shared/constants/providers';
-import type { ProviderAccount } from '@shared/types/provider-account';
 
 /**
  * Usage threshold constants for color coding
@@ -109,24 +109,7 @@ export function UsageIndicator() {
 
   const { providerAccounts, settings, setQueueOrder } = useSettingsStore();
 
-  // Get ordered accounts from global priority queue
-  const orderedAccounts = useMemo(() => {
-    const order = settings.globalPriorityOrder ?? [];
-    const ordered: ProviderAccount[] = [];
-    for (const id of order) {
-      const account = providerAccounts.find(a => a.id === id);
-      if (account) ordered.push(account);
-    }
-    // Add any accounts not in the order
-    for (const account of providerAccounts) {
-      if (!ordered.some(a => a.id === account.id)) {
-        ordered.push(account);
-      }
-    }
-    return ordered;
-  }, [providerAccounts, settings.globalPriorityOrder]);
-
-  const activeAccount = orderedAccounts[0] ?? null;
+  const { account: activeAccount, orderedAccounts } = useActiveProvider();
   const otherAccounts = orderedAccounts.slice(1);
 
   // Usage monitoring is only available for Anthropic OAuth accounts
@@ -509,37 +492,74 @@ export function UsageIndicator() {
                 <div className="text-[10px] text-muted-foreground font-medium mb-1.5">
                   {t('common:usage.otherAccounts')}
                 </div>
-                {otherAccounts.map((account) => (
-                  <div
-                    key={account.id}
-                    className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-muted/80">
-                      <span className="text-[10px] font-semibold text-foreground/70">
-                        {getInitials(account.name)}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] font-medium truncate">{account.name}</span>
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${
-                          PROVIDER_BADGE_COLORS[account.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible']
-                        }`}>
-                          {getProviderName(account.provider)}
+                {otherAccounts.map((account) => {
+                  const isAnthropicOAuth = account.provider === 'anthropic' && account.authType === 'oauth';
+                  const profileData = otherProfiles.find(p => p.profileId === account.claudeProfileId)
+                    ?? (isAnthropicOAuth
+                      ? otherProfiles.find(p => p.profileName === account.name || p.profileEmail === account.name)
+                      : undefined);
+
+                  return (
+                    <div
+                      key={account.id}
+                      className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/30 transition-colors"
+                    >
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-muted/80">
+                        <span className="text-[10px] font-semibold text-foreground/70">
+                          {getInitials(account.name)}
                         </span>
-                        <button
-                          onClick={(e) => handleSwapAccount(e, account.id)}
-                          className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
-                        >
-                          {t('common:usage.swap')}
-                        </button>
                       </div>
-                      <span className="text-[9px] text-green-500">
-                        {t('common:usage.unlimited')}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-medium truncate">{account.name}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${
+                            PROVIDER_BADGE_COLORS[account.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible']
+                          }`}>
+                            {getProviderName(account.provider)}
+                          </span>
+                          <button
+                            onClick={(e) => handleSwapAccount(e, account.id)}
+                            className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
+                          >
+                            {t('common:usage.swap')}
+                          </button>
+                        </div>
+                        {isAnthropicOAuth && profileData ? (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-2.5 w-2.5 text-muted-foreground/70" />
+                              <div className="w-10 h-1 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${getBarColorClass(profileData.sessionPercent)}`}
+                                  style={{ width: `${Math.min(profileData.sessionPercent, 100)}%` }}
+                                />
+                              </div>
+                              <span className={`text-[9px] tabular-nums w-6 ${getColorClass(profileData.sessionPercent).replace('text-green-500', 'text-muted-foreground').replace('500', '600')}`}>
+                                {Math.round(profileData.sessionPercent)}%
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <TrendingUp className="h-2.5 w-2.5 text-muted-foreground/70" />
+                              <div className="w-10 h-1 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${getBarColorClass(profileData.weeklyPercent)}`}
+                                  style={{ width: `${Math.min(profileData.weeklyPercent, 100)}%` }}
+                                />
+                              </div>
+                              <span className={`text-[9px] tabular-nums w-6 ${getColorClass(profileData.weeklyPercent).replace('text-green-500', 'text-muted-foreground').replace('500', '600')}`}>
+                                {Math.round(profileData.weeklyPercent)}%
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[9px] text-green-500">
+                            {t('common:usage.unlimited')}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -842,8 +862,12 @@ export function UsageIndicator() {
               </div>
               {otherAccounts.map((account) => {
                 // Check if this account has Anthropic usage data from otherProfiles
-                const profileData = otherProfiles.find(p => p.profileId === account.claudeProfileId);
                 const isAnthropicOAuth = account.provider === 'anthropic' && account.authType === 'oauth';
+                // Match by claudeProfileId first, fallback to name/email for unlinked accounts
+                const profileData = otherProfiles.find(p => p.profileId === account.claudeProfileId)
+                  ?? (isAnthropicOAuth
+                    ? otherProfiles.find(p => p.profileName === account.name || p.profileEmail === account.name)
+                    : undefined);
 
                 return (
                   <div

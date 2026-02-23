@@ -429,6 +429,17 @@
         "label": "Révision QA",
         "description": "Assurance qualité et validation"
       }
+    },
+    "providerOverrides": {
+      "title": "Correspondance des modèles par fournisseur",
+      "description": "Personnalisez quel modèle chaque fournisseur utilise pour chaque raccourci",
+      "defaultMapping": "Par défaut",
+      "yourOverride": "Votre choix",
+      "shorthand": "Raccourci",
+      "useDefault": "Par défaut",
+      "resetAll": "Tout réinitialiser",
+      "noConnectedProviders": "Aucun fournisseur connecté. Ajoutez des comptes dans les paramètres des comptes pour configurer les correspondances de modèles.",
+      "equivalentNote": "Lorsqu'un fournisseur non-Anthropic est actif, ces correspondances déterminent quel modèle est utilisé pour chaque phase."
     }
   },
   "workspace": {
@@ -669,6 +680,7 @@
       "deleteTitle": "Supprimer le compte ?",
       "deleteDescription": "Êtes-vous sûr de vouloir supprimer ce compte ? Cette action est irréversible.",
       "cancel": "Annuler",
+      "close": "Fermer",
       "delete": "Supprimer",
       "deleting": "Suppression...",
       "save": "Enregistrer les modifications",
@@ -711,6 +723,11 @@
     "toast": {
       "deleted": "Compte supprimé",
       "deleteFailed": "Échec de la suppression du compte"
+    },
+    "categories": {
+      "popular": "Populaires",
+      "infrastructure": "Infrastructure",
+      "local": "Local et personnalisé"
     }
   },
   "debug": {

@@ -35,6 +35,7 @@ import {
   PHASE_KEYS
 } from '../../shared/constants';
 import { useSettingsStore } from '../stores/settings-store';
+import { useActiveProvider } from '../hooks/useActiveProvider';
 
 interface TaskCreationWizardProps {
   projectId: string;
@@ -52,6 +53,7 @@ export function TaskCreationWizard({
 }: TaskCreationWizardProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { settings } = useSettingsStore();
+  const { isAnthropic } = useActiveProvider();
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
@@ -130,9 +132,10 @@ export function TaskCreationWizard({
 
   // Show Fast Mode toggle when any phase uses an Opus model
   const showFastModeToggle = useMemo(() => {
+    if (!isAnthropic) return false;
     if (!phaseModels) return false;
     return PHASE_KEYS.some(phase => FAST_MODE_MODELS.includes(phaseModels[phase]));
-  }, [phaseModels]);
+  }, [isAnthropic, phaseModels]);
 
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
