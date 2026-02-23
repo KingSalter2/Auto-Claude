@@ -46,6 +46,52 @@ export function registerSettingsAccessor(accessor: SettingsAccessor): void {
 }
 
 // ============================================
+// Stage 0: Provider Account (Unified Accounts)
+// ============================================
+
+/**
+ * Attempt to resolve credentials from unified ProviderAccount in settings.
+ * This is the highest priority stage — checks providerAccounts array.
+ */
+async function resolveFromProviderAccount(ctx: AuthResolverContext): Promise<ResolvedAuth | null> {
+  if (!_getSettingsValue) return null;
+
+  // Read providerAccounts from settings
+  const accountsRaw = _getSettingsValue('providerAccounts');
+  if (!accountsRaw) return null;
+
+  let accounts: Array<{ provider: string; isActive: boolean; authType: string; apiKey?: string; baseUrl?: string; claudeProfileId?: string }>;
+  try {
+    accounts = typeof accountsRaw === 'string' ? JSON.parse(accountsRaw) : (accountsRaw as any);
+  } catch {
+    return null;
+  }
+
+  if (!Array.isArray(accounts)) return null;
+
+  // Find active account for this provider
+  const account = accounts.find(a => a.provider === ctx.provider && a.isActive);
+  if (!account) return null;
+
+  // OAuth accounts — delegate to profile OAuth flow
+  if (account.authType === 'oauth' && account.claudeProfileId) {
+    // Let the existing OAuth stage handle it
+    return null;
+  }
+
+  // API key accounts
+  if (account.authType === 'api-key' && account.apiKey) {
+    return {
+      apiKey: account.apiKey,
+      source: 'profile-api-key',
+      baseURL: account.baseUrl,
+    };
+  }
+
+  return null;
+}
+
+// ============================================
 // Stage 1: Profile OAuth Token
 // ============================================
 
@@ -208,6 +254,7 @@ function resolveDefaultCredentials(ctx: AuthResolverContext): ResolvedAuth | nul
  */
 export async function resolveAuth(ctx: AuthResolverContext): Promise<ResolvedAuth | null> {
   return (
+    (await resolveFromProviderAccount(ctx)) ??
     (await resolveFromProfileOAuth(ctx)) ??
     resolveFromProfileApiKey(ctx) ??
     resolveFromEnvironment(ctx) ??

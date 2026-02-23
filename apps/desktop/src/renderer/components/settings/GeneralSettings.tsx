@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
 import { AgentProfileSettings } from './AgentProfileSettings';
+import { MultiProviderModelSelect } from './MultiProviderModelSelect';
 import {
   AVAILABLE_MODELS,
   THINKING_LEVELS,
@@ -192,24 +193,13 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                       {/* Model Select */}
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">{t('general.model')}</Label>
-                        <Select
+                        <MultiProviderModelSelect
                           value={featureModels[feature]}
-                          onValueChange={(value) => {
+                          onChange={(value) => {
                             const newFeatureModels = { ...featureModels, [feature]: value as ModelTypeShort };
                             onSettingsChange({ ...settings, featureModels: newFeatureModels });
                           }}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {AVAILABLE_MODELS.map((m) => (
-                              <SelectItem key={m.value} value={m.value}>
-                                {m.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       </div>
                       {/* Thinking Level Select */}
                       <div className="space-y-1">

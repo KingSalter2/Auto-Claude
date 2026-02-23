@@ -137,8 +137,10 @@ export const MODEL_PROVIDER_MAP: Record<string, SupportedProvider> = {
   'gpt-': 'openai',
   'o1-': 'openai',
   'o3-': 'openai',
+  'o4-': 'openai',
   'gemini-': 'google',
   'mistral-': 'mistral',
+  'codestral-': 'mistral',
   'llama-': 'groq',
   'grok-': 'xai',
 } as const;

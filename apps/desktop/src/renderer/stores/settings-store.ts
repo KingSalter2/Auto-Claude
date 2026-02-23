@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../../shared/types';
 import type { APIProfile, ProfileFormData, TestConnectionResult, ModelInfo } from '@shared/types/profile';
+import type { BuiltinProvider, ProviderAccount } from '@shared/types/provider-account';
+import type { IPCResult } from '@shared/types/common';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import { toast } from '../hooks/use-toast';
 import { markSettingsLoaded } from '../lib/sentry';
@@ -25,6 +27,10 @@ interface SettingsState {
   modelsError: string | null;
   discoveredModels: Map<string, ModelInfo[]>; // Cache key -> models mapping
 
+  // Provider accounts state (unified multi-provider credentials)
+  providerAccounts: ProviderAccount[];
+  envCredentials: Record<string, boolean>;
+
   // Actions
   setSettings: (settings: AppSettings) => void;
   updateSettings: (updates: Partial<AppSettings>) => void;
@@ -41,6 +47,15 @@ interface SettingsState {
   setActiveProfile: (profileId: string | null) => Promise<boolean>;
   testConnection: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<TestConnectionResult | null>;
   discoverModels: (baseUrl: string, apiKey: string, signal?: AbortSignal) => Promise<ModelInfo[] | null>;
+
+  // Provider account actions
+  addProviderAccount: (account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<ProviderAccount>>;
+  updateProviderAccount: (id: string, updates: Partial<ProviderAccount>) => Promise<IPCResult<ProviderAccount>>;
+  deleteProviderAccount: (id: string) => Promise<IPCResult>;
+  setActiveProviderAccount: (provider: BuiltinProvider, accountId: string) => Promise<IPCResult>;
+  getProviderAccounts: (provider?: BuiltinProvider) => ProviderAccount[];
+  checkEnvCredentials: () => Promise<IPCResult<Record<string, boolean>>>;
+  loadProviderAccounts: () => Promise<void>;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -57,6 +72,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   // Test connection state
   isTestingConnection: false,
   testConnectionResult: null,
+
+  // Provider accounts state
+  providerAccounts: [],
+  envCredentials: {},
 
   // Model discovery state
   modelsLoading: false,
@@ -292,7 +311,71 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       });
       return null;
     }
-  }
+  },
+
+  // ============================================================
+  // Provider Account CRUD — unified multi-provider credentials
+  // ============================================================
+
+  loadProviderAccounts: async () => {
+    const result = await window.electronAPI.getProviderAccounts();
+    if (result.success && result.data) {
+      set({ providerAccounts: result.data.accounts });
+    }
+  },
+
+  getProviderAccounts: (provider?: BuiltinProvider): ProviderAccount[] => {
+    const accounts = useSettingsStore.getState().providerAccounts;
+    if (!provider) return accounts;
+    return accounts.filter(a => a.provider === provider);
+  },
+
+  addProviderAccount: async (account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<IPCResult<ProviderAccount>> => {
+    const result = await window.electronAPI.saveProviderAccount(account);
+    if (result.success && result.data) {
+      set(state => ({ providerAccounts: [...state.providerAccounts, result.data!] }));
+    }
+    return result;
+  },
+
+  updateProviderAccount: async (id: string, updates: Partial<ProviderAccount>): Promise<IPCResult<ProviderAccount>> => {
+    const result = await window.electronAPI.updateProviderAccount(id, updates);
+    if (result.success && result.data) {
+      set(state => ({
+        providerAccounts: state.providerAccounts.map(a => a.id === id ? result.data! : a)
+      }));
+    }
+    return result;
+  },
+
+  deleteProviderAccount: async (id: string): Promise<IPCResult> => {
+    const result = await window.electronAPI.deleteProviderAccount(id);
+    if (result.success) {
+      set(state => ({ providerAccounts: state.providerAccounts.filter(a => a.id !== id) }));
+    }
+    return result;
+  },
+
+  setActiveProviderAccount: async (provider: BuiltinProvider, accountId: string): Promise<IPCResult> => {
+    const result = await window.electronAPI.setActiveProviderAccount(provider, accountId);
+    if (result.success) {
+      set(state => ({
+        providerAccounts: state.providerAccounts.map(a => ({
+          ...a,
+          isActive: a.provider === provider ? a.id === accountId : a.isActive
+        }))
+      }));
+    }
+    return result;
+  },
+
+  checkEnvCredentials: async (): Promise<IPCResult<Record<string, boolean>>> => {
+    const result = await window.electronAPI.checkEnvCredentials();
+    if (result.success && result.data) {
+      set({ envCredentials: result.data });
+    }
+    return result;
+  },
 }));
 
 /**

@@ -5,6 +5,7 @@
 import type { NotificationSettings, GraphitiEmbeddingProvider } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 import type { SupportedLanguage } from '../constants/i18n';
+import type { ProviderAccount } from './provider-account';
 
 // Color theme types for multi-theme support
 export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
@@ -163,6 +164,9 @@ export type ThinkingLevel = 'low' | 'medium' | 'high';
 // Model type shorthand
 export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
 
+/** Widened model type: Claude shorthands + any arbitrary model ID */
+export type ModelSelection = ModelTypeShort | (string & {});
+
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
 export interface PhaseModelConfig {
@@ -237,6 +241,14 @@ export interface AppSettings {
   globalGoogleApiKey?: string;
   globalGroqApiKey?: string;
   globalOpenRouterApiKey?: string;
+  globalMistralApiKey?: string;
+  globalXAIApiKey?: string;
+  globalAzureApiKey?: string;
+  globalAzureBaseUrl?: string;
+  globalBedrockRegion?: string;
+  // Unified provider accounts (multi-provider)
+  providerAccounts?: ProviderAccount[];
+  _migratedProviderAccounts?: boolean;
   // Graphiti LLM provider settings (legacy)
   graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
   ollamaBaseUrl?: string;

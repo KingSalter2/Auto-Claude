@@ -638,6 +638,66 @@
       "authStartFailedMessage": "Failed to start authentication. Please try again."
     }
   },
+  "providers": {
+    "card": {
+      "oauth": "OAuth",
+      "apiKey": "API Key",
+      "active": "Active",
+      "setDefault": "Set Active",
+      "edit": "Edit account",
+      "delete": "Delete account",
+      "showKey": "Show API key",
+      "hideKey": "Hide API key",
+      "oauthAccount": "OAuth account",
+      "oauthLinked": "Linked account",
+      "noEndpoint": "No endpoint"
+    },
+    "section": {
+      "envDetected": "From env",
+      "envCredentialDetected": "Credentials detected from {{envVar}} environment variable",
+      "noAccounts": "No accounts configured",
+      "addOAuth": "Add OAuth Account",
+      "addApiKey": "Add API Key",
+      "addEndpoint": "Add Endpoint"
+    },
+    "dialog": {
+      "addTitle": "Add Account",
+      "editTitle": "Edit Account",
+      "deleteTitle": "Delete Account?",
+      "deleteDescription": "Are you sure you want to delete this account? This action cannot be undone.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "deleting": "Deleting...",
+      "save": "Save Changes",
+      "add": "Add Account",
+      "optional": "(optional)",
+      "oauthDescription": "Connect using OAuth authentication",
+      "apiKeyDescription": "Add your API key and configuration",
+      "oauthInstructions": "To add an OAuth account, use the Claude Code authentication flow from the Claude Code tab above. OAuth accounts are linked to your Claude.ai subscription.",
+      "fields": {
+        "name": "Account Name",
+        "apiKey": "API Key",
+        "baseUrl": "Base URL",
+        "region": "AWS Region"
+      },
+      "placeholders": {
+        "name": "My Account",
+        "apiKey": "sk-...",
+        "baseUrl": "https://..."
+      },
+      "toast": {
+        "added": "Account added",
+        "updated": "Account updated",
+        "error": "Failed to save account"
+      }
+    },
+    "toast": {
+      "deleted": "Account deleted",
+      "deleteFailed": "Failed to delete account",
+      "activated": "Activated {{name}}",
+      "activateFailed": "Failed to activate account"
+    }
+  },
   "debug": {
     "title": "Debug & Logs",
     "description": "Access logs and debug information for troubleshooting",

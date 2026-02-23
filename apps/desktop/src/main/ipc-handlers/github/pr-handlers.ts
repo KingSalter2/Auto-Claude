@@ -42,6 +42,8 @@ import type { ModelShorthand, ThinkingLevel } from "../../ai/config/types";
 import { getPRStatusPoller } from "../../services/pr-status-poller";
 import { safeBreadcrumb, safeCaptureException } from "../../sentry";
 import { sanitizeForSentry } from "../../../shared/utils/sentry-privacy";
+import { PRReviewStateManager } from "../../pr-review-state-manager";
+import type { PRReviewResult as PreloadPRReviewResult } from "../../../preload/api/modules/github-api";
 import type {
   StartPollingRequest,
   StopPollingRequest,
@@ -970,6 +972,16 @@ function parseLogLine(line: string): { source: string; content: string; isError:
     };
   }
 
+  // Catch-all: any [word] or [word_word] prefix not matched above (e.g. review engine phases)
+  const genericBracketMatch = line.match(/^\[([\w_]+)\]\s*(.*)$/);
+  if (genericBracketMatch) {
+    return {
+      source: genericBracketMatch[1],
+      content: genericBracketMatch[2] || line,
+      isError: false,
+    };
+  }
+
   // Match final summary lines (Status:, Summary:, Findings:, etc.)
   const summaryPatterns = [
     /^(Status|Summary|Findings|Verdict|Is Follow-up|Resolved|Still Open|New Issues):\s*(.*)$/,
@@ -1009,7 +1021,7 @@ function parseLogLine(line: string): { source: string; content: string; isError:
 function getPhaseFromSource(source: string): PRLogPhase {
   // Context phase: gathering PR data, commits, files, feedback
   // Note: "Followup" is context gathering for follow-up reviews (comparing commits, finding changes)
-  const contextSources = ["Context", "BotDetector", "Followup"];
+  const contextSources = ["Context", "BotDetector", "Followup", "fetching"];
   // Analysis phase: AI agents analyzing code
   const analysisSources = [
     "AI",
@@ -1019,10 +1031,19 @@ function getPhaseFromSource(source: string): PRLogPhase {
     "orchestrator",
     "PRReview", // Worktree creation and PR-specific analysis
     "ClientCache", // SDK client cache operations
+    "analyzing",
+    "orchestrating",
+    "quick_scan",
+    "security",
+    "deep_analysis",
+    "structural",
+    "quality",
+    "validation",
+    "dedup",
   ];
   // Synthesis phase: final summary and results
   // Note: "Progress" logs are redundant (shown in progress bar) but kept for completeness
-  const synthesisSources = ["PR Review Engine", "Summary", "Progress"];
+  const synthesisSources = ["PR Review Engine", "Summary", "Progress", "generating", "posting", "complete", "finalizing", "synthesis"];
 
   if (contextSources.includes(source)) return "context";
   if (analysisSources.includes(source)) return "analysis";
@@ -1826,6 +1847,13 @@ async function fetchPRsFromGraphQL(
 export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): void {
   debugLog("Registering PR handlers");
 
+  const stateManager = new PRReviewStateManager(getMainWindow);
+
+  // Reset XState actors when GitHub auth changes
+  ipcMain.on(IPC_CHANNELS.GITHUB_AUTH_CHANGED, () => {
+    stateManager.handleAuthChange();
+  });
+
   // List open PRs - fetches up to 100 open PRs at once, returns hasNextPage and endCursor from API
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_LIST,
@@ -2065,14 +2093,19 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         ciWaitAbortControllers.set(reviewKey, abortController);
         debugLog("Registered review placeholder", { reviewKey });
 
+        // Notify XState immediately — renderer gets instant "reviewing" state
+        stateManager.handleStartReview(projectId, prNumber);
+
         try {
           debugLog("Starting PR review", { prNumber });
-          sendProgress({
+          const startProgress: PRReviewProgress = {
             phase: "fetching",
             prNumber,
             progress: 5,
             message: "Assigning you to PR...",
-          });
+          };
+          sendProgress(startProgress);
+          stateManager.handleProgress(projectId, prNumber, startProgress);
 
           // Auto-assign current user to PR
           const config = getGitHubConfig(project);
@@ -2115,12 +2148,14 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           // Clean up abort controller since CI wait is done
           ciWaitAbortControllers.delete(reviewKey);
 
-          sendProgress({
+          const fetchProgress: PRReviewProgress = {
             phase: "fetching",
             prNumber,
             progress: 10,
             message: "Fetching PR data...",
-          });
+          };
+          sendProgress(fetchProgress);
+          stateManager.handleProgress(projectId, prNumber, fetchProgress);
 
           const result = await runPRReview(project, prNumber, mainWindow);
 
@@ -2134,6 +2169,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               progress: 100,
               message: "Review already in progress",
             });
+            stateManager.handleComplete(projectId, prNumber, result as unknown as PreloadPRReviewResult);
             sendComplete(result);
             return;
           }
@@ -2146,6 +2182,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             message: "Review complete!",
           });
 
+          stateManager.handleComplete(projectId, prNumber, result as unknown as PreloadPRReviewResult);
           sendComplete(result);
         } finally {
           // Clean up in case we exit before runPRReview was called (e.g., cancelled during CI wait)
@@ -2172,7 +2209,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         },
         projectId
       );
-      sendError({ prNumber, error: error instanceof Error ? error.message : "Failed to run PR review" });
+      const errorMessage = error instanceof Error ? error.message : "Failed to run PR review";
+      stateManager.handleError(projectId, prNumber, errorMessage);
+      sendError({ prNumber, error: errorMessage });
     }
   });
 
@@ -2646,6 +2685,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           ciWaitAbortControllers.delete(reviewKey);
         }
         runningReviews.delete(reviewKey);
+        stateManager.handleCancel(projectId, prNumber);
         debugLog("CI wait cancelled", { reviewKey });
         return true;
       }
@@ -2658,6 +2698,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
         // Clean up the registry
         runningReviews.delete(reviewKey);
+        stateManager.handleCancel(projectId, prNumber);
         debugLog("Review aborted", { reviewKey });
         return true;
       } catch (error) {
@@ -3089,14 +3130,20 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           ciWaitAbortControllers.set(reviewKey, abortController);
           debugLog("Registered follow-up review placeholder", { reviewKey });
 
+          // Get previous result for XState followup context
+          const previousResultForState = getReviewResult(project, prNumber) ?? undefined;
+          stateManager.handleStartFollowupReview(projectId, prNumber, previousResultForState as PreloadPRReviewResult | undefined);
+
           try {
             debugLog("Starting follow-up review", { prNumber });
-            sendProgress({
+            const followupStartProgress: PRReviewProgress = {
               phase: "fetching",
               prNumber,
               progress: 5,
               message: "Starting follow-up review...",
-            });
+            };
+            sendProgress(followupStartProgress);
+            stateManager.handleProgress(projectId, prNumber, followupStartProgress);
 
             // Wait for CI checks to complete before starting follow-up review
             const shouldProceed = await performCIWaitCheck(
@@ -3133,7 +3180,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             debugLog("Registered follow-up review abort controller", { reviewKey });
 
             // Fetch incremental PR data for follow-up
-            sendProgress({ phase: "fetching", prNumber, progress: 20, message: "Fetching PR changes since last review..." });
+            const fetchChangesProgress: PRReviewProgress = { phase: "fetching", prNumber, progress: 20, message: "Fetching PR changes since last review..." };
+            sendProgress(fetchChangesProgress);
+            stateManager.handleProgress(projectId, prNumber, fetchChangesProgress);
 
             // Get the previous review result for context
             const previousReviewResult = getReviewResult(project, prNumber);
@@ -3206,7 +3255,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               prReviewsSinceReview: [],
             };
 
-            sendProgress({ phase: "analyzing", prNumber, progress: 35, message: "Running follow-up analysis..." });
+            const analyzeProgress: PRReviewProgress = { phase: "analyzing", prNumber, progress: 35, message: "Running follow-up analysis..." };
+            sendProgress(analyzeProgress);
+            stateManager.handleProgress(projectId, prNumber, analyzeProgress);
 
             const followupReviewer = new ParallelFollowupReviewer(
               {
@@ -3217,12 +3268,14 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               (update) => {
                 const allowedPhases = new Set(["fetching", "analyzing", "generating", "posting", "complete"]);
                 const phase = (allowedPhases.has(update.phase) ? update.phase : "analyzing") as PRReviewProgress["phase"];
-                sendProgress({
+                const progressUpdate: PRReviewProgress = {
                   phase,
                   prNumber,
                   progress: update.progress,
                   message: update.message,
-                });
+                };
+                sendProgress(progressUpdate);
+                stateManager.handleProgress(projectId, prNumber, progressUpdate);
                 logCollector.processLine(`[${update.phase}] ${update.message}`);
               }
             );
@@ -3276,6 +3329,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               message: "Follow-up review complete!",
             });
 
+            stateManager.handleComplete(projectId, prNumber, result as unknown as PreloadPRReviewResult);
             sendComplete(result);
           } finally {
             // Always clean up registry, whether we exit normally or via error
@@ -3298,10 +3352,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           },
           projectId
         );
-        sendError({
-          prNumber,
-          error: error instanceof Error ? error.message : "Failed to run follow-up review",
-        });
+        const followupErrorMessage = error instanceof Error ? error.message : "Failed to run follow-up review";
+        stateManager.handleError(projectId, prNumber, followupErrorMessage);
+        sendError({ prNumber, error: followupErrorMessage });
       }
     }
   );

@@ -5,7 +5,8 @@ import type {
   IPCResult,
   SourceEnvConfig,
   SourceEnvCheckResult,
-  ToolDetectionResult
+  ToolDetectionResult,
+  ProviderAccount
 } from '../../shared/types';
 
 export interface SettingsAPI {
@@ -39,6 +40,15 @@ export interface SettingsAPI {
 
   // Spell check
   setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;
+
+  // Provider Account management (unified multi-provider)
+  getProviderAccounts: () => Promise<IPCResult<{ accounts: ProviderAccount[] }>>;
+  saveProviderAccount: (account: any) => Promise<IPCResult<any>>;
+  updateProviderAccount: (id: string, updates: any) => Promise<IPCResult<any>>;
+  deleteProviderAccount: (id: string) => Promise<IPCResult>;
+  setActiveProviderAccount: (provider: string, accountId: string) => Promise<IPCResult>;
+  testProviderConnection: (provider: string, config: any) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+  checkEnvCredentials: () => Promise<IPCResult<Record<string, boolean>>>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -90,5 +100,21 @@ export const createSettingsAPI = (): SettingsAPI => ({
 
   // Spell check - sync spell checker language with app language
   setSpellCheckLanguages: (language: string): Promise<IPCResult<{ success: boolean }>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.SPELLCHECK_SET_LANGUAGES, language)
+    ipcRenderer.invoke(IPC_CHANNELS.SPELLCHECK_SET_LANGUAGES, language),
+
+  // Provider Account management (unified multi-provider)
+  getProviderAccounts: (): Promise<IPCResult<{ accounts: ProviderAccount[] }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_GET),
+  saveProviderAccount: (account: any): Promise<IPCResult<any>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_SAVE, account),
+  updateProviderAccount: (id: string, updates: any): Promise<IPCResult<any>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_UPDATE, id, updates),
+  deleteProviderAccount: (id: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_DELETE, id),
+  setActiveProviderAccount: (provider: string, accountId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_SET_ACTIVE, provider, accountId),
+  testProviderConnection: (provider: string, config: any): Promise<IPCResult<{ success: boolean; error?: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_TEST_CONNECTION, provider, config),
+  checkEnvCredentials: (): Promise<IPCResult<Record<string, boolean>>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_CHECK_ENV),
 });

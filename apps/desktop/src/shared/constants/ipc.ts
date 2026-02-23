@@ -163,6 +163,15 @@ export const IPC_CHANNELS = {
   PROFILES_DISCOVER_MODELS: 'profiles:discover-models',
   PROFILES_DISCOVER_MODELS_CANCEL: 'profiles:discover-models-cancel',
 
+  // Provider Account management (unified multi-provider)
+  PROVIDER_ACCOUNTS_GET: 'provider-accounts:get',
+  PROVIDER_ACCOUNTS_SAVE: 'provider-accounts:save',
+  PROVIDER_ACCOUNTS_UPDATE: 'provider-accounts:update',
+  PROVIDER_ACCOUNTS_DELETE: 'provider-accounts:delete',
+  PROVIDER_ACCOUNTS_SET_ACTIVE: 'provider-accounts:set-active',
+  PROVIDER_ACCOUNTS_TEST_CONNECTION: 'provider-accounts:test-connection',
+  PROVIDER_ACCOUNTS_CHECK_ENV: 'provider-accounts:check-env',
+
   // Dialogs
   DIALOG_SELECT_DIRECTORY: 'dialog:selectDirectory',
   DIALOG_CREATE_PROJECT_FOLDER: 'dialog:createProjectFolder',

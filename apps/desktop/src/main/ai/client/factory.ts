@@ -24,7 +24,7 @@ import { resolveModelId } from '../config/phase-config';
 import type { ThinkingLevel } from '../config/types';
 import { createMcpClientsForAgent, closeAllMcpClients, mergeMcpTools } from '../mcp/client';
 import type { McpClientResult } from '../mcp/types';
-import { createProviderFromModelId } from '../providers/factory';
+import { createProviderFromModelId, detectProviderFromModel } from '../providers/factory';
 import { ToolRegistry } from '../tools/registry';
 import type {
   AgentClientConfig,
@@ -89,8 +89,9 @@ export async function createAgentClient(
   const modelId = resolveModelId(modelShorthand ?? phase);
 
   // 2. Resolve auth credentials (async — proactively refreshes OAuth token)
+  const detectedProvider = detectProviderFromModel(modelId) ?? 'anthropic';
   const auth = await resolveAuth({
-    provider: 'anthropic',
+    provider: detectedProvider,
     profileId,
   });
 
@@ -174,8 +175,9 @@ export async function createSimpleClient(
 
   // Resolve model
   const modelId = resolveModelId(modelShorthand);
+  const detectedProvider = detectProviderFromModel(modelId) ?? 'anthropic';
   const auth = await resolveAuth({
-    provider: 'anthropic',
+    provider: detectedProvider,
     profileId,
   });
 

@@ -22,8 +22,193 @@ import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-upd
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
+import type { ProviderAccount } from '../../shared/types/provider-account';
+import type { APIProfile } from '../../shared/types/profile';
+import type { ClaudeProfile } from '../../shared/types/agent';
+import { loadProfilesFile } from '../utils/profile-manager';
+import { loadProfileStore } from '../claude-profile/profile-storage';
 
 const settingsPath = getSettingsPath();
+
+async function migrateToProviderAccounts(settings: AppSettings): Promise<{ changed: boolean; settings: AppSettings }> {
+  if (settings._migratedProviderAccounts) {
+    return { changed: false, settings };
+  }
+
+  const accounts: ProviderAccount[] = settings.providerAccounts ? [...settings.providerAccounts] : [];
+  const now = Date.now();
+  let priority = accounts.length;
+
+  const genId = () => `pa_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  // Migrate globalAnthropicApiKey
+  if (settings.globalAnthropicApiKey && !accounts.some(a => a.provider === 'anthropic' && a.authType === 'api-key')) {
+    accounts.push({
+      id: genId(),
+      provider: 'anthropic',
+      name: 'Default',
+      authType: 'api-key',
+      apiKey: settings.globalAnthropicApiKey,
+      isActive: true,
+      priority: priority++,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Migrate globalOpenAIApiKey
+  if (settings.globalOpenAIApiKey && !accounts.some(a => a.provider === 'openai')) {
+    accounts.push({
+      id: genId(),
+      provider: 'openai',
+      name: 'Default',
+      authType: 'api-key',
+      apiKey: settings.globalOpenAIApiKey,
+      isActive: true,
+      priority: priority++,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Migrate globalGoogleApiKey
+  if (settings.globalGoogleApiKey && !accounts.some(a => a.provider === 'google')) {
+    accounts.push({
+      id: genId(),
+      provider: 'google',
+      name: 'Default',
+      authType: 'api-key',
+      apiKey: settings.globalGoogleApiKey,
+      isActive: true,
+      priority: priority++,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Migrate globalGroqApiKey
+  if (settings.globalGroqApiKey && !accounts.some(a => a.provider === 'groq')) {
+    accounts.push({
+      id: genId(),
+      provider: 'groq',
+      name: 'Default',
+      authType: 'api-key',
+      apiKey: settings.globalGroqApiKey,
+      isActive: true,
+      priority: priority++,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Migrate globalMistralApiKey
+  if (settings.globalMistralApiKey && !accounts.some(a => a.provider === 'mistral')) {
+    accounts.push({
+      id: genId(),
+      provider: 'mistral',
+      name: 'Default',
+      authType: 'api-key',
+      apiKey: settings.globalMistralApiKey,
+      isActive: true,
+      priority: priority++,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Migrate globalXAIApiKey
+  if (settings.globalXAIApiKey && !accounts.some(a => a.provider === 'xai')) {
+    accounts.push({
+      id: genId(),
+      provider: 'xai',
+      name: 'Default',
+      authType: 'api-key',
+      apiKey: settings.globalXAIApiKey,
+      isActive: true,
+      priority: priority++,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Migrate globalAzureApiKey
+  if (settings.globalAzureApiKey && !accounts.some(a => a.provider === 'azure')) {
+    accounts.push({
+      id: genId(),
+      provider: 'azure',
+      name: 'Default',
+      authType: 'api-key',
+      apiKey: settings.globalAzureApiKey,
+      baseUrl: settings.globalAzureBaseUrl,
+      isActive: true,
+      priority: priority++,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  // Migrate APIProfile[] (custom Anthropic-compatible endpoints stored in profiles.json)
+  try {
+    const profilesFile = await loadProfilesFile();
+    for (const apiProfile of profilesFile.profiles as APIProfile[]) {
+      // Skip if already migrated (match by baseUrl + name to avoid duplicates)
+      if (accounts.some(a => a.provider === 'openai-compatible' && a.baseUrl === apiProfile.baseUrl && a.name === apiProfile.name)) {
+        continue;
+      }
+      accounts.push({
+        id: genId(),
+        provider: 'openai-compatible',
+        name: apiProfile.name,
+        authType: 'api-key',
+        apiKey: apiProfile.apiKey,
+        baseUrl: apiProfile.baseUrl,
+        isActive: profilesFile.activeProfileId === apiProfile.id,
+        priority: priority++,
+        createdAt: apiProfile.createdAt ?? now,
+        updatedAt: apiProfile.updatedAt ?? now,
+      });
+    }
+  } catch {
+    // profiles.json may not exist for new users — skip silently
+  }
+
+  // Migrate ClaudeProfile[] (OAuth accounts stored in claude-profiles.json)
+  try {
+    const claudeStorePath = path.join(app.getPath('userData'), 'config', 'claude-profiles.json');
+    const claudeStore = loadProfileStore(claudeStorePath);
+    if (claudeStore) {
+      for (const claudeProfile of claudeStore.profiles as ClaudeProfile[]) {
+        // Skip if already linked (match by claudeProfileId)
+        if (accounts.some(a => a.claudeProfileId === claudeProfile.id)) {
+          continue;
+        }
+        accounts.push({
+          id: genId(),
+          provider: 'anthropic',
+          name: claudeProfile.name,
+          authType: 'oauth',
+          apiKey: claudeProfile.oauthToken,
+          isActive: claudeStore.activeProfileId === claudeProfile.id,
+          priority: priority++,
+          createdAt: claudeProfile.createdAt instanceof Date ? claudeProfile.createdAt.getTime() : now,
+          updatedAt: now,
+          claudeProfileId: claudeProfile.id,
+        });
+      }
+    }
+  } catch {
+    // claude-profiles.json may not exist — skip silently
+  }
+
+  return {
+    changed: true,
+    settings: {
+      ...settings,
+      providerAccounts: accounts,
+      _migratedProviderAccounts: true,
+    },
+  };
+}
 
 /**
  * Auto-detect the auto-claude prompts path relative to the app location.
@@ -165,6 +350,13 @@ export function registerSettingsHandlers(
           }
         }
         settings._migratedUltrathinkToHigh = true;
+        needsSave = true;
+      }
+
+      // Migration: Convert legacy global API keys, APIProfiles, and ClaudeProfiles to ProviderAccount entries
+      const providerAccountsMigration = await migrateToProviderAccounts(settings);
+      if (providerAccountsMigration.changed) {
+        Object.assign(settings, providerAccountsMigration.settings);
         needsSave = true;
       }
 

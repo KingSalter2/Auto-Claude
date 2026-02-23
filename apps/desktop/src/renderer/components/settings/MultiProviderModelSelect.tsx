@@ -1,0 +1,290 @@
+import { useState, useMemo, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ChevronDown, Search, Check, Brain, Eye, Wrench, ExternalLink } from 'lucide-react';
+import { ALL_AVAILABLE_MODELS, type ModelOption } from '@shared/constants/models';
+import { PROVIDER_REGISTRY } from '@shared/constants/providers';
+import type { BuiltinProvider } from '@shared/types/provider-account';
+import { useSettingsStore } from '@/stores/settings-store';
+import { cn } from '../../lib/utils';
+import { Input } from '../ui/input';
+
+interface MultiProviderModelSelectProps {
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}
+
+function formatContextWindow(size: number): string {
+  if (size >= 1000000) return `${(size / 1000000).toFixed(0)}M`;
+  return `${(size / 1000).toFixed(0)}K`;
+}
+
+export function MultiProviderModelSelect({ value, onChange, className }: MultiProviderModelSelectProps) {
+  const { t } = useTranslation(['settings']);
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [customInput, setCustomInput] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const settings = useSettingsStore(s => s.settings);
+  const providerAccounts = settings.providerAccounts ?? [];
+
+  // Group models by provider
+  const groupedModels = useMemo(() => {
+    const groups = new Map<BuiltinProvider, ModelOption[]>();
+    for (const model of ALL_AVAILABLE_MODELS) {
+      if (!groups.has(model.provider)) groups.set(model.provider, []);
+      groups.get(model.provider)!.push(model);
+    }
+    return groups;
+  }, []);
+
+  // Check if provider has credentials
+  const hasCredentials = (provider: BuiltinProvider): boolean => {
+    // Anthropic is always available (built-in OAuth support)
+    if (provider === 'anthropic') return true;
+    return providerAccounts.some(a => a.provider === provider && (a.apiKey || a.claudeProfileId));
+  };
+
+  // Filter models by search
+  const filteredGroups = useMemo(() => {
+    if (!search.trim()) return groupedModels;
+    const lower = search.toLowerCase();
+    const filtered = new Map<BuiltinProvider, ModelOption[]>();
+    for (const [provider, models] of groupedModels) {
+      const providerInfo = PROVIDER_REGISTRY.find(p => p.id === provider);
+      const providerMatches = providerInfo?.name.toLowerCase().includes(lower);
+      const matching = models.filter(m =>
+        m.label.toLowerCase().includes(lower) ||
+        m.value.toLowerCase().includes(lower) ||
+        (m.description?.toLowerCase().includes(lower) ?? false)
+      );
+      if (matching.length > 0) {
+        filtered.set(provider, matching);
+      } else if (providerMatches) {
+        filtered.set(provider, models);
+      }
+    }
+    return filtered;
+  }, [search, groupedModels]);
+
+  // Find current selection label
+  const selectedModel = ALL_AVAILABLE_MODELS.find(m => m.value === value);
+  const displayLabel = selectedModel?.label ?? value;
+
+  const handleOpen = () => {
+    setOpen(true);
+    setSearch('');
+    setTimeout(() => searchRef.current?.focus(), 50);
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setSearch('');
+  };
+
+  const handleSelect = (modelValue: string) => {
+    onChange(modelValue);
+    handleClose();
+  };
+
+  const handleCustomSubmit = () => {
+    if (customInput.trim()) {
+      onChange(customInput.trim());
+      setCustomInput('');
+      handleClose();
+    }
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        handleClose();
+      }
+    };
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && open) handleClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className={cn('relative', className)}>
+      {/* Trigger button */}
+      <button
+        type="button"
+        onClick={open ? handleClose : handleOpen}
+        className={cn(
+          'flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm',
+          'ring-offset-background',
+          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+          'disabled:cursor-not-allowed disabled:opacity-50',
+          'hover:bg-accent/50 transition-colors'
+        )}
+      >
+        <span className={cn('truncate', !value && 'text-muted-foreground')}>
+          {value ? displayLabel : t('settings:modelSelect.placeholder', { defaultValue: 'Select a model' })}
+        </span>
+        <ChevronDown className={cn('h-4 w-4 text-muted-foreground shrink-0 ml-2 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg flex flex-col max-h-80">
+          {/* Search */}
+          <div className="p-2 border-b border-border">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={searchRef}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={t('settings:modelSelect.searchPlaceholder', { defaultValue: 'Search models...' })}
+                className="pl-8 h-8"
+              />
+            </div>
+          </div>
+
+          {/* Model groups */}
+          <div className="flex-1 overflow-y-auto">
+            {filteredGroups.size === 0 ? (
+              <div className="p-3 text-center text-sm text-muted-foreground">
+                {t('settings:modelSelect.noResults', { defaultValue: 'No models match your search' })}
+              </div>
+            ) : (
+              Array.from(filteredGroups.entries()).map(([provider, models]) => {
+                const providerInfo = PROVIDER_REGISTRY.find(p => p.id === provider);
+                const configured = hasCredentials(provider);
+
+                return (
+                  <div key={provider}>
+                    {/* Provider header */}
+                    <div className={cn(
+                      'flex items-center justify-between px-3 py-1.5 bg-muted/50 sticky top-0',
+                      !configured && 'opacity-60'
+                    )}>
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        {providerInfo?.name ?? provider}
+                      </span>
+                      {!configured && providerInfo?.website && (
+                        <a
+                          href={providerInfo.website}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center gap-1 text-[10px] text-primary hover:underline"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          {t('settings:modelSelect.configureProvider', { defaultValue: 'Configure' })}
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Models in this provider */}
+                    {models.map(model => {
+                      const isSelected = value === model.value;
+                      return (
+                        <button
+                          key={model.value}
+                          type="button"
+                          onClick={() => configured ? handleSelect(model.value) : undefined}
+                          disabled={!configured}
+                          className={cn(
+                            'w-full px-3 py-2 text-left text-sm flex items-start gap-2',
+                            'hover:bg-accent transition-colors',
+                            isSelected && 'bg-accent',
+                            !configured && 'opacity-50 cursor-not-allowed'
+                          )}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium truncate">{model.label}</span>
+                              {model.description && (
+                                <span className="text-[10px] text-muted-foreground shrink-0">
+                                  {model.description}
+                                </span>
+                              )}
+                            </div>
+                            {model.capabilities && (
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-muted-foreground">
+                                  {t('settings:modelSelect.contextWindow', {
+                                    size: formatContextWindow(model.capabilities.contextWindow),
+                                    defaultValue: `${formatContextWindow(model.capabilities.contextWindow)} context`
+                                  })}
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  {model.capabilities.thinking && (
+                                    <span title={t('settings:modelSelect.capabilities.thinking', { defaultValue: 'Thinking' })}>
+                                      <Brain className="h-2.5 w-2.5 text-muted-foreground" />
+                                    </span>
+                                  )}
+                                  {model.capabilities.tools && (
+                                    <span title={t('settings:modelSelect.capabilities.tools', { defaultValue: 'Tools' })}>
+                                      <Wrench className="h-2.5 w-2.5 text-muted-foreground" />
+                                    </span>
+                                  )}
+                                  {model.capabilities.vision && (
+                                    <span title={t('settings:modelSelect.capabilities.vision', { defaultValue: 'Vision' })}>
+                                      <Eye className="h-2.5 w-2.5 text-muted-foreground" />
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          {isSelected && (
+                            <Check className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Custom model ID input */}
+          <div className="border-t border-border p-2 space-y-1">
+            <p className="text-[10px] text-muted-foreground px-1">
+              {t('settings:modelSelect.customModel', { defaultValue: 'Custom model ID' })}
+            </p>
+            <div className="flex gap-1.5">
+              <Input
+                value={customInput}
+                onChange={e => setCustomInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleCustomSubmit()}
+                placeholder={t('settings:modelSelect.customModelPlaceholder', { defaultValue: 'Enter model ID...' })}
+                className="h-7 text-xs"
+              />
+              <button
+                type="button"
+                onClick={handleCustomSubmit}
+                disabled={!customInput.trim()}
+                className={cn(
+                  'shrink-0 px-2 h-7 rounded-md text-xs font-medium transition-colors',
+                  'bg-primary text-primary-foreground hover:bg-primary/90',
+                  'disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
+              >
+                {t('settings:modelSelect.useCustomModel', { defaultValue: 'Use' })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

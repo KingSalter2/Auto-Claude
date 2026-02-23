@@ -170,6 +170,55 @@ const browserMockAPI: ElectronAPI = {
     }
   }),
 
+  // Provider Account management (unified multi-provider credentials)
+  getProviderAccounts: async () => ({
+    success: true,
+    data: { accounts: [] }
+  }),
+
+  saveProviderAccount: async (account) => ({
+    success: true,
+    data: {
+      id: `mock-account-${Date.now()}`,
+      ...account,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+  }),
+
+  updateProviderAccount: async (_id, updates) => ({
+    success: true,
+    data: {
+      id: _id,
+      provider: 'anthropic' as const,
+      name: 'Mock Account',
+      authType: 'api-key' as const,
+      isActive: false,
+      priority: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      ...updates
+    }
+  }),
+
+  deleteProviderAccount: async (_id: string) => ({
+    success: true
+  }),
+
+  setActiveProviderAccount: async (_provider: string, _accountId: string) => ({
+    success: true
+  }),
+
+  testProviderConnection: async (_provider: string, _config) => ({
+    success: true,
+    data: { success: true }
+  }),
+
+  checkEnvCredentials: async () => ({
+    success: true,
+    data: {}
+  }),
+
   // GitHub API
   github: {
     getGitHubRepositories: async () => ({ success: true, data: [] }),

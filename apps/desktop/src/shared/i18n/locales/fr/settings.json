@@ -638,6 +638,66 @@
       "authStartFailedMessage": "Échec du démarrage de l'authentification. Veuillez réessayer."
     }
   },
+  "providers": {
+    "card": {
+      "oauth": "OAuth",
+      "apiKey": "Clé API",
+      "active": "Actif",
+      "setDefault": "Définir actif",
+      "edit": "Modifier le compte",
+      "delete": "Supprimer le compte",
+      "showKey": "Afficher la clé API",
+      "hideKey": "Masquer la clé API",
+      "oauthAccount": "Compte OAuth",
+      "oauthLinked": "Compte lié",
+      "noEndpoint": "Pas de point de terminaison"
+    },
+    "section": {
+      "envDetected": "Depuis env",
+      "envCredentialDetected": "Identifiants détectés depuis la variable d'environnement {{envVar}}",
+      "noAccounts": "Aucun compte configuré",
+      "addOAuth": "Ajouter un compte OAuth",
+      "addApiKey": "Ajouter une clé API",
+      "addEndpoint": "Ajouter un point de terminaison"
+    },
+    "dialog": {
+      "addTitle": "Ajouter un compte",
+      "editTitle": "Modifier le compte",
+      "deleteTitle": "Supprimer le compte ?",
+      "deleteDescription": "Êtes-vous sûr de vouloir supprimer ce compte ? Cette action est irréversible.",
+      "cancel": "Annuler",
+      "delete": "Supprimer",
+      "deleting": "Suppression...",
+      "save": "Enregistrer les modifications",
+      "add": "Ajouter le compte",
+      "optional": "(optionnel)",
+      "oauthDescription": "Se connecter avec l'authentification OAuth",
+      "apiKeyDescription": "Ajoutez votre clé API et votre configuration",
+      "oauthInstructions": "Pour ajouter un compte OAuth, utilisez le flux d'authentification Claude Code depuis l'onglet Claude Code ci-dessus.",
+      "fields": {
+        "name": "Nom du compte",
+        "apiKey": "Clé API",
+        "baseUrl": "URL de base",
+        "region": "Région AWS"
+      },
+      "placeholders": {
+        "name": "Mon compte",
+        "apiKey": "sk-...",
+        "baseUrl": "https://..."
+      },
+      "toast": {
+        "added": "Compte ajouté",
+        "updated": "Compte mis à jour",
+        "error": "Échec de l'enregistrement du compte"
+      }
+    },
+    "toast": {
+      "deleted": "Compte supprimé",
+      "deleteFailed": "Échec de la suppression du compte",
+      "activated": "{{name}} activé",
+      "activateFailed": "Échec de l'activation du compte"
+    }
+  },
   "debug": {
     "title": "Debug & Logs",
     "description": "Accédez aux logs et informations de débogage pour le dépannage",

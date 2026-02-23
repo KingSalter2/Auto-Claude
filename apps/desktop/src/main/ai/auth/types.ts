@@ -85,6 +85,9 @@ export const PROVIDER_SETTINGS_KEY: Partial<Record<SupportedProvider, string>> =
   openai: 'globalOpenAIApiKey',
   google: 'globalGoogleApiKey',
   groq: 'globalGroqApiKey',
+  mistral: 'globalMistralApiKey',
+  xai: 'globalXAIApiKey',
+  azure: 'globalAzureApiKey',
 } as const;
 
 /**

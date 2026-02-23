@@ -4,6 +4,7 @@
  */
 
 import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig } from '../types/settings';
+import type { BuiltinProvider } from '../types/provider-account';
 
 // ============================================
 // Available Models
@@ -16,6 +17,51 @@ export const AVAILABLE_MODELS = [
   { value: 'sonnet', label: 'Claude Sonnet 4.5' },
   { value: 'haiku', label: 'Claude Haiku 4.5' }
 ] as const;
+
+// ============================================
+// Multi-Provider Model Catalog
+// ============================================
+
+export interface ModelOption {
+  value: string;
+  label: string;
+  provider: BuiltinProvider;
+  description?: string;
+  capabilities?: {
+    thinking: boolean;
+    tools: boolean;
+    vision: boolean;
+    contextWindow: number;
+  };
+}
+
+export const ALL_AVAILABLE_MODELS: ModelOption[] = [
+  // Anthropic
+  { value: 'opus', label: 'Claude Opus 4.6', provider: 'anthropic', description: 'Most capable', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
+  { value: 'opus-1m', label: 'Claude Opus 4.6 (1M)', provider: 'anthropic', description: '1M context', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 1000000 } },
+  { value: 'opus-4.5', label: 'Claude Opus 4.5', provider: 'anthropic', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
+  { value: 'sonnet', label: 'Claude Sonnet 4.5', provider: 'anthropic', description: 'Balanced', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
+  { value: 'haiku', label: 'Claude Haiku 4.5', provider: 'anthropic', description: 'Fast', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 200000 } },
+  // OpenAI
+  { value: 'gpt-4.1', label: 'GPT-4.1', provider: 'openai', description: 'Latest flagship', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 1047576 } },
+  { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'openai', description: 'Fast & affordable', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 1047576 } },
+  { value: 'gpt-4o', label: 'GPT-4o', provider: 'openai', description: 'Multimodal', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 128000 } },
+  { value: 'o3', label: 'o3', provider: 'openai', description: 'Reasoning', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
+  { value: 'o3-mini', label: 'o3 Mini', provider: 'openai', description: 'Fast reasoning', capabilities: { thinking: true, tools: true, vision: false, contextWindow: 200000 } },
+  { value: 'o4-mini', label: 'o4 Mini', provider: 'openai', description: 'Latest reasoning', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
+  // Google
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'google', description: 'Fast thinking', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 1048576 } },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'google', description: 'Advanced', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 1048576 } },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'google', description: 'Multimodal', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 1048576 } },
+  // Mistral
+  { value: 'mistral-large-latest', label: 'Mistral Large', provider: 'mistral', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 128000 } },
+  { value: 'mistral-small-latest', label: 'Mistral Small', provider: 'mistral', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 128000 } },
+  // Groq
+  { value: 'llama-3.3-70b-versatile', label: 'LLaMA 3.3 70B', provider: 'groq', description: 'Fast inference', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 128000 } },
+  // xAI
+  { value: 'grok-3', label: 'Grok 3', provider: 'xai', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 131072 } },
+  { value: 'grok-3-mini', label: 'Grok 3 Mini', provider: 'xai', description: 'Fast reasoning', capabilities: { thinking: true, tools: true, vision: false, contextWindow: 131072 } },
+];
 
 // Maps model shorthand to actual Claude model IDs
 // Values must match apps/desktop/src/main/ai/config/types.ts MODEL_ID_MAP

@@ -13,6 +13,7 @@ import {
 } from '../../../shared/constants';
 import { useSettingsStore, saveSettings } from '../../stores/settings-store';
 import { SettingsSection } from './SettingsSection';
+import { MultiProviderModelSelect } from './MultiProviderModelSelect';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import {
@@ -272,21 +273,10 @@ export function AgentProfileSettings() {
                       {/* Model Select */}
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">{t('agentProfile.model')}</Label>
-                        <Select
+                        <MultiProviderModelSelect
                           value={currentPhaseModels[phase]}
-                          onValueChange={(value) => handlePhaseModelChange(phase, value as ModelTypeShort)}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {AVAILABLE_MODELS.map((m) => (
-                              <SelectItem key={m.value} value={m.value}>
-                                {m.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                          onChange={(value) => handlePhaseModelChange(phase, value as ModelTypeShort)}
+                        />
                       </div>
                       {/* Thinking Level Select */}
                       <div className="space-y-1">
