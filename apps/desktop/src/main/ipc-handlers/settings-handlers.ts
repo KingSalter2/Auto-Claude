@@ -1127,7 +1127,8 @@ export function registerSettingsHandlers(
     IPC_CHANNELS.PROVIDER_ACCOUNTS_SAVE,
     async (_event, account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<IPCResult<ProviderAccount>> => {
       try {
-        const accounts = readProviderAccounts();
+        const settings = readSettingsFile() ?? {};
+        const accounts: ProviderAccount[] = (settings.providerAccounts as ProviderAccount[] | undefined) ?? [];
         const now = Date.now();
         const newAccount: ProviderAccount = {
           ...account,
@@ -1136,8 +1137,16 @@ export function registerSettingsHandlers(
           updatedAt: now,
         };
         accounts.push(newAccount);
-        writeProviderAccounts(accounts);
-        console.warn('[PROVIDER_ACCOUNTS_SAVE] Created account:', newAccount.id, newAccount.name, newAccount.provider);
+        settings.providerAccounts = accounts;
+
+        // Add to globalPriorityOrder — prepend so new account becomes active
+        const queue: string[] = (settings.globalPriorityOrder as string[] | undefined) ?? [];
+        queue.unshift(newAccount.id);
+        settings.globalPriorityOrder = queue;
+
+        const settingsPath = getSettingsPath();
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+        console.warn('[PROVIDER_ACCOUNTS_SAVE] Created account:', newAccount.id, newAccount.name, newAccount.provider, '| Queue position: #1 of', queue.length);
         return { success: true, data: newAccount };
       } catch (error) {
         console.error('[PROVIDER_ACCOUNTS_SAVE] Error:', error);
@@ -1178,12 +1187,20 @@ export function registerSettingsHandlers(
     IPC_CHANNELS.PROVIDER_ACCOUNTS_DELETE,
     async (_event, id: string): Promise<IPCResult> => {
       try {
-        const accounts = readProviderAccounts();
+        const settings = readSettingsFile() ?? {};
+        const accounts: ProviderAccount[] = (settings.providerAccounts as ProviderAccount[] | undefined) ?? [];
         const filtered = accounts.filter(a => a.id !== id);
         if (filtered.length === accounts.length) {
           return { success: false, error: `Account not found: ${id}` };
         }
-        writeProviderAccounts(filtered);
+        settings.providerAccounts = filtered;
+
+        // Remove from globalPriorityOrder
+        const queue: string[] = (settings.globalPriorityOrder as string[] | undefined) ?? [];
+        settings.globalPriorityOrder = queue.filter(qid => qid !== id);
+
+        const settingsPath = getSettingsPath();
+        writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
         console.warn('[PROVIDER_ACCOUNTS_DELETE] Deleted account:', id);
         return { success: true };
       } catch (error) {

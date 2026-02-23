@@ -334,7 +334,14 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   addProviderAccount: async (account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>): Promise<IPCResult<ProviderAccount>> => {
     const result = await window.electronAPI.saveProviderAccount(account);
     if (result.success && result.data) {
-      set(state => ({ providerAccounts: [...state.providerAccounts, result.data!] }));
+      const newAccount = result.data!;
+      set(state => ({
+        providerAccounts: [...state.providerAccounts, newAccount],
+        settings: {
+          ...state.settings,
+          globalPriorityOrder: [newAccount.id, ...(state.settings.globalPriorityOrder ?? [])],
+        },
+      }));
     }
     return result;
   },
@@ -352,7 +359,13 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   deleteProviderAccount: async (id: string): Promise<IPCResult> => {
     const result = await window.electronAPI.deleteProviderAccount(id);
     if (result.success) {
-      set(state => ({ providerAccounts: state.providerAccounts.filter(a => a.id !== id) }));
+      set(state => ({
+        providerAccounts: state.providerAccounts.filter(a => a.id !== id),
+        settings: {
+          ...state.settings,
+          globalPriorityOrder: (state.settings.globalPriorityOrder ?? []).filter(qid => qid !== id),
+        },
+      }));
     }
     return result;
   },

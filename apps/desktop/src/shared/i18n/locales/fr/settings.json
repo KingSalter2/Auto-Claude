@@ -641,6 +641,8 @@
   "providers": {
     "card": {
       "oauth": "OAuth",
+      "codex": "Codex",
+      "codexSubscription": "Abonnement Codex",
       "apiKey": "Clé API",
       "active": "Actif",
       "setDefault": "Définir actif",
@@ -657,6 +659,7 @@
       "envCredentialDetected": "Identifiants détectés depuis la variable d'environnement {{envVar}}",
       "noAccounts": "Aucun compte configuré",
       "addOAuth": "Ajouter un compte OAuth",
+      "addCodexSubscription": "Ajouter abonnement Codex",
       "addApiKey": "Ajouter une clé API",
       "addEndpoint": "Ajouter un point de terminaison"
     },

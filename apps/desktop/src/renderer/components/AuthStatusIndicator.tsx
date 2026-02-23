@@ -176,11 +176,17 @@ export function AuthStatusIndicator() {
                 </div>
                 {activeAccount && (
                   <div className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                    activeAccount.authType === 'oauth'
-                      ? 'bg-orange-500/15 text-orange-500'
-                      : 'bg-primary/15 text-primary'
+                    activeAccount.authType === 'oauth' && activeAccount.provider === 'openai'
+                      ? 'bg-emerald-500/15 text-emerald-500'
+                      : activeAccount.authType === 'oauth'
+                        ? 'bg-orange-500/15 text-orange-500'
+                        : 'bg-primary/15 text-primary'
                   }`}>
-                    {activeAccount.authType === 'oauth' ? t('common:usage.oauth') : t('common:usage.apiKey')}
+                    {activeAccount.authType === 'oauth' && activeAccount.provider === 'openai'
+                      ? t('common:usage.codex')
+                      : activeAccount.authType === 'oauth'
+                        ? t('common:usage.oauth')
+                        : t('common:usage.apiKey')}
                   </div>
                 )}
               </div>
@@ -203,9 +209,11 @@ export function AuthStatusIndicator() {
                       <span className="text-[10px]">{t('common:usage.subscription')}</span>
                     </div>
                     <span className="font-medium text-[10px]">
-                      {activeAccount.billingModel === 'subscription'
-                        ? t('common:usage.billingSubscription')
-                        : t('common:usage.billingPayPerUse')}
+                      {activeAccount.authType === 'oauth' && activeAccount.provider === 'openai'
+                        ? t('common:usage.codexSubscription')
+                        : activeAccount.billingModel === 'subscription'
+                          ? t('common:usage.billingSubscription')
+                          : t('common:usage.billingPayPerUse')}
                     </span>
                   </div>
 

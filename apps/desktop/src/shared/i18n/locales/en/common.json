@@ -520,6 +520,8 @@
     "apiProfile": "API Profile",
     "apiKey": "API Key",
     "oauth": "OAuth",
+    "codex": "Codex",
+    "codexSubscription": "Codex Subscription",
     "claudeCode": "Claude Code",
     "claudeCodeSubscription": "Claude Code subscription",
     "subscription": "Subscription",

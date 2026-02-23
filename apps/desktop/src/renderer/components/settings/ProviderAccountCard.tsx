@@ -68,13 +68,22 @@ export function ProviderAccountCard({ account, onEdit, onDelete }: ProviderAccou
   const [showKey, setShowKey] = useState(false);
 
   const isOAuth = account.authType === 'oauth';
+  const isCodex = isOAuth && account.provider === 'openai';
   const sessionPercent = account.usage?.sessionUsagePercent ?? 0;
   const weeklyPercent = account.usage?.weeklyUsagePercent ?? 0;
   const hasUsage = isOAuth && (sessionPercent > 0 || weeklyPercent > 0);
 
-  const identifier = isOAuth
-    ? (account.usage ? t('providers.card.oauthLinked') : t('providers.card.oauthAccount'))
-    : account.baseUrl ?? t('providers.card.noEndpoint');
+  const authBadgeLabel = isCodex
+    ? t('providers.card.codex')
+    : isOAuth
+      ? t('providers.card.oauth')
+      : t('providers.card.apiKey');
+
+  const identifier = isCodex
+    ? t('providers.card.codexSubscription')
+    : isOAuth
+      ? (account.usage ? t('providers.card.oauthLinked') : t('providers.card.oauthAccount'))
+      : account.baseUrl ?? t('providers.card.noEndpoint');
 
   return (
     <div
@@ -89,11 +98,13 @@ export function ProviderAccountCard({ account, onEdit, onDelete }: ProviderAccou
             {/* Auth type badge */}
             <span className={cn(
               'text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0',
-              isOAuth
-                ? 'bg-primary/15 text-primary'
-                : 'bg-muted text-muted-foreground'
+              isCodex
+                ? 'bg-emerald-500/15 text-emerald-500'
+                : isOAuth
+                  ? 'bg-primary/15 text-primary'
+                  : 'bg-muted text-muted-foreground'
             )}>
-              {isOAuth ? t('providers.card.oauth') : t('providers.card.apiKey')}
+              {authBadgeLabel}
             </span>
 
           </div>
