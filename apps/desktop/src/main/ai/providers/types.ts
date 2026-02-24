@@ -40,8 +40,8 @@ export interface ProviderConfig {
   deploymentName?: string;
   /** Additional provider-specific headers */
   headers?: Record<string, string>;
-  /** Use Codex OAuth fetch interceptor for token injection (OpenAI Codex only) */
-  codexOAuth?: boolean;
+  /** Pre-resolved path to OAuth token file for file-based OAuth providers (e.g., Codex) */
+  oauthTokenFilePath?: string;
 }
 
 /**

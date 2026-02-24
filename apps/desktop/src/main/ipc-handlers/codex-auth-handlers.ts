@@ -13,7 +13,7 @@ export function registerCodexAuthHandlers(): void {
 
   ipcMain.handle('codex-auth-status', async () => {
     try {
-      const state = getCodexAuthState();
+      const state = await getCodexAuthState();
       return { success: true, data: state };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -22,7 +22,7 @@ export function registerCodexAuthHandlers(): void {
 
   ipcMain.handle('codex-auth-logout', async () => {
     try {
-      clearCodexAuth();
+      await clearCodexAuth();
       return { success: true };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

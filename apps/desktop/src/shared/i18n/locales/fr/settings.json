@@ -694,6 +694,7 @@
       "active": "Actif",
       "setDefault": "Définir actif",
       "edit": "Modifier le compte",
+      "reauth": "Ré-authentifier",
       "delete": "Supprimer le compte",
       "showKey": "Afficher la clé API",
       "hideKey": "Masquer la clé API",
@@ -758,7 +759,10 @@
     },
     "toast": {
       "deleted": "Compte supprimé",
-      "deleteFailed": "Échec de la suppression du compte"
+      "deleteFailed": "Échec de la suppression du compte",
+      "reauthStarted": "Ouverture de l'authentification...",
+      "reauthSuccess": "Ré-authentification réussie",
+      "reauthFailed": "Échec de la ré-authentification"
     },
     "categories": {
       "popular": "Populaires",

@@ -133,24 +133,35 @@ export function AddAccountDialog({
     if (oauthStatus !== 'success' || isCodexOAuth || accountSaved || !name.trim()) return;
 
     const autoSave = async () => {
-      const payload = {
-        provider,
-        name: name.trim(),
-        authType: 'oauth' as const,
-        billingModel: 'subscription' as const,
-        claudeProfileId: oauthProfileId ?? undefined,
-      };
-      const result = await addProviderAccount(payload);
+      let result;
+      if (isEditing && editAccount) {
+        // Re-authenticating existing Anthropic OAuth account — update in place
+        result = await updateProviderAccount(editAccount.id, {
+          name: name.trim(),
+          claudeProfileId: oauthProfileId ?? editAccount.claudeProfileId,
+        });
+      } else {
+        const payload = {
+          provider,
+          name: name.trim(),
+          authType: 'oauth' as const,
+          billingModel: 'subscription' as const,
+          claudeProfileId: oauthProfileId ?? undefined,
+        };
+        result = await addProviderAccount(payload);
+      }
       if (result.success) {
         setAccountSaved(true);
         toast({
-          title: t('providers.dialog.toast.added'),
+          title: isEditing
+            ? t('providers.dialog.toast.updated')
+            : t('providers.dialog.toast.added'),
           description: name.trim(),
         });
       }
     };
     autoSave();
-  }, [oauthStatus, isCodexOAuth, accountSaved, name, provider, oauthProfileId, addProviderAccount, toast, t]);
+  }, [oauthStatus, isCodexOAuth, accountSaved, name, provider, oauthProfileId, isEditing, editAccount, addProviderAccount, updateProviderAccount, toast, t]);
 
   const canSave = () => {
     if (!name.trim()) return false;
@@ -181,16 +192,26 @@ export function AddAccountDialog({
           setOauthStatus('success');
           // Auto-save and close after a brief delay so user sees the success state
           setTimeout(async () => {
-            const payload = {
-              provider,
-              name: name.trim(),
-              authType: 'oauth' as const,
-              billingModel: 'subscription' as const,
-            };
-            const saveResult = await addProviderAccount(payload);
+            let saveResult;
+            if (isEditing && editAccount) {
+              // Re-authenticating existing account — update in place
+              saveResult = await updateProviderAccount(editAccount.id, {
+                name: name.trim(),
+              });
+            } else {
+              const payload = {
+                provider,
+                name: name.trim(),
+                authType: 'oauth' as const,
+                billingModel: 'subscription' as const,
+              };
+              saveResult = await addProviderAccount(payload);
+            }
             if (saveResult.success) {
               toast({
-                title: t('providers.dialog.toast.added'),
+                title: isEditing
+                  ? t('providers.dialog.toast.updated')
+                  : t('providers.dialog.toast.added'),
                 description: name.trim(),
               });
             }
@@ -208,26 +229,32 @@ export function AddAccountDialog({
     }
 
     try {
-      // First, create a Claude profile for this account
-      const profileResult = await window.electronAPI.saveClaudeProfile({
-        id: '',
-        name: name.trim(),
-        isDefault: false,
-        isAuthenticated: false,
-        configDir: '',
-        createdAt: new Date(),
-      });
+      // Reuse existing Claude profile when re-authenticating, create new otherwise
+      let profileId: string;
+      if (isEditing && editAccount?.claudeProfileId) {
+        profileId = editAccount.claudeProfileId;
+        setOauthProfileId(profileId);
+      } else {
+        const profileResult = await window.electronAPI.saveClaudeProfile({
+          id: '',
+          name: name.trim(),
+          isDefault: false,
+          isAuthenticated: false,
+          configDir: '',
+          createdAt: new Date(),
+        });
 
-      if (!profileResult.success || !profileResult.data) {
-        setOauthStatus('error');
-        setOauthError('Failed to create profile');
-        return;
+        if (!profileResult.success || !profileResult.data) {
+          setOauthStatus('error');
+          setOauthError('Failed to create profile');
+          return;
+        }
+
+        profileId = profileResult.data.id;
+        setOauthProfileId(profileId);
       }
 
-      const profileId = profileResult.data.id;
-      setOauthProfileId(profileId);
-
-      // Run the subprocess auth
+      // Run the subprocess auth (re-authenticates for existing profiles)
       const result = await window.electronAPI.claudeAuthLoginSubprocess(profileId);
 
       if (result.success && result.data?.authenticated) {
@@ -241,7 +268,7 @@ export function AddAccountDialog({
       setOauthStatus('error');
       setOauthError(err instanceof Error ? err.message : 'Unexpected error');
     }
-  }, [name, t, toast, isCodexOAuth, provider, addProviderAccount, onOpenChange]);
+  }, [name, t, toast, isCodexOAuth, isEditing, editAccount, provider, addProviderAccount, updateProviderAccount, onOpenChange]);
 
   const handleFallbackTerminal = useCallback(async () => {
     if (!name.trim()) {

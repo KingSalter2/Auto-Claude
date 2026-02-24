@@ -42,7 +42,7 @@ import { BuildOrchestrator } from '../orchestration/build-orchestrator';
 import { QALoop } from '../orchestration/qa-loop';
 import type { AgentType } from '../config/agent-configs';
 import type { Phase } from '../config/types';
-import { getPhaseModel, getPhaseThinking } from '../config/phase-config';
+import { getPhaseThinking } from '../config/phase-config';
 import { TaskLogWriter } from '../logging/task-log-writer';
 
 // =============================================================================
@@ -219,13 +219,17 @@ async function runSingleSession(
   registry: ToolRegistry,
   initialUserMessage?: string,
 ): Promise<SessionResult> {
-  // Resolve phase-specific model
-  const phaseModelId = await getPhaseModel(specDir, phase);
+  // Use queue-resolved model ID from baseSession (already mapped to the correct
+  // provider-specific model, e.g., 'gpt-5.3-codex' for OpenAI Codex).
+  // getPhaseModel() only knows local shorthands (opus → claude-opus-4-6) and
+  // would create a mismatch when the provider queue selected a non-Anthropic account.
+  const phaseModelId = baseSession.modelId;
   const phaseThinking = await getPhaseThinking(specDir, phase);
 
   const model = createProviderFromModelId(phaseModelId, {
     apiKey: baseSession.apiKey,
     baseURL: baseSession.baseURL,
+    oauthTokenFilePath: baseSession.oauthTokenFilePath,
   });
 
   const tools = registry.getToolsForAgent(agentType, toolContext);
@@ -344,6 +348,7 @@ async function runDefaultSession(
   const model = createProviderFromModelId(session.modelId, {
     apiKey: session.apiKey,
     baseURL: session.baseURL,
+    oauthTokenFilePath: session.oauthTokenFilePath,
   });
 
   const tools = registry.getToolsForAgent(session.agentType, toolContext);

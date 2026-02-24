@@ -694,6 +694,7 @@
       "active": "Active",
       "setDefault": "Set Active",
       "edit": "Edit account",
+      "reauth": "Re-authenticate",
       "delete": "Delete account",
       "showKey": "Show API key",
       "hideKey": "Hide API key",
@@ -758,7 +759,10 @@
     },
     "toast": {
       "deleted": "Account deleted",
-      "deleteFailed": "Failed to delete account"
+      "deleteFailed": "Failed to delete account",
+      "reauthStarted": "Opening authentication...",
+      "reauthSuccess": "Re-authenticated successfully",
+      "reauthFailed": "Re-authentication failed"
     },
     "categories": {
       "popular": "Popular",

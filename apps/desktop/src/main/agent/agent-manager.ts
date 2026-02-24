@@ -133,7 +133,7 @@ export class AgentManager extends EventEmitter {
     requestedModel: string,
     preferredProvider?: string | null,
   ): Promise<{
-    auth: { apiKey?: string; baseURL?: string; codexOAuth?: boolean } | null;
+    auth: { apiKey?: string; baseURL?: string; oauthTokenFilePath?: string } | null;
     provider: string;
     modelId: string;
     configDir?: string;
@@ -377,6 +377,7 @@ export class AgentManager extends EventEmitter {
       apiKey: resolved.auth?.apiKey,
       baseURL: resolved.auth?.baseURL,
       configDir: resolved.configDir,
+      oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
       toolContext: {
         cwd: projectPath,
         projectDir: projectPath,
@@ -491,6 +492,7 @@ export class AgentManager extends EventEmitter {
       apiKey: resolved.auth?.apiKey,
       baseURL: resolved.auth?.baseURL,
       configDir: resolved.configDir,
+      oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
       toolContext: {
         cwd: effectiveCwd,
         projectDir: effectiveProjectDir,
@@ -588,6 +590,7 @@ export class AgentManager extends EventEmitter {
       apiKey: resolved.auth?.apiKey,
       baseURL: resolved.auth?.baseURL,
       configDir: resolved.configDir,
+      oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
       toolContext: {
         cwd: effectiveCwd,
         projectDir: effectiveProjectDir,

@@ -21,7 +21,26 @@ import * as http from 'http';
 import * as path from 'path';
 import * as url from 'url';
 
-import { app, shell } from 'electron';
+// Electron APIs loaded lazily to avoid crashing in worker threads
+// (workers don't have access to Electron main-process modules)
+let _app: typeof import('electron').app | null = null;
+let _shell: typeof import('electron').shell | null = null;
+
+async function getElectronApp() {
+  if (!_app) {
+    const electron = await import('electron');
+    _app = electron.app;
+  }
+  return _app;
+}
+
+async function getElectronShell() {
+  if (!_shell) {
+    const electron = await import('electron');
+    _shell = electron.shell;
+  }
+  return _shell;
+}
 
 // =============================================================================
 // Debug Logging
@@ -54,7 +73,7 @@ const SCOPES = 'openid profile email offline_access';
 const REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
 /** Timeout for the OAuth browser flow before giving up */
-const OAUTH_FLOW_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes
+const OAUTH_FLOW_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
 // =============================================================================
 // Types
@@ -81,13 +100,14 @@ interface StoredTokens {
 // Token Storage
 // =============================================================================
 
-function getTokenFilePath(): string {
-  return path.join(app.getPath('userData'), 'codex-auth.json');
+async function getTokenFilePath(): Promise<string> {
+  const electronApp = await getElectronApp();
+  return path.join(electronApp.getPath('userData'), 'codex-auth.json');
 }
 
-function readStoredTokens(): StoredTokens | null {
+async function readStoredTokens(explicitPath?: string): Promise<StoredTokens | null> {
   try {
-    const filePath = getTokenFilePath();
+    const filePath = explicitPath ?? await getTokenFilePath();
     const raw = fs.readFileSync(filePath, 'utf8');
     const tokens = JSON.parse(raw) as StoredTokens;
     debugLog('Read stored tokens', { expiresAt: tokens.expires_at, hasAccess: !!tokens.access_token, hasRefresh: !!tokens.refresh_token });
@@ -98,8 +118,8 @@ function readStoredTokens(): StoredTokens | null {
   }
 }
 
-function writeStoredTokens(tokens: StoredTokens): void {
-  const filePath = getTokenFilePath();
+async function writeStoredTokens(tokens: StoredTokens): Promise<void> {
+  const filePath = await getTokenFilePath();
   fs.writeFileSync(filePath, JSON.stringify(tokens, null, 2), 'utf8');
   try {
     fs.chmodSync(filePath, 0o600);
@@ -253,9 +273,9 @@ export async function startCodexOAuthFlow(): Promise<CodexAuthResult> {
 
       // Exchange code for tokens
       exchangeCodeForTokens(code, codeVerifier)
-        .then((result) => {
+        .then(async (result) => {
           debugLog('Token exchange successful', { expiresAt: result.expiresAt });
-          writeStoredTokens({
+          await writeStoredTokens({
             access_token: result.accessToken,
             refresh_token: result.refreshToken,
             expires_at: result.expiresAt,
@@ -282,7 +302,7 @@ export async function startCodexOAuthFlow(): Promise<CodexAuthResult> {
       debugLog('OAuth callback server listening on port 1455');
 
       // Open the browser
-      shell.openExternal(authUrl.toString()).then(() => {
+      getElectronShell().then(s => s.openExternal(authUrl.toString())).then(() => {
         debugLog('Browser opened for OpenAI authentication');
       }).catch((err) => {
         debugLog('Failed to open browser', { error: err instanceof Error ? err.message : String(err) });
@@ -290,11 +310,11 @@ export async function startCodexOAuthFlow(): Promise<CodexAuthResult> {
         reject(new Error(`Failed to open browser: ${err instanceof Error ? err.message : String(err)}`));
       });
 
-      // Set 2-minute timeout
+      // Set 30-minute timeout
       timeoutHandle = setTimeout(() => {
-        debugLog('OAuth flow timed out after 2 minutes');
+        debugLog('OAuth flow timed out after 30 minutes');
         cleanup();
-        reject(new Error('OAuth flow timed out after 2 minutes. Please try again.'));
+        reject(new Error('OAuth flow timed out after 30 minutes. Please try again.'));
       }, OAUTH_FLOW_TIMEOUT_MS);
     });
   });
@@ -420,7 +440,7 @@ export async function refreshCodexToken(refreshToken: string): Promise<CodexAuth
     expiresAt,
   };
 
-  writeStoredTokens({
+  await writeStoredTokens({
     access_token: result.accessToken,
     refresh_token: result.refreshToken,
     expires_at: result.expiresAt,
@@ -440,9 +460,9 @@ export async function refreshCodexToken(refreshToken: string): Promise<CodexAuth
  * - If the token expires within 5 minutes, auto-refreshes.
  * - Returns the valid access token.
  */
-export async function ensureValidCodexToken(): Promise<string | null> {
+export async function ensureValidCodexToken(tokenFilePath?: string): Promise<string | null> {
   debugLog('Ensuring valid Codex token');
-  const stored = readStoredTokens();
+  const stored = await readStoredTokens(tokenFilePath);
   if (!stored) {
     debugLog('No stored tokens — returning null');
     return null;
@@ -475,8 +495,8 @@ export async function ensureValidCodexToken(): Promise<string | null> {
 /**
  * Return the current Codex authentication state without refreshing.
  */
-export function getCodexAuthState(): CodexAuthState {
-  const stored = readStoredTokens();
+export async function getCodexAuthState(): Promise<CodexAuthState> {
+  const stored = await readStoredTokens();
   if (!stored) {
     debugLog('getCodexAuthState: not authenticated');
     return { isAuthenticated: false };
@@ -497,10 +517,11 @@ export function getCodexAuthState(): CodexAuthState {
 /**
  * Delete stored Codex tokens, effectively logging the user out.
  */
-export function clearCodexAuth(): void {
+export async function clearCodexAuth(): Promise<void> {
   debugLog('Clearing Codex auth tokens');
   try {
-    fs.unlinkSync(getTokenFilePath());
+    const filePath = await getTokenFilePath();
+    fs.unlinkSync(filePath);
     debugLog('Token file deleted');
   } catch {
     debugLog('No token file to delete');

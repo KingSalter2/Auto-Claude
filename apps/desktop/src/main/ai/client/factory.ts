@@ -112,7 +112,7 @@ export async function createAgentClient(
       apiKey: queueAuth.apiKey,
       baseURL: queueAuth.baseURL,
       headers: queueAuth.headers,
-      codexOAuth: queueAuth.codexOAuth,
+      oauthTokenFilePath: queueAuth.oauthTokenFilePath,
     });
 
     // Derive thinking level from reasoning config
@@ -132,7 +132,7 @@ export async function createAgentClient(
       apiKey: auth?.apiKey,
       baseURL: auth?.baseURL,
       headers: auth?.headers,
-      codexOAuth: auth?.codexOAuth,
+      oauthTokenFilePath: auth?.oauthTokenFilePath,
     });
 
     resolvedThinkingLevel = thinkingLevel ?? getDefaultThinkingLevel(agentType);
@@ -234,7 +234,7 @@ export async function createSimpleClient(
       apiKey: queueAuth.apiKey,
       baseURL: queueAuth.baseURL,
       headers: queueAuth.headers,
-      codexOAuth: queueAuth.codexOAuth,
+      oauthTokenFilePath: queueAuth.oauthTokenFilePath,
     });
 
     resolveReasoningParams(queueAuth.reasoningConfig);
@@ -252,7 +252,7 @@ export async function createSimpleClient(
       apiKey: auth?.apiKey,
       baseURL: auth?.baseURL,
       headers: auth?.headers,
-      codexOAuth: auth?.codexOAuth,
+      oauthTokenFilePath: auth?.oauthTokenFilePath,
     });
   }
 

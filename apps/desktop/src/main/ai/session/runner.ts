@@ -160,7 +160,7 @@ export async function runAgentSession(
               apiKey: newAuth.apiKey,
               baseURL: newAuth.baseURL,
               headers: newAuth.headers,
-              codexOAuth: newAuth.codexOAuth,
+              oauthTokenFilePath: newAuth.oauthTokenFilePath,
             }),
           };
           activeAccountId = newAuth.accountId;
@@ -285,14 +285,28 @@ async function executeStream(
     content: msg.content,
   }));
 
+  // Codex models (via chatgpt.com/backend-api/codex/responses) require
+  // `instructions` in the request body instead of system messages in `input`.
+  // Pass system prompt via providerOptions and suppress the system message.
+  const modelId = typeof config.model === 'string' ? config.model : config.model.modelId;
+  const isCodex = modelId?.includes('codex') ?? false;
+
   // Execute streamText — prepareStep is only added when memory context exists
   const result = streamText({
     model: config.model,
-    system: config.systemPrompt,
+    system: isCodex ? undefined : config.systemPrompt,
     messages: aiMessages,
     tools: tools ?? {},
     stopWhen: stopCondition,
     abortSignal: config.abortSignal,
+    ...(isCodex ? {
+      providerOptions: {
+        openai: {
+          ...(config.systemPrompt ? { instructions: config.systemPrompt } : {}),
+          store: false,
+        },
+      },
+    } : {}),
     prepareStep: async ({ stepNumber }) => {
       // Context window guard: inject compaction warning when approaching limit
       let contextWarningSystem: string | undefined;

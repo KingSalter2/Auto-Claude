@@ -41,8 +41,8 @@ export interface ResolvedAuth {
   baseURL?: string;
   /** Optional additional headers (e.g., auth tokens for proxies) */
   headers?: Record<string, string>;
-  /** Signals provider factory to use Codex fetch interceptor for token injection */
-  codexOAuth?: boolean;
+  /** Pre-resolved path to OAuth token file for file-based OAuth providers (e.g., Codex) */
+  oauthTokenFilePath?: string;
 }
 
 // ============================================

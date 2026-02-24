@@ -7,7 +7,8 @@ import {
   Clock,
   TrendingUp,
   Eye,
-  EyeOff
+  EyeOff,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -18,6 +19,7 @@ interface ProviderAccountCardProps {
   account: ProviderAccount;
   onEdit: (account: ProviderAccount) => void;
   onDelete: (id: string) => void;
+  onReauth?: (account: ProviderAccount) => void;
 }
 
 function maskKey(key: string): string {
@@ -63,7 +65,7 @@ function UsageBar({ percent, icon: Icon, tooltipKey }: {
   );
 }
 
-export function ProviderAccountCard({ account, onEdit, onDelete }: ProviderAccountCardProps) {
+export function ProviderAccountCard({ account, onEdit, onDelete, onReauth }: ProviderAccountCardProps) {
   const { t } = useTranslation('settings');
   const [showKey, setShowKey] = useState(false);
 
@@ -160,6 +162,21 @@ export function ProviderAccountCard({ account, onEdit, onDelete }: ProviderAccou
             </TooltipTrigger>
             <TooltipContent>{t('providers.card.edit')}</TooltipContent>
           </Tooltip>
+          {isOAuth && onReauth && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onReauth(account)}
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t('providers.card.reauth')}</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button

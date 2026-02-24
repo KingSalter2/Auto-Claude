@@ -103,16 +103,23 @@ export function registerAgenteventsHandlers(
     // Skip handleProcessExited for successful spec-creation exits — the spec → build
     // transition (line 132+) will start a new agent, and calling handleProcessExited
     // here would mark the task as stuck (no terminal event seen for spec creation).
-    if (!(processType === 'spec-creation' && code === 0)) {
+    const isSpecToBuildTransition = processType === 'spec-creation' && code === 0;
+    if (!isSpecToBuildTransition) {
       taskStateManager.handleProcessExited(taskId, code, exitTask, exitProject);
     }
 
     // Fallback safety net: If XState failed to transition the task out of an active state,
     // force it to human_review after a short delay. This prevents tasks from getting stuck
     // when the process exits without XState properly handling it.
+    // Skip for spec→build transitions: a new process starts immediately, and the timer
+    // would incorrectly force USER_STOPPED on the newly started execution process.
     // We check XState's current state directly to avoid stale cache issues from projectStore.
     // Store timer reference so it can be cancelled if task restarts within the window.
-    const timer = setTimeout(() => {
+    if (isSpecToBuildTransition) {
+      // Cancel any existing timer and skip setting a new one
+      cancelFallbackTimer(taskId);
+    }
+    const timer = !isSpecToBuildTransition ? setTimeout(() => {
       const currentState = taskStateManager.getCurrentState(taskId);
 
       if (currentState && XSTATE_ACTIVE_STATES.has(currentState)) {
@@ -130,10 +137,12 @@ export function registerAgenteventsHandlers(
       }
       // Clean up timer reference after it fires
       fallbackTimers.delete(taskId);
-    }, STUCK_TASK_FALLBACK_TIMEOUT_MS);
+    }, STUCK_TASK_FALLBACK_TIMEOUT_MS) : null;
 
     // Store timer reference for potential cancellation
-    fallbackTimers.set(taskId, timer);
+    if (timer) {
+      fallbackTimers.set(taskId, timer);
+    }
 
     // Send final plan state to renderer BEFORE unwatching
     // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)

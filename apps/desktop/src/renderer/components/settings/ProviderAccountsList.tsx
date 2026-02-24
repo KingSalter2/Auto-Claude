@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { useSettingsStore } from '../../stores/settings-store';
@@ -103,6 +103,40 @@ export function ProviderAccountsList() {
     setDeleteTarget(id);
   };
 
+  const handleReauthAccount = useCallback(async (account: ProviderAccount) => {
+    if (account.authType !== 'oauth') return;
+
+    const isCodex = account.provider === 'openai';
+
+    if (isCodex) {
+      // Codex OAuth: trigger re-auth flow directly
+      try {
+        toast({ title: t('providers.toast.reauthStarted') });
+        const result = await window.electronAPI.codexAuthLogin();
+        if (result.success) {
+          toast({ title: t('providers.toast.reauthSuccess'), description: account.name });
+        } else {
+          toast({ variant: 'destructive', title: t('providers.toast.reauthFailed'), description: result.error ?? '' });
+        }
+      } catch (err) {
+        toast({ variant: 'destructive', title: t('providers.toast.reauthFailed'), description: err instanceof Error ? err.message : '' });
+      }
+    } else if (account.claudeProfileId) {
+      // Anthropic OAuth: trigger re-auth via subprocess
+      try {
+        toast({ title: t('providers.toast.reauthStarted') });
+        const result = await window.electronAPI.claudeAuthLoginSubprocess(account.claudeProfileId);
+        if (result.success && result.data?.authenticated) {
+          toast({ title: t('providers.toast.reauthSuccess'), description: account.name });
+        } else {
+          toast({ variant: 'destructive', title: t('providers.toast.reauthFailed'), description: result.error ?? '' });
+        }
+      } catch (err) {
+        toast({ variant: 'destructive', title: t('providers.toast.reauthFailed'), description: err instanceof Error ? err.message : '' });
+      }
+    }
+  }, [toast, t]);
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
@@ -157,6 +191,7 @@ export function ProviderAccountsList() {
                   onAddAccount={handleAddAccount}
                   onEditAccount={handleEditAccount}
                   onDeleteAccount={handleDeleteAccount}
+                  onReauthAccount={handleReauthAccount}
                 />
               );
             })}

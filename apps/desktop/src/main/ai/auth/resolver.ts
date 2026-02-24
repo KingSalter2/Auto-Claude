@@ -14,6 +14,7 @@
  * existing claude-profile/ utilities.
  */
 
+import * as path from 'node:path';
 import { ensureValidToken, reactiveTokenRefresh } from '../../claude-profile/token-refresh';
 import type { SupportedProvider } from '../providers/types';
 import type { AuthResolverContext, QueueResolvedAuth, ResolvedAuth } from './types';
@@ -78,15 +79,18 @@ async function resolveFromProviderAccount(ctx: AuthResolverContext): Promise<Res
   const account = accounts.find(a => a.provider === ctx.provider && a.isActive);
   if (!account) return null;
 
-  // OpenAI Codex OAuth accounts
+  // File-based OAuth accounts (e.g., OpenAI Codex)
   if (account.authType === 'oauth' && account.provider === 'openai') {
-    const { ensureValidCodexToken } = await import('./codex-oauth');
-    const token = await ensureValidCodexToken();
+    // Resolve token file path on main thread (has electron.app access)
+    const { app } = await import('electron');
+    const tokenFilePath = path.join(app.getPath('userData'), 'codex-auth.json');
+    const { ensureValidOAuthToken } = await import('../providers/oauth-fetch');
+    const token = await ensureValidOAuthToken(tokenFilePath, 'openai');
     if (token) {
       return {
         apiKey: 'codex-oauth-placeholder', // Dummy key; real token injected via custom fetch
         source: 'codex-oauth',
-        codexOAuth: true,
+        oauthTokenFilePath: tokenFilePath,
       };
     }
     return null;
@@ -390,16 +394,18 @@ async function resolveCredentialsForAccount(
   account: ProviderAccount,
   provider: SupportedProvider,
 ): Promise<ResolvedAuth | null> {
-  // Codex OAuth (OpenAI subscription)
+  // File-based OAuth (e.g., OpenAI Codex subscription)
   if (account.authType === 'oauth' && account.provider === 'openai') {
     try {
-      const { ensureValidCodexToken } = await import('./codex-oauth');
-      const token = await ensureValidCodexToken();
+      const { app } = await import('electron');
+      const tokenFilePath = path.join(app.getPath('userData'), 'codex-auth.json');
+      const { ensureValidOAuthToken } = await import('../providers/oauth-fetch');
+      const token = await ensureValidOAuthToken(tokenFilePath, 'openai');
       if (token) {
         return {
           apiKey: 'codex-oauth-placeholder',
           source: 'codex-oauth',
-          codexOAuth: true,
+          oauthTokenFilePath: tokenFilePath,
         };
       }
     } catch { /* fall through */ }
