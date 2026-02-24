@@ -5,21 +5,19 @@
  * Validators for shell interpreter commands (bash, sh, zsh) that execute
  * inline commands via the -c flag.
  *
- * This closes a security bypass where `bash -c "npm test"` could execute
- * arbitrary commands since `bash` is in BASE_COMMANDS but the commands
- * inside -c were not being validated.
- *
- * See apps/desktop/src/main/ai/security/validators/shell-validators.ts for the TypeScript implementation.
+ * This closes a security bypass where `bash -c "sudo ..."` could execute
+ * commands that are in the denylist. Under the denylist model the validator
+ * checks commands inside -c against BLOCKED_COMMANDS (via isCommandBlocked)
+ * rather than an allowlist profile.
  */
 
-import type { ValidationResult } from '../bash-validator';
+import type { ValidationResult } from '../denylist';
+import { isCommandBlocked } from '../denylist';
 import {
   crossPlatformBasename,
   extractCommands,
   splitCommandSegments,
 } from '../command-parser';
-import { getSecurityProfile } from '../security-profile';
-import { isCommandAllowed } from '../bash-validator';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -90,8 +88,6 @@ function shellSplit(input: string): string[] | null {
  * - Combined flags: -xc, -ec, -ic, etc.
  *
  * Returns null if not a -c invocation.
- *
- * Ported from: _extract_c_argument()
  */
 function extractCArgument(commandString: string): string | null {
   const tokens = shellSplit(commandString);
@@ -123,10 +119,10 @@ function extractCArgument(commandString: string): string | null {
 /**
  * Validate commands inside bash/sh/zsh -c '...' strings.
  *
- * This prevents using shell interpreters to bypass the security allowlist.
- * All commands inside the -c string must also be allowed by the profile.
- *
- * Ported from: validate_shell_c_command()
+ * Under the denylist model: all commands inside -c are checked against
+ * BLOCKED_COMMANDS. Anything not in the denylist is allowed.
+ * This prevents using shell interpreters to run blocked commands
+ * (e.g. `bash -c "sudo rm -rf /"`).
  */
 export function validateShellCCommand(commandString: string): ValidationResult {
   const innerCommand = extractCArgument(commandString);
@@ -146,19 +142,7 @@ export function validateShellCCommand(commandString: string): ValidationResult {
     return [true, ''];
   }
 
-  // Get the security profile for the current project (use cwd as fallback)
-  const projectDir = process.env.PROJECT_DIR ?? process.cwd();
-  let profile: ReturnType<typeof getSecurityProfile>;
-  try {
-    profile = getSecurityProfile(projectDir);
-  } catch {
-    return [
-      false,
-      'Could not load security profile to validate shell -c command',
-    ];
-  }
-
-  // Extract command names for allowlist validation
+  // Extract command names from the -c string
   const innerCommandNames = extractCommands(innerCommand);
 
   if (innerCommandNames.length === 0) {
@@ -172,13 +156,13 @@ export function validateShellCCommand(commandString: string): ValidationResult {
     ];
   }
 
-  // Validate each command name against the security profile
+  // Check each command name against the denylist
   for (const cmdName of innerCommandNames) {
-    const [isAllowed, reason] = isCommandAllowed(cmdName, profile);
-    if (!isAllowed) {
+    const [notBlocked, blockReason] = isCommandBlocked(cmdName);
+    if (!notBlocked) {
       return [
         false,
-        `Command '${cmdName}' inside shell -c is not allowed: ${reason}`,
+        `Command '${cmdName}' inside shell -c is blocked: ${blockReason}`,
       ];
     }
   }

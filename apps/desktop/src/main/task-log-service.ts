@@ -129,7 +129,7 @@ export class TaskLogService extends EventEmitter {
       created_at: mainLogs.created_at,
       updated_at: worktreeLogs.updated_at > mainLogs.updated_at ? worktreeLogs.updated_at : mainLogs.updated_at,
       phases: {
-        planning: mainLogs.phases.planning || worktreeLogs.phases.planning,
+        planning: this.combinePhaseLogs(mainLogs.phases.planning, worktreeLogs.phases.planning),
         // Use worktree logs for coding/validation if they have entries, otherwise fall back to main
         coding: (worktreeLogs.phases.coding?.entries?.length > 0 || worktreeLogs.phases.coding?.status !== 'pending')
           ? worktreeLogs.phases.coding
@@ -148,7 +148,7 @@ export class TaskLogService extends EventEmitter {
         validation: mergedLogs.phases.validation?.entries?.length || 0
       },
       source: {
-        planning: mainLogs.phases.planning ? 'main' : 'worktree',
+        planning: 'combined',
         coding: (worktreeLogs.phases.coding?.entries?.length > 0 || worktreeLogs.phases.coding?.status !== 'pending') ? 'worktree' : 'main',
         validation: (worktreeLogs.phases.validation?.entries?.length > 0 || worktreeLogs.phases.validation?.status !== 'pending') ? 'worktree' : 'main'
       }
@@ -442,6 +442,33 @@ export class TaskLogService extends EventEmitter {
     for (const specId of this.pollIntervals.keys()) {
       this.stopWatching(specId);
     }
+  }
+
+  /**
+   * Combine entries from two phase log sources.
+   * Used for the planning phase where spec creation logs (main) and
+   * planner agent logs (worktree) should both appear.
+   */
+  private combinePhaseLogs(main: TaskPhaseLog | undefined, worktree: TaskPhaseLog | undefined): TaskPhaseLog {
+    // If only one has entries, use it
+    if (!main?.entries?.length && !worktree?.entries?.length) {
+      return main || worktree || { phase: 'planning' as TaskLogPhase, status: 'pending', started_at: null, completed_at: null, entries: [] };
+    }
+    if (!main?.entries?.length) return worktree!;
+    if (!worktree?.entries?.length) return main;
+
+    // Combine entries from both, sorted by timestamp
+    const combined: TaskPhaseLog = {
+      phase: main.phase,
+      // Use the most advanced status (worktree typically has the later state)
+      status: worktree.status !== 'pending' ? worktree.status : main.status,
+      started_at: main.started_at || worktree.started_at,
+      completed_at: worktree.completed_at || main.completed_at,
+      entries: [...main.entries, ...worktree.entries].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      ),
+    };
+    return combined;
   }
 
   /**

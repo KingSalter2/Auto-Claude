@@ -1189,9 +1189,9 @@ export function getTaskByGitHubIssue(issueNumber: number): Task | undefined {
 export function isIncompleteHumanReview(task: Task): boolean {
   if (task.status !== 'human_review') return false;
 
-  // JSON error tasks are intentionally in human_review with no subtasks - not incomplete
-  // plan_review tasks are waiting for human approval before coding - not incomplete
-  if (task.reviewReason === 'errors' || task.reviewReason === 'stopped' || task.reviewReason === 'plan_review') return false;
+  // Any task with a known reviewReason was placed in human_review intentionally — not a crash.
+  // Only tasks with NO reviewReason (or an unknown one) should be checked for incomplete subtasks.
+  if (task.reviewReason) return false;
 
   // If no subtasks defined, task hasn't been planned yet (shouldn't be in human_review)
   if (!task.subtasks || task.subtasks.length === 0) return true;

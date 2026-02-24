@@ -3,9 +3,15 @@
  * ============================
  *
  * Loads and caches project security profiles from .auto-claude/ config.
- * Provides the SecurityProfile instances consumed by bash-validator.ts.
+ * Provides SecurityProfile instances consumed by bash-validator.ts.
  *
- * See apps/desktop/src/main/ai/security/security-profile.ts for the TypeScript implementation.
+ * NOTE: With the denylist security model, SecurityProfile command sets are no
+ * longer used to make allow/deny decisions. The profile is retained for
+ * backward compatibility — callers that serialize/deserialize profiles across
+ * worker boundaries continue to work without changes.
+ *
+ * The bash validator now uses a static BLOCKED_COMMANDS denylist instead of
+ * reading commands from these sets.
  */
 
 import * as fs from 'node:fs';
@@ -14,7 +20,7 @@ import * as path from 'node:path';
 import type { SecurityProfile } from './bash-validator';
 
 // ---------------------------------------------------------------------------
-// Constants (mirrors apps/desktop/src/main/ai/security/security-profile.ts config)
+// Constants
 // ---------------------------------------------------------------------------
 
 const PROFILE_FILENAME = '.auto-claude-security.json';
@@ -63,7 +69,7 @@ function parseProfileFile(filePath: string): SecurityProfile | null {
 }
 
 /**
- * Parse the allowlist file and return additional allowed commands.
+ * Parse the allowlist file and return additional command names.
  * Each non-empty, non-comment line is a command name.
  */
 function parseAllowlistFile(filePath: string): string[] {
@@ -80,7 +86,6 @@ function parseAllowlistFile(filePath: string): string[] {
 
 /**
  * Build a SecurityProfile from a raw JSON dict.
- * Mirrors Python SecurityProfile.from_dict().
  */
 function profileFromDict(data: Record<string, unknown>): SecurityProfile {
   const toStringArray = (val: unknown): string[] =>
@@ -115,7 +120,10 @@ function profileFromDict(data: Record<string, unknown>): SecurityProfile {
 }
 
 /**
- * Create a minimal default security profile when no profile file exists.
+ * Create an empty default security profile.
+ *
+ * Under the denylist model the command sets are not used for security
+ * decisions, so an empty profile is perfectly safe.
  */
 function createDefaultProfile(): SecurityProfile {
   return {
@@ -174,7 +182,8 @@ export function getSecurityProfile(projectDir: string): SecurityProfile {
     profile = createDefaultProfile();
   }
 
-  // Merge allowlist commands into customCommands
+  // Merge allowlist commands into customCommands (informational, not used for
+  // security decisions in the denylist model)
   const allowlistPath = getAllowlistPath(resolvedDir);
   const allowlistCommands = parseAllowlistFile(allowlistPath);
   for (const cmd of allowlistCommands) {

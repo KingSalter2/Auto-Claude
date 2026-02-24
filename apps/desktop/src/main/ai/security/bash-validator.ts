@@ -5,16 +5,41 @@
  * Pre-tool-use hook that validates bash commands for security.
  * Main enforcement point for the security system.
  *
- * See apps/desktop/src/main/ai/security/bash-validator.ts for the TypeScript implementation.
+ * Security model: DENYLIST-based (allow-by-default)
+ * - All commands are allowed unless explicitly blocked
+ * - A static set of truly dangerous commands (BLOCKED_COMMANDS) is always denied
+ * - Per-command validators run for known sensitive commands to validate
+ *   dangerous usage patterns within otherwise-allowed commands
+ *
+ * Flow:
+ *   Command comes in →
+ *     1. Is command name in BLOCKED_COMMANDS? → DENY with reason
+ *     2. Does command have a validator in VALIDATORS? → Run validator → DENY or ALLOW
+ *     3. Otherwise → ALLOW
  */
-
-import * as path from 'node:path';
 
 import {
   extractCommands,
   getCommandForValidation,
   splitCommandSegments,
 } from './command-parser';
+import { BLOCKED_COMMANDS, isCommandBlocked } from './denylist';
+import { validateRmCommand, validateChmodCommand } from './validators/filesystem-validators';
+import { validateGitCommand } from './validators/git-validators';
+import { validatePkillCommand, validateKillCommand, validateKillallCommand } from './validators/process-validators';
+import { validateShellCCommand } from './validators/shell-validators';
+import {
+  validatePsqlCommand,
+  validateMysqlCommand,
+  validateMysqladminCommand,
+  validateRedisCliCommand,
+  validateMongoshCommand,
+  validateDropdbCommand,
+  validateDropuserCommand,
+} from './validators/database-validators';
+
+// Re-export for consumers that import these from bash-validator
+export { BLOCKED_COMMANDS, isCommandBlocked };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,8 +52,10 @@ export type ValidationResult = [boolean, string];
 export type ValidatorFunction = (commandSegment: string) => ValidationResult;
 
 /**
- * Minimal security profile interface.
- * Mirrors the Python SecurityProfile's public API used by the hook.
+ * Security profile interface — kept for backward compatibility with consumers
+ * (agent-manager.ts, worker.ts, runners, etc.) that still serialize/pass
+ * profiles. The denylist model no longer uses the profile's command sets for
+ * allow/deny decisions, but the type is retained so existing callers compile.
  */
 export interface SecurityProfile {
   baseCommands: Set<string>;
@@ -67,16 +94,37 @@ type HookResult = Record<string, never> | HookDenyResult;
 /**
  * Central map of command names → validator functions.
  *
- * Individual validators will be registered here as they are ported.
- * The dispatch pattern mirrors apps/desktop/src/main/ai/security/bash-validator.ts VALIDATORS registry.
+ * These validators run AFTER the denylist check and examine dangerous usage
+ * patterns within otherwise-permitted commands (e.g. `rm /` or
+ * `git config user.email`).
  */
 export const VALIDATORS: Record<string, ValidatorFunction> = {
-  // Validators will be populated as they are ported from Python.
-  // Example shape:
-  // pkill: validatePkillCommand,
-  // kill: validateKillCommand,
-  // rm: validateRmCommand,
-  // git: validateGitCommit,
+  // Filesystem
+  rm: validateRmCommand,
+  chmod: validateChmodCommand,
+
+  // Git
+  git: validateGitCommand,
+
+  // Process management
+  pkill: validatePkillCommand,
+  kill: validateKillCommand,
+  killall: validateKillallCommand,
+
+  // Shell interpreters — validate commands inside -c strings
+  bash: validateShellCCommand,
+  sh: validateShellCCommand,
+  zsh: validateShellCCommand,
+
+  // Databases
+  psql: validatePsqlCommand,
+  mysql: validateMysqlCommand,
+  mysqladmin: validateMysqladminCommand,
+  'redis-cli': validateRedisCliCommand,
+  mongosh: validateMongoshCommand,
+  mongo: validateMongoshCommand,
+  dropdb: validateDropdbCommand,
+  dropuser: validateDropuserCommand,
 };
 
 /**
@@ -89,39 +137,22 @@ export function getValidator(
 }
 
 // ---------------------------------------------------------------------------
-// Command allowlist check
+// Backward-compat shim
 // ---------------------------------------------------------------------------
 
 /**
- * Check if a command is allowed by the security profile.
+ * @deprecated Use isCommandBlocked() instead. Kept for backward compatibility
+ * with any external tooling that still calls isCommandAllowed().
  *
- * See apps/desktop/src/main/ai/security/bash-validator.ts → isCommandAllowed()
+ * In the new denylist model the profile argument is ignored.
+ * Returns [true, ''] when the command is allowed (not in denylist).
+ * Returns [false, reason] when the command is in the denylist.
  */
 export function isCommandAllowed(
   command: string,
-  profile: SecurityProfile,
+  _profile?: SecurityProfile,
 ): ValidationResult {
-  const allowed = profile.getAllAllowedCommands();
-
-  if (allowed.has(command)) {
-    return [true, ''];
-  }
-
-  // Check for script commands (e.g., "./script.sh")
-  if (command.startsWith('./') || command.startsWith('/')) {
-    const basename = path.basename(command);
-    if (profile.customScripts.shellScripts.includes(basename)) {
-      return [true, ''];
-    }
-    if (profile.scriptCommands.has(command)) {
-      return [true, ''];
-    }
-  }
-
-  return [
-    false,
-    `Command '${command}' is not in the allowed commands for this project`,
-  ];
+  return isCommandBlocked(command);
 }
 
 // ---------------------------------------------------------------------------
@@ -129,20 +160,15 @@ export function isCommandAllowed(
 // ---------------------------------------------------------------------------
 
 /**
- * Pre-tool-use hook that validates bash commands using a dynamic allowlist.
+ * Pre-tool-use hook that validates bash commands using a denylist model.
  *
- * This is the main security enforcement point. It:
- * 1. Validates tool_input structure (must have a 'command' key)
- * 2. Extracts command names from the command string
- * 3. Checks each command against the project's security profile
- * 4. Runs additional validation for sensitive commands
- * 5. Blocks disallowed commands with clear error messages
- *
- * See apps/desktop/src/main/ai/security/bash-validator.ts → bashSecurityHook()
+ * The `profile` parameter is accepted for backward compatibility with callers
+ * that still pass a SecurityProfile but is no longer used for allow/deny
+ * decisions.
  */
 export function bashSecurityHook(
   inputData: HookInputData,
-  profile: SecurityProfile,
+  _profile?: SecurityProfile,
 ): HookResult {
   if (inputData.toolName !== 'Bash') {
     return {} as Record<string, never>;
@@ -194,21 +220,21 @@ export function bashSecurityHook(
   // Split into segments for per-command validation
   const segments = splitCommandSegments(command);
 
-  // Check each command against the allowlist
   for (const cmd of commands) {
-    const [allowed, reason] = isCommandAllowed(cmd, profile);
+    // Step 1: Check static denylist
+    const [notBlocked, blockReason] = isCommandBlocked(cmd);
 
-    if (!allowed) {
+    if (!notBlocked) {
       return {
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
           permissionDecision: 'deny',
-          permissionDecisionReason: reason,
+          permissionDecisionReason: blockReason,
         },
       };
     }
 
-    // Additional validation for sensitive commands
+    // Step 2: Run per-command validator if one exists
     const validator = VALIDATORS[cmd];
     if (validator) {
       const cmdSegment = getCommandForValidation(cmd, segments) ?? command;
@@ -224,6 +250,8 @@ export function bashSecurityHook(
         };
       }
     }
+
+    // Step 3: Otherwise allow
   }
 
   return {} as Record<string, never>;
@@ -234,13 +262,13 @@ export function bashSecurityHook(
 // ---------------------------------------------------------------------------
 
 /**
- * Validate a command string against a security profile (for testing/debugging).
+ * Validate a command string (for testing/debugging).
  *
- * See apps/desktop/src/main/ai/security/bash-validator.ts → validateCommand()
+ * In the new denylist model the profile argument is ignored.
  */
 export function validateCommand(
   command: string,
-  profile: SecurityProfile,
+  _profile?: SecurityProfile,
 ): ValidationResult {
   const commands = extractCommands(command);
 
@@ -251,11 +279,13 @@ export function validateCommand(
   const segments = splitCommandSegments(command);
 
   for (const cmd of commands) {
-    const [allowed, reason] = isCommandAllowed(cmd, profile);
-    if (!allowed) {
-      return [false, reason];
+    // Check denylist
+    const [notBlocked, blockReason] = isCommandBlocked(cmd);
+    if (!notBlocked) {
+      return [false, blockReason];
     }
 
+    // Run per-command validator
     const validator = VALIDATORS[cmd];
     if (validator) {
       const cmdSegment = getCommandForValidation(cmd, segments) ?? command;

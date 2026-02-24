@@ -238,6 +238,12 @@ export class BuildOrchestrator extends EventEmitter {
         }
       }
 
+      // Normalize subtask IDs and add missing status fields before coding.
+      // This is critical when the spec_orchestrator creates the plan (before the
+      // build orchestrator runs) — it may omit `status` fields, causing the
+      // subtask iterator to find 0 pending subtasks and skip coding entirely.
+      await this.normalizeSubtaskIds();
+
       // Check if build is already complete
       if (await this.isBuildComplete()) {
         this.transitionPhase('complete', 'Build already complete');
@@ -464,9 +470,10 @@ export class BuildOrchestrator extends EventEmitter {
       }
 
       if (qaStatus === 'failed' && cycle < maxQACycles - 1) {
-        // Run QA fixer
-        this.transitionPhase('qa_fixing', 'Fixing QA issues');
+        // Run QA fixer — mark qa_review completed BEFORE transitioning to qa_fixing
+        // (the phase protocol requires qa_review in completedPhases for the transition)
         this.markPhaseCompleted('qa_review');
+        this.transitionPhase('qa_fixing', 'Fixing QA issues');
 
         this.iteration++;
         this.emitTyped('iteration-start', this.iteration, 'qa_fixing');

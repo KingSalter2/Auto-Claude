@@ -42,6 +42,7 @@ import { BuildOrchestrator } from '../orchestration/build-orchestrator';
 import { QALoop } from '../orchestration/qa-loop';
 import type { AgentType } from '../config/agent-configs';
 import type { Phase } from '../config/types';
+import type { ExecutionPhase } from '../../../shared/constants/phase-protocol';
 import { getPhaseThinking } from '../config/phase-config';
 import { TaskLogWriter } from '../logging/task-log-writer';
 
@@ -459,8 +460,36 @@ async function runBuildOrchestrator(
     },
   });
 
-  orchestrator.on('phase-change', (phase: string, message: string) => {
+  orchestrator.on('phase-change', (phase: ExecutionPhase, message: string) => {
     postLog(`Phase: ${phase} — ${message}`);
+    // Emit execution-progress so the main thread can:
+    // 1. Re-point the file watcher to the worktree spec dir
+    // 2. Update the UI with phase progress
+    postMessage({
+      type: 'execution-progress',
+      taskId: config.taskId,
+      data: {
+        phase,
+        phaseProgress: 0,
+        overallProgress: 0,
+        message,
+      },
+      projectId: config.projectId,
+    });
+  });
+
+  orchestrator.on('iteration-start', (iteration: number, phase: ExecutionPhase) => {
+    postMessage({
+      type: 'execution-progress',
+      taskId: config.taskId,
+      data: {
+        phase,
+        phaseProgress: 0,
+        overallProgress: 0,
+        message: `Iteration ${iteration} (${phase})`,
+      },
+      projectId: config.projectId,
+    });
   });
 
   orchestrator.on('log', (message: string) => {

@@ -363,6 +363,7 @@ export class AgentManager extends EventEmitter {
     const sessionConfig: SerializableSessionConfig = {
       agentType: 'spec_orchestrator' as const,
       systemPrompt,
+      phase: 'spec' as const,
       initialMessages: [
         {
           role: 'user',

@@ -1742,9 +1742,11 @@ export function registerWorktreeHandlers(
           let additions = 0;
           let deletions = 0;
 
-          let diffStat = '';
+          // Use working-tree diff against baseBranch to capture ALL changes
+          // (both committed and uncommitted). This ensures the UI shows file stats
+          // even when the agent hasn't committed its work yet.
           try {
-            diffStat = execFileSync(getToolPath('git'), ['diff', '--stat', `${baseBranch}...HEAD`], {
+            const diffStat = execFileSync(getToolPath('git'), ['diff', '--stat', baseBranch], {
               cwd: worktreePath,
               encoding: 'utf-8',
               stdio: ['pipe', 'pipe', 'pipe']
@@ -1823,15 +1825,17 @@ export function registerWorktreeHandlers(
         let numstat = '';
         let nameStatus = '';
         try {
-          // Get numstat for additions/deletions per file (cross-platform)
-          numstat = execFileSync(getToolPath('git'), ['diff', '--numstat', `${baseBranch}...HEAD`], {
+          // Use working-tree diff against baseBranch to capture ALL changes
+          // (both committed and uncommitted). This ensures the diff view shows
+          // file changes even when the agent hasn't committed its work yet.
+          numstat = execFileSync(getToolPath('git'), ['diff', '--numstat', baseBranch], {
             cwd: worktreePath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe']
           }).trim();
 
           // Get name-status for file status (cross-platform)
-          nameStatus = execFileSync(getToolPath('git'), ['diff', '--name-status', `${baseBranch}...HEAD`], {
+          nameStatus = execFileSync(getToolPath('git'), ['diff', '--name-status', baseBranch], {
             cwd: worktreePath,
             encoding: 'utf-8',
             stdio: ['pipe', 'pipe', 'pipe']
