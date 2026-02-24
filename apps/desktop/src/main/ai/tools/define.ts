@@ -29,6 +29,7 @@ import type {
   ToolMetadata,
 } from './types';
 import { ToolPermission } from './types';
+import { truncateToolOutput, SAFETY_NET_MAX_BYTES } from './truncation';
 
 // ---------------------------------------------------------------------------
 // Defined Tool
@@ -109,7 +110,20 @@ function define<TInput extends z.ZodType, TOutput>(
             context,
           );
         }
-        return execute(input as z.infer<TInput>, context) as Promise<TOutput>;
+        const result = await (execute(input as z.infer<TInput>, context) as Promise<TOutput>);
+
+        // Safety-net: apply disk-spillover truncation to string outputs
+        // Uses a higher limit since individual tools should catch most cases first
+        if (typeof result === 'string') {
+          const truncated = truncateToolOutput(
+            result,
+            metadata.name,
+            context.projectDir,
+            SAFETY_NET_MAX_BYTES,
+          );
+          return truncated.content as TOutput;
+        }
+        return result;
       };
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic TInput can't satisfy tool() overloads at definition site

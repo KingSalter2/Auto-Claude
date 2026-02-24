@@ -46,6 +46,7 @@ export const ALL_AVAILABLE_MODELS: ModelOption[] = [
   { value: 'gpt-4.1', label: 'GPT-4.1', provider: 'openai', description: 'Latest flagship', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 1047576 } },
   { value: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'openai', description: 'Fast & affordable', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 1047576 } },
   { value: 'gpt-4o', label: 'GPT-4o', provider: 'openai', description: 'Multimodal', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 128000 } },
+  { value: 'gpt-5.3', label: 'GPT-5.3', provider: 'openai', description: 'Most capable', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 1047576 } },
   { value: 'o3', label: 'o3', provider: 'openai', description: 'Reasoning', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
   { value: 'o3-mini', label: 'o3 Mini', provider: 'openai', description: 'Fast reasoning', capabilities: { thinking: true, tools: true, vision: false, contextWindow: 200000 } },
   { value: 'o4-mini', label: 'o4 Mini', provider: 'openai', description: 'Latest reasoning', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
@@ -238,6 +239,15 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
     icon: 'Zap',
     phaseModels: QUICK_PHASE_MODELS,
     phaseThinking: QUICK_PHASE_THINKING
+  },
+  {
+    id: 'custom',
+    name: 'Custom (Cross-Provider)',
+    description: 'Mix different providers and models for each pipeline phase',
+    model: 'opus',
+    thinkingLevel: 'high',
+    icon: 'Settings2',
+    // No phaseModels/phaseThinking — reads from customMixedPhaseConfig
   }
 ];
 
@@ -295,7 +305,7 @@ export interface ProviderModelSpec {
 export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinProvider, ProviderModelSpec>>> = {
   'opus': {
     anthropic: { modelId: 'claude-opus-4-6', reasoning: { type: 'adaptive_effort', level: 'high' } },
-    openai: { modelId: 'o3', reasoning: { type: 'reasoning_effort', level: 'high' } },
+    openai: { modelId: 'gpt-5.3', reasoning: { type: 'none' } },
     google: { modelId: 'gemini-2.5-pro', reasoning: { type: 'thinking_toggle', level: 'high' } },
     xai: { modelId: 'grok-3', reasoning: { type: 'none' } },
     mistral: { modelId: 'mistral-large-latest', reasoning: { type: 'none' } },
@@ -307,7 +317,7 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
   },
   'opus-4.5': {
     anthropic: { modelId: 'claude-opus-4-5-20251101', reasoning: { type: 'thinking_tokens', level: 'high' } },
-    openai: { modelId: 'o3', reasoning: { type: 'reasoning_effort', level: 'high' } },
+    openai: { modelId: 'gpt-5.3', reasoning: { type: 'none' } },
     google: { modelId: 'gemini-2.5-pro', reasoning: { type: 'thinking_toggle', level: 'high' } },
   },
   'sonnet': {
@@ -324,6 +334,11 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
     google: { modelId: 'gemini-2.0-flash', reasoning: { type: 'none' } },
     mistral: { modelId: 'mistral-small-latest', reasoning: { type: 'none' } },
     groq: { modelId: 'llama-3.3-70b-versatile', reasoning: { type: 'none' } },
+  },
+  'gpt-5.3': {
+    openai: { modelId: 'gpt-5.3', reasoning: { type: 'none' } },
+    anthropic: { modelId: 'claude-opus-4-6', reasoning: { type: 'adaptive_effort', level: 'high' } },
+    google: { modelId: 'gemini-2.5-pro', reasoning: { type: 'thinking_toggle', level: 'high' } },
   },
   'gpt-4.1': {
     openai: { modelId: 'gpt-4.1', reasoning: { type: 'none' } },
@@ -343,9 +358,57 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
   'gemini-2.5-pro': {
     google: { modelId: 'gemini-2.5-pro', reasoning: { type: 'thinking_toggle', level: 'high' } },
     anthropic: { modelId: 'claude-opus-4-6', reasoning: { type: 'adaptive_effort', level: 'high' } },
-    openai: { modelId: 'o3', reasoning: { type: 'reasoning_effort', level: 'high' } },
+    openai: { modelId: 'gpt-5.3', reasoning: { type: 'none' } },
   },
 };
+
+// ============================================
+// Reasoning Type Badges for UI
+// ============================================
+
+export const REASONING_TYPE_BADGES: Record<ReasoningType, { i18nKey: string } | null> = {
+  adaptive_effort: { i18nKey: 'agentProfile.reasoning.adaptive' },
+  thinking_tokens: { i18nKey: 'agentProfile.reasoning.budget' },
+  reasoning_effort: { i18nKey: 'agentProfile.reasoning.reasoning' },
+  thinking_toggle: { i18nKey: 'agentProfile.reasoning.thinking' },
+  none: null,
+};
+
+/**
+ * Get the ReasoningConfig for a model+provider pair.
+ * Looks up from DEFAULT_MODEL_EQUIVALENCES, falling back to ALL_AVAILABLE_MODELS.
+ */
+export function getReasoningConfigForModel(
+  modelValue: string,
+  provider: BuiltinProvider,
+): ReasoningConfig {
+  // First try the equivalence table
+  const equiv = DEFAULT_MODEL_EQUIVALENCES[modelValue]?.[provider];
+  if (equiv) return equiv.reasoning;
+
+  // Check if model is in ALL_AVAILABLE_MODELS with matching provider
+  const modelEntry = ALL_AVAILABLE_MODELS.find(m => m.value === modelValue && m.provider === provider);
+  if (modelEntry) {
+    if (!modelEntry.capabilities?.thinking) {
+      return { type: 'none' };
+    }
+    // If it has thinking but we don't have a specific reasoning config,
+    // try to infer from the provider
+    if (provider === 'anthropic') {
+      return ADAPTIVE_THINKING_MODELS.includes(modelValue)
+        ? { type: 'adaptive_effort', level: 'high' }
+        : { type: 'thinking_tokens', level: 'medium' };
+    }
+    if (provider === 'openai') {
+      return { type: 'reasoning_effort', level: 'medium' };
+    }
+    if (provider === 'google') {
+      return { type: 'thinking_toggle', level: 'medium' };
+    }
+  }
+
+  return { type: 'none' };
+}
 
 export function resolveModelEquivalent(
   modelValue: string,
@@ -354,5 +417,31 @@ export function resolveModelEquivalent(
 ): ProviderModelSpec | null {
   const override = userOverrides?.[modelValue]?.[targetProvider];
   if (override) return override;
-  return DEFAULT_MODEL_EQUIVALENCES[modelValue]?.[targetProvider] ?? null;
+
+  // Direct lookup by shorthand or full ID
+  const direct = DEFAULT_MODEL_EQUIVALENCES[modelValue]?.[targetProvider];
+  if (direct) return direct;
+
+  // Reverse lookup: if modelValue is a full model ID (e.g. 'claude-opus-4-6'),
+  // find which equivalence entry resolves to that ID and use the target provider mapping
+  for (const [_key, providerMap] of Object.entries(DEFAULT_MODEL_EQUIVALENCES)) {
+    for (const spec of Object.values(providerMap)) {
+      if (spec?.modelId === modelValue) {
+        const targetSpec = providerMap[targetProvider];
+        if (targetSpec) return targetSpec;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Look up the context window size for a model shorthand.
+ * Searches ALL_AVAILABLE_MODELS by value.
+ * Falls back to 200,000 (conservative default) if not found.
+ */
+export function getModelContextWindow(modelShorthand: string): number {
+  const model = ALL_AVAILABLE_MODELS.find((m) => m.value === modelShorthand);
+  return model?.capabilities?.contextWindow ?? 200_000;
 }

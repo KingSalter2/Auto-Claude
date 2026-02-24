@@ -12,6 +12,7 @@ interface MultiProviderModelSelectProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  filterProvider?: BuiltinProvider;  // When set, only show models for this provider
 }
 
 function formatContextWindow(size: number): string {
@@ -19,7 +20,7 @@ function formatContextWindow(size: number): string {
   return `${(size / 1000).toFixed(0)}K`;
 }
 
-export function MultiProviderModelSelect({ value, onChange, className }: MultiProviderModelSelectProps) {
+export function MultiProviderModelSelect({ value, onChange, className, filterProvider }: MultiProviderModelSelectProps) {
   const { t } = useTranslation(['settings']);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -34,11 +35,13 @@ export function MultiProviderModelSelect({ value, onChange, className }: MultiPr
   const groupedModels = useMemo(() => {
     const groups = new Map<BuiltinProvider, ModelOption[]>();
     for (const model of ALL_AVAILABLE_MODELS) {
+      // When filterProvider is set, only include models for that provider
+      if (filterProvider && model.provider !== filterProvider) continue;
       if (!groups.has(model.provider)) groups.set(model.provider, []);
       groups.get(model.provider)!.push(model);
     }
     return groups;
-  }, []);
+  }, [filterProvider]);
 
   // Check if provider has credentials
   const hasCredentials = (provider: BuiltinProvider): boolean => {

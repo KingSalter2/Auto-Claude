@@ -412,6 +412,24 @@
       "badge": "Adaptatif",
       "tooltip": "Opus utilise la réflexion adaptative — il décide dynamiquement de la profondeur de réflexion dans la limite du budget défini par le niveau de réflexion."
     },
+    "reasoning": {
+      "adaptive": "Adaptatif",
+      "budget": "Budget",
+      "reasoning": "Raisonnement",
+      "thinking": "Réflexion",
+      "noThinking": "(Pas de réflexion)",
+      "toggle": {
+        "off": "Désactivé",
+        "on": "Activé"
+      },
+      "badgeTooltip": {
+        "adaptive_effort": "Décide dynamiquement de l'intensité de réflexion dans le cadre du budget",
+        "thinking_tokens": "Réflexion basée sur un budget de tokens configurable",
+        "reasoning_effort": "Niveaux d'effort de raisonnement (faible/moyen/élevé)",
+        "thinking_toggle": "Activation/désactivation de la réflexion",
+        "none": "Pas de réflexion étendue supportée"
+      }
+    },
     "phases": {
       "spec": {
         "label": "Création de spec",
@@ -440,6 +458,16 @@
       "resetAll": "Tout réinitialiser",
       "noConnectedProviders": "Aucun fournisseur connecté. Ajoutez des comptes dans les paramètres des comptes pour configurer les correspondances de modèles.",
       "equivalentNote": "Lorsqu'un fournisseur non-Anthropic est actif, ces correspondances déterminent quel modèle est utilisé pour chaque phase."
+    },
+    "providerTabs": {
+      "moreProviders": "Plus",
+      "noProviders": "Aucun fournisseur connecté. Ajoutez des comptes dans les paramètres Comptes pour configurer les paramètres d'agent par fournisseur.",
+      "configureFor": "Configurer les paramètres d'agent pour {{provider}}"
+    },
+    "customProfile": {
+      "name": "Personnalisé (Multi-fournisseur)",
+      "description": "Mélanger différents fournisseurs et modèles pour chaque phase",
+      "phaseAssignment": "Assigner un fournisseur et un modèle pour chaque phase"
     }
   },
   "workspace": {

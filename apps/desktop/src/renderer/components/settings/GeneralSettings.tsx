@@ -5,21 +5,9 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
-import { AgentProfileSettings } from './AgentProfileSettings';
-import { MultiProviderModelSelect } from './MultiProviderModelSelect';
-import { ProviderModelOverrides } from './ProviderModelOverrides';
-import {
-  AVAILABLE_MODELS,
-  THINKING_LEVELS,
-  DEFAULT_FEATURE_MODELS,
-  DEFAULT_FEATURE_THINKING,
-  FEATURE_LABELS
-} from '../../../shared/constants';
+import { ProviderAgentTabs } from './ProviderAgentTabs';
 import type {
   AppSettings,
-  FeatureModelConfig,
-  ModelTypeShort,
-  ThinkingLevel,
   ToolDetectionResult
 } from '../../../shared/types';
 
@@ -125,8 +113,8 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
   if (section === 'agent') {
     return (
       <div className="space-y-8">
-        {/* Agent Profile Selection */}
-        <AgentProfileSettings />
+        {/* Provider-tabbed agent settings (profiles, features, model overrides) */}
+        <ProviderAgentTabs />
 
         {/* Other Agent Settings */}
         <SettingsSection
@@ -166,74 +154,8 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                 />
               </div>
             </div>
-
-            {/* Feature Model Configuration */}
-            <div className="space-y-4 pt-4 border-t border-border">
-              <div className="space-y-1">
-                <Label className="text-sm font-medium text-foreground">{t('general.featureModelSettings')}</Label>
-                <p className="text-sm text-muted-foreground">
-                  {t('general.featureModelSettingsDescription')}
-                </p>
-              </div>
-
-              {(Object.keys(FEATURE_LABELS) as Array<keyof FeatureModelConfig>).map((feature) => {
-                const featureModels = settings.featureModels || DEFAULT_FEATURE_MODELS;
-                const featureThinking = settings.featureThinking || DEFAULT_FEATURE_THINKING;
-
-                return (
-                  <div key={feature} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-foreground">
-                        {FEATURE_LABELS[feature].label}
-                      </Label>
-                      <span className="text-xs text-muted-foreground">
-                        {FEATURE_LABELS[feature].description}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 max-w-md">
-                      {/* Model Select */}
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{t('general.model')}</Label>
-                        <MultiProviderModelSelect
-                          value={featureModels[feature]}
-                          onChange={(value) => {
-                            const newFeatureModels = { ...featureModels, [feature]: value as ModelTypeShort };
-                            onSettingsChange({ ...settings, featureModels: newFeatureModels });
-                          }}
-                        />
-                      </div>
-                      {/* Thinking Level Select */}
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{t('general.thinkingLevel')}</Label>
-                        <Select
-                          value={featureThinking[feature]}
-                          onValueChange={(value) => {
-                            const newFeatureThinking = { ...featureThinking, [feature]: value as ThinkingLevel };
-                            onSettingsChange({ ...settings, featureThinking: newFeatureThinking });
-                          }}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {THINKING_LEVELS.map((level) => (
-                              <SelectItem key={level.value} value={level.value}>
-                                {level.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </SettingsSection>
-
-        {/* Provider Model Mapping */}
-        <ProviderModelOverrides />
       </div>
     );
   }

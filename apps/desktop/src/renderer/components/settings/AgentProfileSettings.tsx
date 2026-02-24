@@ -13,9 +13,9 @@ import {
   ADAPTIVE_THINKING_MODELS,
   PHASE_KEYS
 } from '../../../shared/constants';
-import { useSettingsStore, saveSettings } from '../../stores/settings-store';
-import { SettingsSection } from './SettingsSection';
+import { useSettingsStore, saveSettings, saveProviderAgentConfig } from '../../stores/settings-store';
 import { MultiProviderModelSelect } from './MultiProviderModelSelect';
+import { MixedPhaseEditor } from './MixedPhaseEditor';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import {
@@ -27,6 +27,7 @@ import {
 } from '../ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
+import type { BuiltinProvider } from '../../../shared/types/provider-account';
 
 /**
  * Icon mapping for agent profile icons
@@ -44,11 +45,17 @@ const iconMap: Record<string, React.ElementType> = {
  * Displays preset agent profiles for quick model/thinking level configuration
  * All presets show phase configuration for full customization
  */
-export function AgentProfileSettings() {
+interface AgentProfileSettingsProps {
+  provider?: BuiltinProvider;
+}
+
+export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
   const { t } = useTranslation('settings');
   const settings = useSettingsStore((state) => state.settings);
   const { provider: activeProvider } = useActiveProvider();
-  const selectedProfileId = settings.selectedAgentProfile || 'auto';
+  // Read per-provider config with fallback to global
+  const providerConfig = provider ? settings.providerAgentConfig?.[provider] : undefined;
+  const selectedProfileId = providerConfig?.selectedAgentProfile ?? settings.selectedAgentProfile ?? 'auto';
   const [showPhaseConfig, setShowPhaseConfig] = useState(true);
 
   // Find the selected profile
@@ -62,14 +69,16 @@ export function AgentProfileSettings() {
   const profilePhaseThinking = selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING;
 
   // Get current phase config from settings (custom) or fall back to profile defaults
-  const currentPhaseModels: PhaseModelConfig = settings.customPhaseModels || profilePhaseModels;
-  const currentPhaseThinking: PhaseThinkingConfig = settings.customPhaseThinking || profilePhaseThinking;
+  const currentPhaseModels: PhaseModelConfig = providerConfig?.customPhaseModels ?? settings.customPhaseModels ?? profilePhaseModels;
+  const currentPhaseThinking: PhaseThinkingConfig = providerConfig?.customPhaseThinking ?? settings.customPhaseThinking ?? profilePhaseThinking;
 
   /**
    * Check if current config differs from the selected profile's defaults
    */
   const hasCustomConfig = useMemo((): boolean => {
-    if (!settings.customPhaseModels && !settings.customPhaseThinking) {
+    const customModels = providerConfig?.customPhaseModels ?? settings.customPhaseModels;
+    const customThinking = providerConfig?.customPhaseThinking ?? settings.customPhaseThinking;
+    if (!customModels && !customThinking) {
       return false; // No custom settings, using profile defaults
     }
     return PHASE_KEYS.some(
@@ -77,43 +86,80 @@ export function AgentProfileSettings() {
         currentPhaseModels[phase] !== profilePhaseModels[phase] ||
         currentPhaseThinking[phase] !== profilePhaseThinking[phase]
     );
-  }, [settings.customPhaseModels, settings.customPhaseThinking, currentPhaseModels, currentPhaseThinking, profilePhaseModels, profilePhaseThinking]);
+  }, [providerConfig, settings.customPhaseModels, settings.customPhaseThinking, currentPhaseModels, currentPhaseThinking, profilePhaseModels, profilePhaseThinking]);
 
   const handleSelectProfile = async (profileId: string) => {
     const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === profileId);
     if (!profile) return;
 
-    // When selecting a preset, reset to that preset's defaults
-    const success = await saveSettings({
-      selectedAgentProfile: profileId,
-      // Clear custom settings to use profile defaults
-      customPhaseModels: undefined,
-      customPhaseThinking: undefined
-    });
-    if (!success) {
-      console.error('Failed to save agent profile selection');
+    if (profileId === 'custom') {
+      // Custom profile uses mixed phase config
+      if (provider) {
+        await saveProviderAgentConfig(provider, {
+          selectedAgentProfile: profileId,
+          customPhaseModels: undefined,
+          customPhaseThinking: undefined,
+        });
+      } else {
+        await saveSettings({
+          selectedAgentProfile: profileId,
+          customMixedProfileActive: true,
+          customPhaseModels: undefined,
+          customPhaseThinking: undefined,
+        });
+      }
       return;
+    }
+
+    if (provider) {
+      await saveProviderAgentConfig(provider, {
+        selectedAgentProfile: profileId,
+        customPhaseModels: undefined,
+        customPhaseThinking: undefined,
+      });
+    } else {
+      await saveSettings({
+        selectedAgentProfile: profileId,
+        customMixedProfileActive: false,
+        customPhaseModels: undefined,
+        customPhaseThinking: undefined,
+      });
     }
   };
 
   const handlePhaseModelChange = async (phase: keyof PhaseModelConfig, value: ModelTypeShort) => {
     // Save as custom config (deviating from preset)
     const newPhaseModels = { ...currentPhaseModels, [phase]: value };
-    await saveSettings({ customPhaseModels: newPhaseModels });
+    if (provider) {
+      await saveProviderAgentConfig(provider, { customPhaseModels: newPhaseModels });
+    } else {
+      await saveSettings({ customPhaseModels: newPhaseModels });
+    }
   };
 
   const handlePhaseThinkingChange = async (phase: keyof PhaseThinkingConfig, value: ThinkingLevel) => {
     // Save as custom config (deviating from preset)
     const newPhaseThinking = { ...currentPhaseThinking, [phase]: value };
-    await saveSettings({ customPhaseThinking: newPhaseThinking });
+    if (provider) {
+      await saveProviderAgentConfig(provider, { customPhaseThinking: newPhaseThinking });
+    } else {
+      await saveSettings({ customPhaseThinking: newPhaseThinking });
+    }
   };
 
   const handleResetToProfileDefaults = async () => {
     // Reset to the selected profile's defaults
-    await saveSettings({
-      customPhaseModels: undefined,
-      customPhaseThinking: undefined
-    });
+    if (provider) {
+      await saveProviderAgentConfig(provider, {
+        customPhaseModels: undefined,
+        customPhaseThinking: undefined,
+      });
+    } else {
+      await saveSettings({
+        customPhaseModels: undefined,
+        customPhaseThinking: undefined,
+      });
+    }
   };
 
   /**
@@ -207,10 +253,6 @@ export function AgentProfileSettings() {
   };
 
   return (
-    <SettingsSection
-      title={t('agentProfile.title')}
-      description={t('agentProfile.sectionDescription')}
-    >
       <div className="space-y-4">
         {/* Description */}
         <div className="rounded-lg bg-muted/50 p-3">
@@ -224,7 +266,7 @@ export function AgentProfileSettings() {
           {DEFAULT_AGENT_PROFILES.map(renderProfileCard)}
         </div>
 
-        {/* Phase Configuration - shown for all profiles */}
+        {/* Phase Configuration - collapsible card, shared between all profiles */}
         <div className="mt-6 rounded-lg border border-border bg-card">
           {/* Header - Collapsible */}
           <button
@@ -248,8 +290,8 @@ export function AgentProfileSettings() {
           {/* Phase Configuration Content */}
           {showPhaseConfig && (
             <div className="border-t border-border p-4 space-y-4">
-              {/* Reset button - shown when customized */}
-              {hasCustomConfig && (
+              {/* Reset button - shown when customized (non-Custom profiles only) */}
+              {selectedProfileId !== 'custom' && hasCustomConfig && (
                 <div className="flex justify-end">
                   <Button
                     variant="ghost"
@@ -263,64 +305,70 @@ export function AgentProfileSettings() {
                 </div>
               )}
 
-              {/* Phase Configuration Grid */}
-              <div className="space-y-4">
-                {PHASE_KEYS.map((phase) => (
-                  <div key={phase} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium text-foreground">
-                        {t(`agentProfile.phases.${phase}.label`)}
-                      </Label>
-                      <span className="text-xs text-muted-foreground">
-                        {t(`agentProfile.phases.${phase}.description`)}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {/* Model Select */}
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{t('agentProfile.model')}</Label>
-                        <MultiProviderModelSelect
-                          value={currentPhaseModels[phase]}
-                          onChange={(value) => handlePhaseModelChange(phase, value as ModelTypeShort)}
-                        />
+              {/* Custom (Cross-Provider) phase editor */}
+              {selectedProfileId === 'custom' ? (
+                <MixedPhaseEditor />
+              ) : (
+                /* Standard per-provider phase config */
+                <div className="space-y-4">
+                  {PHASE_KEYS.map((phase) => (
+                    <div key={phase} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-foreground">
+                          {t(`agentProfile.phases.${phase}.label`)}
+                        </Label>
+                        <span className="text-xs text-muted-foreground">
+                          {t(`agentProfile.phases.${phase}.description`)}
+                        </span>
                       </div>
-                      {/* Thinking Level Select */}
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
-                          <Label className="text-xs text-muted-foreground">{t('agentProfile.thinkingLevel')}</Label>
-                          {ADAPTIVE_THINKING_MODELS.includes(currentPhaseModels[phase]) && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary cursor-help">
-                                  {t('agentProfile.adaptiveThinking.badge')}
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-xs">
-                                <p className="text-xs">{t('agentProfile.adaptiveThinking.tooltip')}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Model Select */}
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">{t('agentProfile.model')}</Label>
+                          <MultiProviderModelSelect
+                            value={currentPhaseModels[phase]}
+                            onChange={(value) => handlePhaseModelChange(phase, value as ModelTypeShort)}
+                            filterProvider={provider}
+                          />
                         </div>
-                        <Select
-                          value={currentPhaseThinking[phase]}
-                          onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
-                        >
-                          <SelectTrigger className="h-9">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {THINKING_LEVELS.map((level) => (
-                              <SelectItem key={level.value} value={level.value}>
-                                {level.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {/* Thinking Level Select */}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs text-muted-foreground">{t('agentProfile.thinkingLevel')}</Label>
+                            {ADAPTIVE_THINKING_MODELS.includes(currentPhaseModels[phase]) && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary cursor-help">
+                                    {t('agentProfile.adaptiveThinking.badge')}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <p className="text-xs">{t('agentProfile.adaptiveThinking.tooltip')}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                          <Select
+                            value={currentPhaseThinking[phase]}
+                            onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {THINKING_LEVELS.map((level) => (
+                                <SelectItem key={level.value} value={level.value}>
+                                  {level.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
 
               {/* Info note */}
               <p className="text-[10px] text-muted-foreground mt-4 pt-3 border-t border-border">
@@ -331,6 +379,5 @@ export function AgentProfileSettings() {
         </div>
 
       </div>
-    </SettingsSection>
   );
 }

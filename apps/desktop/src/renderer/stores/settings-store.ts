@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AppSettings } from '../../shared/types';
+import type { AppSettings, PerProviderAgentConfig } from '../../shared/types';
 import type { APIProfile, ProfileFormData, TestConnectionResult, ModelInfo } from '@shared/types/profile';
 import type { BuiltinProvider, ProviderAccount } from '@shared/types/provider-account';
 import type { IPCResult } from '@shared/types/common';
@@ -501,6 +501,23 @@ export async function saveSettings(updates: Partial<AppSettings>): Promise<boole
   } catch {
     return false;
   }
+}
+
+/**
+ * Save per-provider agent configuration.
+ * Merges the updates into the existing provider config for the given provider.
+ */
+export async function saveProviderAgentConfig(
+  provider: BuiltinProvider,
+  updates: Partial<PerProviderAgentConfig>
+): Promise<boolean> {
+  const { settings } = useSettingsStore.getState();
+  return saveSettings({
+    providerAgentConfig: {
+      ...settings.providerAgentConfig,
+      [provider]: { ...settings.providerAgentConfig?.[provider], ...updates },
+    },
+  });
 }
 
 /**

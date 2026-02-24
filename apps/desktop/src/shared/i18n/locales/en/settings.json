@@ -412,6 +412,24 @@
       "badge": "Adaptive",
       "tooltip": "Opus uses adaptive thinking — it dynamically decides how much to think within the budget cap set by the thinking level."
     },
+    "reasoning": {
+      "adaptive": "Adaptive",
+      "budget": "Budget",
+      "reasoning": "Reasoning",
+      "thinking": "Thinking",
+      "noThinking": "(No thinking)",
+      "toggle": {
+        "off": "Off",
+        "on": "On"
+      },
+      "badgeTooltip": {
+        "adaptive_effort": "Dynamically decides how much to think within the budget cap",
+        "thinking_tokens": "Budget-based thinking with configurable token allocation",
+        "reasoning_effort": "Reasoning effort levels (low/medium/high)",
+        "thinking_toggle": "Thinking on/off toggle",
+        "none": "No extended thinking supported"
+      }
+    },
     "phases": {
       "spec": {
         "label": "Spec Creation",
@@ -440,6 +458,16 @@
       "resetAll": "Reset All",
       "noConnectedProviders": "No providers connected. Add accounts in the Accounts settings to configure model mappings.",
       "equivalentNote": "When a non-Anthropic provider is active, these mappings determine which model is used for each phase."
+    },
+    "providerTabs": {
+      "moreProviders": "More",
+      "noProviders": "No providers connected. Add accounts in the Accounts settings to configure provider-specific agent settings.",
+      "configureFor": "Configure agent settings for {{provider}}"
+    },
+    "customProfile": {
+      "name": "Custom (Cross-Provider)",
+      "description": "Mix different providers and models for each phase",
+      "phaseAssignment": "Assign a provider and model for each phase"
     }
   },
   "workspace": {

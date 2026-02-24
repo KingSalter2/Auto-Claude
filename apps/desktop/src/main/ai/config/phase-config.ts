@@ -141,6 +141,8 @@ export interface TaskMetadataConfig {
   model?: string;
   thinkingLevel?: string;
   fastMode?: boolean;
+  /** Per-phase provider override for cross-provider (Custom) profile */
+  phaseProviders?: Partial<Record<Phase, string>>;
 }
 
 /**

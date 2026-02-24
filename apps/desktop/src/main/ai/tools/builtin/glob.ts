@@ -14,6 +14,7 @@ import { z } from 'zod/v3';
 import { assertPathContained } from '../../security/path-containment';
 import { Tool } from '../define';
 import { DEFAULT_EXECUTION_OPTIONS, ToolPermission } from '../types';
+import { truncateToolOutput } from '../truncation';
 
 // ---------------------------------------------------------------------------
 // Input Schema
@@ -28,6 +29,9 @@ const inputSchema = z.object({
       'The directory to search in. If not specified, the current working directory will be used.',
     ),
 });
+
+/** Maximum number of file results to return before truncation */
+const MAX_RESULTS = 2000;
 
 // ---------------------------------------------------------------------------
 // Tool Definition
@@ -97,6 +101,17 @@ export const globTool = Tool.define({
 
     withMtime.sort((a, b) => b.mtime - a.mtime);
 
-    return withMtime.map((entry) => entry.filePath).join('\n');
+    // Cap results to prevent massive context window consumption
+    const totalMatches = withMtime.length;
+    const capped = totalMatches > MAX_RESULTS ? withMtime.slice(0, MAX_RESULTS) : withMtime;
+    let output = capped.map((entry) => entry.filePath).join('\n');
+
+    if (totalMatches > MAX_RESULTS) {
+      output += `\n\n[Showing ${MAX_RESULTS} of ${totalMatches} matches. Narrow your glob pattern for more specific results.]`;
+    }
+
+    // Apply disk-spillover truncation for very large outputs
+    const result = truncateToolOutput(output, 'Glob', context.projectDir);
+    return result.content;
   },
 });

@@ -48,6 +48,9 @@ const MAX_AUTH_RETRIES = 1;
 /** Default max steps if not specified in config */
 const DEFAULT_MAX_STEPS = 200;
 
+/** Context window usage threshold (85%) for reactive compaction warning */
+const CONTEXT_WINDOW_THRESHOLD = 0.85;
+
 // =============================================================================
 // Runner Options
 // =============================================================================
@@ -245,6 +248,11 @@ async function executeStream(
   const progressTracker = new ProgressTracker();
   const messages: SessionMessage[] = [...config.initialMessages];
 
+  // Context window guard: track prompt tokens per step
+  const contextWindowLimit = config.contextWindowLimit ?? 0;
+  let lastPromptTokens = 0;
+  let contextWindowWarningInjected = false;
+
   // Per-step state for memory injection (only allocated when memory is active)
   const stepMemoryState = memoryContext ? new StepMemoryState() : null;
 
@@ -260,6 +268,10 @@ async function executeStream(
     }
     if (stepMemoryState && event.type === 'tool-result') {
       memoryContext?.proxy.onToolResult(event.toolName, event.result, 0);
+    }
+    // Track prompt tokens for context window guard
+    if (event.type === 'step-finish') {
+      lastPromptTokens = event.usage.promptTokens;
     }
     // Forward to external listener
     onEvent?.(event);
@@ -281,36 +293,53 @@ async function executeStream(
     tools: tools ?? {},
     stopWhen: stopCondition,
     abortSignal: config.abortSignal,
-    ...(memoryContext && stepMemoryState
-      ? {
-          prepareStep: async ({ stepNumber }) => {
-            // Skip the first N steps — let the agent process initial context first
-            if (stepNumber < MEMORY_INJECTION_WARMUP_STEPS) {
-              memoryContext.proxy.onStepComplete(stepNumber);
-              return {};
-            }
+    prepareStep: async ({ stepNumber }) => {
+      // Context window guard: inject compaction warning when approaching limit
+      let contextWarningSystem: string | undefined;
+      if (
+        contextWindowLimit > 0 &&
+        lastPromptTokens > 0 &&
+        !contextWindowWarningInjected &&
+        lastPromptTokens > contextWindowLimit * CONTEXT_WINDOW_THRESHOLD
+      ) {
+        contextWindowWarningInjected = true;
+        const usagePct = Math.round((lastPromptTokens / contextWindowLimit) * 100);
+        contextWarningSystem =
+          `WARNING: You are approaching the context window limit (${usagePct}% used, ${lastPromptTokens.toLocaleString()} of ${contextWindowLimit.toLocaleString()} tokens). ` +
+          `Complete your current task and commit progress immediately. Do not start new subtasks.`;
+      }
 
-            const recentContext = stepMemoryState.getRecentContext(5);
-            const injection = await memoryContext.proxy.requestStepInjection(
-              stepNumber,
-              recentContext,
-            );
-
-            // Notify observer that step is complete
-            memoryContext.proxy.onStepComplete(stepNumber);
-
-            if (!injection) return {};
-
-            // Mark injected memory IDs so they aren't re-injected
-            stepMemoryState.markInjected(injection.memoryIds);
-
-            // Return as an additional system message for this step
-            return {
-              system: injection.content,
-            };
-          },
+      // Memory injection (only when memory context is active)
+      if (memoryContext && stepMemoryState) {
+        if (stepNumber < MEMORY_INJECTION_WARMUP_STEPS) {
+          memoryContext.proxy.onStepComplete(stepNumber);
+          return contextWarningSystem ? { system: contextWarningSystem } : {};
         }
-      : {}),
+
+        const recentContext = stepMemoryState.getRecentContext(5);
+        const injection = await memoryContext.proxy.requestStepInjection(
+          stepNumber,
+          recentContext,
+        );
+
+        memoryContext.proxy.onStepComplete(stepNumber);
+
+        if (!injection) {
+          return contextWarningSystem ? { system: contextWarningSystem } : {};
+        }
+
+        stepMemoryState.markInjected(injection.memoryIds);
+
+        const combinedSystem = contextWarningSystem
+          ? `${contextWarningSystem}\n\n${injection.content}`
+          : injection.content;
+
+        return { system: combinedSystem };
+      }
+
+      // No memory context — just return context warning if applicable
+      return contextWarningSystem ? { system: contextWarningSystem } : {};
+    },
     onStepFinish: (_stepResult) => {
       // onStepFinish is called after each agentic step.
       // Step results (tool calls, usage) are handled via the fullStream handler.

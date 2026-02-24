@@ -57,6 +57,8 @@ export interface SessionConfig {
   sessionNumber?: number;
   /** Subtask ID being worked on (if applicable) */
   subtaskId?: string;
+  /** Context window limit in tokens for reactive compaction guard */
+  contextWindowLimit?: number;
 }
 
 // =============================================================================

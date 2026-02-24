@@ -17,12 +17,15 @@ import type { IdeationConfig } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
 import { projectStore } from '../project-store';
-import { resolveAuth } from '../ai/auth/resolver';
+import { resolveAuth, resolveAuthFromQueue } from '../ai/auth/resolver';
 import { resolveModelId } from '../ai/config/phase-config';
 import { detectProviderFromModel } from '../ai/providers/factory';
-import type { AgentExecutorConfig, SerializableSessionConfig } from '../ai/agent/types';
+import type { AgentExecutorConfig, SerializableSessionConfig, SerializedSecurityProfile } from '../ai/agent/types';
+import { getSecurityProfile } from '../ai/security/security-profile';
 import { createOrGetWorktree } from '../ai/worktree';
 import { findTaskWorktree } from '../worktree-paths';
+import { readSettingsFile } from '../settings-utils';
+import type { ProviderAccount } from '../../shared/types/provider-account';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -110,6 +113,68 @@ export class AgentManager extends EventEmitter {
    */
   configure(pythonPath?: string, autoBuildSourcePath?: string): void {
     this.processManager.configure(pythonPath, autoBuildSourcePath);
+  }
+
+  /**
+   * Check if any provider account is configured (API key or OAuth).
+   * Used to bypass the legacy hasValidAuth() check for non-Anthropic providers.
+   */
+  private hasAnyProviderAccount(): boolean {
+    const settings = readSettingsFile();
+    const accounts = (settings?.providerAccounts as ProviderAccount[] | undefined) ?? [];
+    return accounts.length > 0;
+  }
+
+  /**
+   * Resolve auth using the provider accounts priority queue.
+   * Falls back to legacy Claude profile if no provider accounts exist.
+   */
+  private async resolveAuthFromProviderQueue(
+    requestedModel: string,
+  ): Promise<{
+    auth: { apiKey?: string; baseURL?: string; codexOAuth?: boolean } | null;
+    provider: string;
+    modelId: string;
+    configDir?: string;
+  }> {
+    // Read provider accounts and priority order from settings
+    const settings = readSettingsFile();
+    const accounts = (settings?.providerAccounts as ProviderAccount[] | undefined) ?? [];
+    const priorityOrder = (settings?.globalPriorityOrder as string[] | undefined) ?? [];
+
+    if (accounts.length > 0 && priorityOrder.length > 0) {
+      // Sort accounts by priority order
+      const orderedQueue = priorityOrder
+        .map(id => accounts.find(a => a.id === id))
+        .filter((a): a is ProviderAccount => a != null);
+
+      // Add any accounts not in the priority order at the end
+      for (const account of accounts) {
+        if (!priorityOrder.includes(account.id)) {
+          orderedQueue.push(account);
+        }
+      }
+
+      const resolved = await resolveAuthFromQueue(requestedModel, orderedQueue);
+      if (resolved) {
+        console.warn(`[AgentManager] Resolved auth from provider queue: account=${resolved.accountId} provider=${resolved.resolvedProvider} model=${resolved.resolvedModelId}`);
+        return {
+          auth: resolved,
+          provider: resolved.resolvedProvider,
+          modelId: resolved.resolvedModelId,
+          configDir: undefined, // Queue-based auth handles its own token refresh
+        };
+      }
+      console.warn('[AgentManager] No available account in provider queue, falling back to legacy profile');
+    }
+
+    // Fallback: legacy Claude profile system
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager?.getActiveProfile();
+    const configDir = activeProfile?.configDir;
+    const auth = await resolveAuth({ provider: 'anthropic', configDir });
+    const provider = detectProviderFromModel(requestedModel) ?? 'anthropic';
+    return { auth, provider, modelId: requestedModel, configDir };
   }
 
   /**
@@ -246,8 +311,8 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
-      this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
+    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
+      this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
       return;
     }
 
@@ -274,13 +339,8 @@ export class AgentManager extends EventEmitter {
     // Load system prompt from prompts directory
     const systemPrompt = this.loadPrompt('spec_orchestrator') ?? this.buildDefaultSpecPrompt(taskDescription, specDir);
 
-    // Resolve auth credentials from active profile (async — proactively refreshes OAuth token)
-    const activeProfile = profileManager.getActiveProfile();
-    const configDir = activeProfile?.configDir;
-    const auth = await resolveAuth({ provider: 'anthropic', configDir });
-
-    // Detect provider from model ID
-    const provider = detectProviderFromModel(specModelId) ?? 'anthropic';
+    // Resolve auth from provider accounts priority queue (falls back to legacy profile)
+    const resolved = await this.resolveAuthFromProviderQueue(specModelId);
 
     // Build the serializable session config for the worker
     const resolvedSpecDir = specDir ?? path.join(projectPath, '.auto-claude', 'specs', taskId);
@@ -296,15 +356,16 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: resolvedSpecDir,
       projectDir: projectPath,
-      provider,
-      modelId: specModelId,
-      apiKey: auth?.apiKey,
-      baseURL: auth?.baseURL,
-      configDir,
+      provider: resolved.provider,
+      modelId: resolved.modelId,
+      apiKey: resolved.auth?.apiKey,
+      baseURL: resolved.auth?.baseURL,
+      configDir: resolved.configDir,
       toolContext: {
         cwd: projectPath,
         projectDir: projectPath,
         specDir: resolvedSpecDir,
+        securityProfile: this.serializeSecurityProfile(projectPath),
       },
     };
 
@@ -349,8 +410,8 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
-      this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
+    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
+      this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
       return;
     }
 
@@ -365,13 +426,8 @@ export class AgentManager extends EventEmitter {
     // Load system prompt (planner prompt for build orchestrator entry point)
     const systemPrompt = this.loadPrompt('planner') ?? this.buildDefaultPlannerPrompt(specId, projectPath);
 
-    // Resolve auth credentials from active profile (async — proactively refreshes OAuth token)
-    const activeProfile = profileManager.getActiveProfile();
-    const configDir = activeProfile?.configDir;
-    const auth = await resolveAuth({ provider: 'anthropic', configDir });
-
-    // Detect provider from model ID
-    const provider = detectProviderFromModel(modelId) ?? 'anthropic';
+    // Resolve auth from provider accounts priority queue (falls back to legacy profile)
+    const resolved = await this.resolveAuthFromProviderQueue(modelId);
 
     // Create or get existing git worktree for task isolation
     // This matches the Python backend's WorktreeManager.create_worktree() behavior
@@ -413,15 +469,16 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: worktreeSpecDir,
       projectDir: effectiveProjectDir,
-      provider,
-      modelId,
-      apiKey: auth?.apiKey,
-      baseURL: auth?.baseURL,
-      configDir,
+      provider: resolved.provider,
+      modelId: resolved.modelId,
+      apiKey: resolved.auth?.apiKey,
+      baseURL: resolved.auth?.baseURL,
+      configDir: resolved.configDir,
       toolContext: {
         cwd: effectiveCwd,
         projectDir: effectiveProjectDir,
         specDir: worktreeSpecDir,
+        securityProfile: this.serializeSecurityProfile(effectiveProjectDir),
       },
     };
 
@@ -464,8 +521,8 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
-      this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
+    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
+      this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
       return;
     }
 
@@ -480,13 +537,8 @@ export class AgentManager extends EventEmitter {
     // Load system prompt for QA reviewer
     const systemPrompt = this.loadPrompt('qa_reviewer') ?? this.buildDefaultQAPrompt(specId, projectPath);
 
-    // Resolve auth credentials from active profile (async — proactively refreshes OAuth token)
-    const activeProfile = profileManager.getActiveProfile();
-    const configDir = activeProfile?.configDir;
-    const auth = await resolveAuth({ provider: 'anthropic', configDir });
-
-    // Detect provider from model ID
-    const provider = detectProviderFromModel(modelId) ?? 'anthropic';
+    // Resolve auth from provider accounts priority queue (falls back to legacy profile)
+    const resolved = await this.resolveAuthFromProviderQueue(modelId);
 
     // Find existing worktree for QA (created during task execution)
     const worktreePath = findTaskWorktree(projectPath, specId);
@@ -513,15 +565,16 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: effectiveSpecDir,
       projectDir: effectiveProjectDir,
-      provider,
-      modelId,
-      apiKey: auth?.apiKey,
-      baseURL: auth?.baseURL,
-      configDir,
+      provider: resolved.provider,
+      modelId: resolved.modelId,
+      apiKey: resolved.auth?.apiKey,
+      baseURL: resolved.auth?.baseURL,
+      configDir: resolved.configDir,
       toolContext: {
         cwd: effectiveCwd,
         projectDir: effectiveProjectDir,
         specDir: effectiveSpecDir,
+        securityProfile: this.serializeSecurityProfile(effectiveProjectDir),
       },
     };
 
@@ -806,6 +859,23 @@ export class AgentManager extends EventEmitter {
   // ============================================
 
   /**
+   * Serialize a project's SecurityProfile (Sets) into a SerializedSecurityProfile (arrays)
+   * for transfer across worker thread boundaries.
+   */
+  private serializeSecurityProfile(projectDir: string): SerializedSecurityProfile {
+    const profile = getSecurityProfile(projectDir);
+    return {
+      baseCommands: [...profile.baseCommands],
+      stackCommands: [...profile.stackCommands],
+      scriptCommands: [...profile.scriptCommands],
+      customCommands: [...profile.customCommands],
+      customScripts: {
+        shellScripts: profile.customScripts.shellScripts,
+      },
+    };
+  }
+
+  /**
    * Resolve the model ID for a task by reading task_metadata.json.
    * Falls back to the default sonnet model if metadata is not available.
    *
@@ -820,6 +890,7 @@ export class AgentManager extends EventEmitter {
         const metadata = JSON.parse(raw) as {
           isAutoProfile?: boolean;
           phaseModels?: Record<string, string>;
+          phaseProviders?: Record<string, string>;
           model?: string;
         };
 
@@ -834,6 +905,26 @@ export class AgentManager extends EventEmitter {
       // Fall through to default
     }
     return resolveModelId('sonnet');
+  }
+
+  /**
+   * Resolve the provider override for a phase from task_metadata.json.
+   * Returns null if no per-phase provider is specified (use default queue).
+   */
+  private resolveTaskPhaseProvider(specDir: string, phase: 'planning' | 'coding' | 'qa' | 'spec'): string | null {
+    try {
+      const metadataPath = path.join(specDir, 'task_metadata.json');
+      if (existsSync(metadataPath)) {
+        const raw = readFileSync(metadataPath, 'utf-8');
+        const metadata = JSON.parse(raw) as {
+          phaseProviders?: Record<string, string>;
+        };
+        return metadata.phaseProviders?.[phase] ?? null;
+      }
+    } catch {
+      // Fall through
+    }
+    return null;
   }
 
   /**

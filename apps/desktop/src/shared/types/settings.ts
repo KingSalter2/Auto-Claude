@@ -221,6 +221,31 @@ export interface AgentProfile {
   isAutoProfile?: boolean;
 }
 
+// Per-provider agent configuration
+export interface PerProviderAgentConfig {
+  selectedAgentProfile?: string;         // 'auto' | 'complex' | 'balanced' | 'quick'
+  customPhaseModels?: PhaseModelConfig;
+  customPhaseThinking?: PhaseThinkingConfig;
+  featureModels?: FeatureModelConfig;
+  featureThinking?: FeatureThinkingConfig;
+}
+
+// Cross-provider phase entry for Custom profile
+export interface MixedPhaseEntry {
+  provider: BuiltinProvider;
+  modelId: string;           // Model value from ALL_AVAILABLE_MODELS
+  thinkingLevel: ThinkingLevel;
+}
+
+// Pipeline phase key type (distinct from task.ts Phase interface which is for plan phases)
+export type PipelinePhase = 'spec' | 'planning' | 'coding' | 'qa';
+
+// Cross-provider phase config
+export type MixedPhaseConfig = Record<PipelinePhase, MixedPhaseEntry>;
+
+// Cross-provider feature config
+export type MixedFeatureConfig = Record<keyof FeatureModelConfig, MixedPhaseEntry>;
+
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   colorTheme?: ColorTheme;
@@ -290,10 +315,16 @@ export interface AppSettings {
   logOrder?: 'chronological' | 'reverse-chronological';
   // Beta updates opt-in (receive pre-release updates)
   betaUpdates?: boolean;
+  // Per-provider agent configuration
+  providerAgentConfig?: Partial<Record<BuiltinProvider, PerProviderAgentConfig>>;
+  customMixedProfileActive?: boolean;
+  customMixedPhaseConfig?: MixedPhaseConfig;
+  customMixedFeatureConfig?: MixedFeatureConfig;
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
   _migratedDefaultModelSync?: boolean;
   _migratedUltrathinkToHigh?: boolean;
+  _migratedToPerProviderConfig?: boolean;
   // Language preference for UI (i18n)
   language?: SupportedLanguage;
   // Developer tools preferences

@@ -347,6 +347,26 @@ export function registerSettingsHandlers(
         needsSave = true;
       }
 
+      // Migration: Copy global agent config to per-provider config
+      if (!settings._migratedToPerProviderConfig) {
+        const connected = new Set((settings.providerAccounts ?? []).map((a: ProviderAccount) => a.provider));
+        if (connected.size > 0) {
+          const perProvider: typeof settings.providerAgentConfig = {};
+          for (const provider of connected) {
+            perProvider[provider] = {
+              selectedAgentProfile: settings.selectedAgentProfile,
+              customPhaseModels: settings.customPhaseModels,
+              customPhaseThinking: settings.customPhaseThinking,
+              featureModels: settings.featureModels,
+              featureThinking: settings.featureThinking,
+            };
+          }
+          settings.providerAgentConfig = perProvider;
+        }
+        settings._migratedToPerProviderConfig = true;
+        needsSave = true;
+      }
+
       // Migration: Convert legacy global API keys, APIProfiles, and ClaudeProfiles to ProviderAccount entries
       const providerAccountsMigration = await migrateToProviderAccounts(settings);
       if (providerAccountsMigration.changed) {
