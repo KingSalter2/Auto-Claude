@@ -24,6 +24,7 @@ import { cn } from '../../lib/utils';
 import { useSettingsStore } from '../../stores/settings-store';
 import type { Task, TaskLogs, TaskLogPhase, TaskPhaseLog, TaskLogEntry, TaskMetadata } from '../../../shared/types';
 import type { PhaseModelConfig, ThinkingLevel } from '../../../shared/types/settings';
+import { ALL_AVAILABLE_MODELS } from '@shared/constants/models';
 
 interface TaskLogsProps {
   task: Task;
@@ -63,14 +64,11 @@ const LOG_PHASE_TO_CONFIG_PHASE: Record<TaskLogPhase, keyof PhaseModelConfig> = 
   validation: 'qa'
 };
 
-// Short labels for models (indexed by string to support both shorthands and concrete IDs)
-const MODEL_SHORT_LABELS: Record<string, string> = {
-  opus: 'Opus',
-  'opus-1m': 'Opus (1M)',
-  'opus-4.5': 'Opus 4.5',
-  sonnet: 'Sonnet',
-  haiku: 'Haiku'
-};
+// Build model short labels from the full model catalog.
+// Includes both shorthand values (opus, sonnet) and provider-specific IDs (gpt-5.3-codex).
+const MODEL_SHORT_LABELS: Record<string, string> = Object.fromEntries(
+  ALL_AVAILABLE_MODELS.map(m => [m.value, m.label])
+);
 
 // Short labels for thinking levels
 const THINKING_SHORT_LABELS: Record<ThinkingLevel, string> = {

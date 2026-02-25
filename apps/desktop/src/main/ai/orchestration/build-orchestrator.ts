@@ -236,6 +236,10 @@ export class BuildOrchestrator extends EventEmitter {
         if (!planResult.success) {
           return this.buildOutcome(false, Date.now() - startTime, planResult.error);
         }
+        // Reset subtask statuses to "pending" after planning —
+        // some models pre-set statuses to "completed" which would
+        // cause isBuildComplete() to skip the coding phase entirely.
+        await this.resetSubtaskStatuses();
       }
 
       // Normalize subtask IDs and add missing status fields before coding.
@@ -604,6 +608,39 @@ export class BuildOrchestrator extends EventEmitter {
       }
     } catch {
       // Non-fatal: if the plan doesn't exist yet validation will catch it
+    }
+  }
+
+  /**
+   * Reset all subtask statuses to "pending" after initial planning.
+   *
+   * Some LLMs (particularly non-Anthropic models) create implementation plans
+   * with subtasks pre-set to "completed". Since no coding has happened yet,
+   * all statuses must be "pending" for the coding phase to execute.
+   */
+  private async resetSubtaskStatuses(): Promise<void> {
+    const planPath = join(this.config.specDir, 'implementation_plan.json');
+    try {
+      const raw = await readFile(planPath, 'utf-8');
+      const plan = JSON.parse(raw) as ImplementationPlan;
+      let updated = false;
+
+      for (const phase of plan.phases) {
+        if (!Array.isArray(phase.subtasks)) continue;
+        for (const subtask of phase.subtasks) {
+          if (subtask.status !== 'pending') {
+            subtask.status = 'pending';
+            updated = true;
+          }
+        }
+      }
+
+      if (updated) {
+        await writeFile(planPath, JSON.stringify(plan, null, 2));
+        this.emitTyped('log', 'Reset all subtask statuses to "pending" after planning');
+      }
+    } catch {
+      // Non-fatal: validation will catch any plan issues
     }
   }
 

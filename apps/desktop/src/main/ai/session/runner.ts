@@ -287,7 +287,7 @@ async function executeStream(
 
   // Codex models (via chatgpt.com/backend-api/codex/responses) require
   // `instructions` in the request body instead of system messages in `input`.
-  // Pass system prompt via providerOptions and suppress the system message.
+  // Pass system prompt via providerOptions and enable store for proper Codex API behavior.
   const modelId = typeof config.model === 'string' ? config.model : config.model.modelId;
   const isCodex = modelId?.includes('codex') ?? false;
 
@@ -303,7 +303,7 @@ async function executeStream(
       providerOptions: {
         openai: {
           ...(config.systemPrompt ? { instructions: config.systemPrompt } : {}),
-          store: false,
+          store: true,
         },
       },
     } : {}),
