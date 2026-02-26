@@ -458,15 +458,28 @@ export class TaskLogService extends EventEmitter {
     if (!worktree?.entries?.length) return main;
 
     // Combine entries from both, sorted by timestamp
+    const allEntries = [...main.entries, ...worktree.entries].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    // Deduplicate: entries with identical timestamp + type + content are considered duplicates.
+    // This happens when task_logs.json is copied from main to worktree (worktree-manager Step 7),
+    // causing both dirs to contain the same planning phase entries.
+    const seen = new Set<string>();
+    const deduped = allEntries.filter(entry => {
+      const key = `${entry.timestamp}|${entry.type}|${entry.content}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     const combined: TaskPhaseLog = {
       phase: main.phase,
       // Use the most advanced status (worktree typically has the later state)
       status: worktree.status !== 'pending' ? worktree.status : main.status,
       started_at: main.started_at || worktree.started_at,
       completed_at: worktree.completed_at || main.completed_at,
-      entries: [...main.entries, ...worktree.entries].sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      ),
+      entries: deduped,
     };
     return combined;
   }

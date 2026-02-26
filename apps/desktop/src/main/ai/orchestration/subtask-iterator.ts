@@ -10,6 +10,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { safeParseJson } from '../../utils/json-repair';
 import type { ExtractedInsights, InsightExtractionConfig } from '../runners/insight-extractor';
 import { extractSessionInsights } from '../runners/insight-extractor';
 import type { SessionResult } from '../session/types';
@@ -233,6 +234,12 @@ export async function iterateSubtasks(
     if (result.outcome === 'completed' || result.outcome === 'max_steps') {
       await ensureSubtaskMarkedCompleted(config.specDir, subtask.id);
 
+      // Sync updated phases to main project plan (worktree mode).
+      // This keeps the main plan current during execution, not just on exit.
+      if (config.sourceSpecDir) {
+        await syncPhasesToMain(config.specDir, config.sourceSpecDir);
+      }
+
       // Extract insights from the session (opt-in, never blocks the build)
       if (config.extractInsights) {
         extractInsightsAfterSession(config, subtask, result).then((insights) => {
@@ -274,7 +281,8 @@ async function ensureSubtaskMarkedCompleted(
   const planPath = join(specDir, 'implementation_plan.json');
   try {
     const raw = await readFile(planPath, 'utf-8');
-    const plan = JSON.parse(raw) as ImplementationPlan;
+    const plan = safeParseJson<ImplementationPlan>(raw);
+    if (!plan) return; // JSON corrupt beyond repair
     let updated = false;
 
     for (const phase of plan.phases) {
@@ -304,6 +312,36 @@ async function ensureSubtaskMarkedCompleted(
   }
 }
 
+/**
+ * Sync phases from the worktree plan to the main project plan.
+ * Keeps the main plan's subtask statuses up-to-date during execution,
+ * not just on process exit. Non-fatal: skip silently on any error.
+ */
+async function syncPhasesToMain(
+  worktreeSpecDir: string,
+  mainSpecDir: string,
+): Promise<void> {
+  try {
+    const worktreePlanPath = join(worktreeSpecDir, 'implementation_plan.json');
+    const mainPlanPath = join(mainSpecDir, 'implementation_plan.json');
+
+    const worktreeRaw = await readFile(worktreePlanPath, 'utf-8');
+    const worktreePlan = safeParseJson<ImplementationPlan>(worktreeRaw);
+    if (!worktreePlan?.phases) return;
+
+    const mainRaw = await readFile(mainPlanPath, 'utf-8');
+    const mainPlan = safeParseJson<Record<string, unknown>>(mainRaw);
+    if (!mainPlan) return;
+
+    mainPlan.phases = worktreePlan.phases;
+    mainPlan.updated_at = new Date().toISOString();
+
+    await writeFile(mainPlanPath, JSON.stringify(mainPlan, null, 2));
+  } catch {
+    // Non-fatal: the exit handler will do a final definitive sync
+  }
+}
+
 // =============================================================================
 // Plan Queries
 // =============================================================================
@@ -317,7 +355,7 @@ async function loadImplementationPlan(
   const planPath = join(specDir, 'implementation_plan.json');
   try {
     const raw = await readFile(planPath, 'utf-8');
-    return JSON.parse(raw) as ImplementationPlan;
+    return safeParseJson<ImplementationPlan>(raw);
   } catch {
     return null;
   }

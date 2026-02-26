@@ -24,7 +24,8 @@ import { cn } from '../../lib/utils';
 import { useSettingsStore } from '../../stores/settings-store';
 import type { Task, TaskLogs, TaskLogPhase, TaskPhaseLog, TaskLogEntry, TaskMetadata } from '../../../shared/types';
 import type { PhaseModelConfig, ThinkingLevel } from '../../../shared/types/settings';
-import { ALL_AVAILABLE_MODELS } from '@shared/constants/models';
+import type { BuiltinProvider } from '../../../shared/types/provider-account';
+import { getProviderModelLabel } from '@shared/utils/model-display';
 
 interface TaskLogsProps {
   task: Task;
@@ -64,12 +65,6 @@ const LOG_PHASE_TO_CONFIG_PHASE: Record<TaskLogPhase, keyof PhaseModelConfig> = 
   validation: 'qa'
 };
 
-// Build model short labels from the full model catalog.
-// Includes both shorthand values (opus, sonnet) and provider-specific IDs (gpt-5.3-codex).
-const MODEL_SHORT_LABELS: Record<string, string> = Object.fromEntries(
-  ALL_AVAILABLE_MODELS.map(m => [m.value, m.label])
-);
-
 // Short labels for thinking levels
 const THINKING_SHORT_LABELS: Record<ThinkingLevel, string> = {
   low: 'Low',
@@ -77,6 +72,15 @@ const THINKING_SHORT_LABELS: Record<ThinkingLevel, string> = {
   high: 'High',
   xhigh: 'XHigh'
 };
+
+// Resolve a model shorthand to a display label, using provider context when available
+function resolveModelLabel(model: string, provider?: string): string {
+  if (provider) {
+    return getProviderModelLabel(model, provider as BuiltinProvider);
+  }
+  // No provider stored (legacy tasks) — fall back to raw shorthand
+  return model;
+}
 
 // Helper to get model and thinking info for a log phase
 function getPhaseConfig(
@@ -91,8 +95,10 @@ function getPhaseConfig(
   if (metadata.isAutoProfile && metadata.phaseModels && metadata.phaseThinking) {
     const model = metadata.phaseModels[configPhase];
     const thinking = metadata.phaseThinking[configPhase];
+    // Use per-phase provider if available (cross-provider mode), otherwise task-level provider
+    const provider = metadata.phaseProviders?.[configPhase] ?? metadata.provider;
     return {
-      model: MODEL_SHORT_LABELS[model] || model,
+      model: resolveModelLabel(model, provider),
       thinking: THINKING_SHORT_LABELS[thinking] || thinking
     };
   }
@@ -100,7 +106,7 @@ function getPhaseConfig(
   // Non-auto profile with single model/thinking
   if (metadata.model && metadata.thinkingLevel) {
     return {
-      model: MODEL_SHORT_LABELS[metadata.model] || metadata.model,
+      model: resolveModelLabel(metadata.model, metadata.provider),
       thinking: THINKING_SHORT_LABELS[metadata.thinkingLevel] || metadata.thinkingLevel
     };
   }
@@ -141,6 +147,7 @@ export function TaskLogs({
                 isExpanded={expandedPhases.has(phase)}
                 onToggle={() => onTogglePhase(phase)}
                 isTaskStuck={isStuck}
+                isTaskSettled={task.status === 'human_review' || task.status === 'done' || task.status === 'pr_created' || task.status === 'error'}
                 phaseConfig={getPhaseConfig(task.metadata, phase)}
               />
             ))}
@@ -171,13 +178,19 @@ interface PhaseLogSectionProps {
   isExpanded: boolean;
   onToggle: () => void;
   isTaskStuck?: boolean;
+  isTaskSettled?: boolean;
   phaseConfig?: { model: string; thinking: string } | null;
 }
 
-function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, phaseConfig }: PhaseLogSectionProps) {
+function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isTaskStuck, isTaskSettled, phaseConfig }: PhaseLogSectionProps) {
   const Icon = PHASE_ICONS[phase];
   const logOrder = useSettingsStore(s => s.settings.logOrder);
-  const status = phaseLog?.status || 'pending';
+  // If the task is in a settled state (human_review, done, etc.), any "active" phase
+  // is actually completed — the log writer may have missed the endPhase() call.
+  let status = phaseLog?.status || 'pending';
+  if (status === 'active' && isTaskSettled) {
+    status = 'completed';
+  }
   const hasEntries = (phaseLog?.entries.length || 0) > 0;
 
   // Memoize sorted entries to avoid re-calculating on every render

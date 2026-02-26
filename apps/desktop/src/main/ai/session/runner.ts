@@ -303,7 +303,7 @@ async function executeStream(
       providerOptions: {
         openai: {
           ...(config.systemPrompt ? { instructions: config.systemPrompt } : {}),
-          store: true,
+          store: false,
         },
       },
     } : {}),

@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 import type { ImplementationPlan } from '../shared/types';
+import { safeParseJson } from './utils/json-repair';
 
 interface WatcherInfo {
   taskId: string;
@@ -97,11 +98,13 @@ export class FileWatcher extends EventEmitter {
       watcher.on('change', () => {
         try {
           const content = readFileSync(planPath, 'utf-8');
-          const plan: ImplementationPlan = JSON.parse(content);
-          this.emit('progress', taskId, plan);
+          const plan = safeParseJson<ImplementationPlan>(content);
+          if (plan) {
+            this.emit('progress', taskId, this.normalizePlanStatuses(plan));
+          }
+          // If null, JSON is corrupt even after repair — skip this event
         } catch {
           // File might be in the middle of being written
-          // Ignore parse errors, next change event will have complete file
         }
       });
 
@@ -114,8 +117,10 @@ export class FileWatcher extends EventEmitter {
       // Read and emit initial state
       try {
         const content = readFileSync(planPath, 'utf-8');
-        const plan: ImplementationPlan = JSON.parse(content);
-        this.emit('progress', taskId, plan);
+        const plan = safeParseJson<ImplementationPlan>(content);
+        if (plan) {
+          this.emit('progress', taskId, this.normalizePlanStatuses(plan));
+        }
       } catch {
         // Initial read failed - not critical
       }
@@ -201,10 +206,32 @@ export class FileWatcher extends EventEmitter {
 
     try {
       const content = readFileSync(watcherInfo.planPath, 'utf-8');
-      return JSON.parse(content);
+      const plan = safeParseJson<ImplementationPlan>(content);
+      if (!plan) return null;
+      return this.normalizePlanStatuses(plan);
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Normalize subtask statuses in a plan.
+   * Ensures every subtask has a `status` field, defaulting to 'pending'.
+   * This prevents the UI from receiving subtasks with undefined status.
+   */
+  private normalizePlanStatuses(plan: ImplementationPlan): ImplementationPlan {
+    if (!plan.phases || !Array.isArray(plan.phases)) return plan;
+
+    for (const phase of plan.phases) {
+      if (!phase.subtasks || !Array.isArray(phase.subtasks)) continue;
+      for (const subtask of phase.subtasks) {
+        if (!subtask.status) {
+          (subtask as { status: string }).status = 'pending';
+        }
+      }
+    }
+
+    return plan;
   }
 }
 

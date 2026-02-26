@@ -219,6 +219,7 @@ async function runSingleSession(
   toolContext: ToolContext,
   registry: ToolRegistry,
   initialUserMessage?: string,
+  skipPhaseLogging = false,
 ): Promise<SessionResult> {
   // Use queue-resolved model ID from baseSession (already mapped to the correct
   // provider-specific model, e.g., 'gpt-5.3-codex' for OpenAI Codex).
@@ -257,12 +258,12 @@ async function runSingleSession(
     subtaskId,
   };
 
-  // Start phase logging for this session
-  if (logWriter) {
+  // Start phase logging for this session (skip when orchestrator manages phases)
+  if (logWriter && !skipPhaseLogging) {
     logWriter.startPhase(phase);
-    if (subtaskId) {
-      logWriter.setSubtask(subtaskId);
-    }
+  }
+  if (logWriter && subtaskId) {
+    logWriter.setSubtask(subtaskId);
   }
 
   let sessionResult: SessionResult | undefined;
@@ -293,10 +294,12 @@ async function runSingleSession(
         : undefined,
     });
   } finally {
-    // End phase logging — mark as completed or failed based on outcome
-    if (logWriter) {
+    // End phase logging — mark as completed or failed based on outcome (skip when orchestrator manages phases)
+    if (logWriter && !skipPhaseLogging) {
       const success = sessionResult?.outcome === 'completed' || sessionResult?.outcome === 'max_steps';
       logWriter.endPhase(phase, success ?? false);
+    }
+    if (logWriter) {
       logWriter.setSubtask(undefined);
     }
   }
@@ -418,6 +421,17 @@ async function runDefaultSession(
   });
 }
 
+/** Map ExecutionPhase to Phase for log writer. Returns undefined for non-loggable phases. */
+function mapExecutionPhaseToPhase(executionPhase: ExecutionPhase): Phase | undefined {
+  switch (executionPhase) {
+    case 'planning': return 'planning';
+    case 'coding': return 'coding';
+    case 'qa_review': return 'qa';
+    case 'qa_fixing': return 'qa';
+    default: return undefined; // idle, complete, failed, pause states
+  }
+}
+
 /**
  * Run the full build orchestration pipeline:
  * planning → coding (per subtask) → QA review → QA fixing
@@ -432,6 +446,7 @@ async function runBuildOrchestrator(
   const orchestrator = new BuildOrchestrator({
     specDir: session.specDir,
     projectDir: session.projectDir,
+    sourceSpecDir: session.sourceSpecDir,
     abortSignal: abortController.signal,
 
     generatePrompt: async (agentType, _phase, _context) => {
@@ -456,12 +471,26 @@ async function runBuildOrchestrator(
         toolContext,
         registry,
         kickoffMessage,
+        true, // skipPhaseLogging — orchestrator manages phase start/end
       );
     },
   });
 
   orchestrator.on('phase-change', (phase: ExecutionPhase, message: string) => {
     postLog(`Phase: ${phase} — ${message}`);
+    // Start the phase in the log writer at orchestrator level (not per-session)
+    const logPhase = mapExecutionPhaseToPhase(phase);
+    if (logWriter && logPhase) {
+      logWriter.startPhase(logPhase, message);
+    }
+    // Emit XState-compatible task events for QA phase transitions
+    // so the state machine tracks the build lifecycle correctly.
+    // Without these, XState stays in 'coding' and can't handle QA failure events.
+    if (phase === 'qa_review') {
+      postTaskEvent('QA_STARTED', { iteration: 0, maxIterations: 3 });
+    } else if (phase === 'qa_fixing') {
+      postTaskEvent('QA_FIXING_STARTED', { iteration: 0 });
+    }
     // Emit execution-progress so the main thread can:
     // 1. Re-point the file watcher to the worktree spec dir
     // 2. Update the UI with phase progress
@@ -502,8 +531,25 @@ async function runBuildOrchestrator(
 
   const outcome = await orchestrator.run();
 
-  // Flush any remaining accumulated log entries
+  // End the final phase and flush any remaining accumulated log entries.
+  // When the orchestrator reaches 'complete' or 'failed', finalPhase is a terminal
+  // state that doesn't map to a log phase. In that case, close whichever log phase
+  // is still marked 'active' so the UI shows "Complete" instead of "Running".
   if (logWriter) {
+    const finalLogPhase = mapExecutionPhaseToPhase(outcome.finalPhase);
+    if (finalLogPhase) {
+      logWriter.endPhase(finalLogPhase, outcome.success);
+    } else {
+      // Terminal state (complete/failed) — close any still-active log phase
+      const data = logWriter.getData();
+      for (const phase of ['validation', 'coding', 'planning'] as const) {
+        if (data.phases[phase]?.status === 'active') {
+          const mapped = phase === 'validation' ? 'qa' : phase;
+          logWriter.endPhase(mapped as 'qa' | 'coding' | 'planning', outcome.success);
+          break;
+        }
+      }
+    }
     logWriter.flush();
   }
 
@@ -512,7 +558,16 @@ async function runBuildOrchestrator(
   if (outcome.success) {
     postTaskEvent('QA_PASSED');
     postTaskEvent('BUILD_COMPLETE');
+  } else if (outcome.codingCompleted) {
+    // Coding succeeded but QA failed — emit QA-specific event so XState
+    // transitions to 'error' with reviewReason='errors' instead of the
+    // generic CODING_FAILED which would be misleading.
+    postTaskEvent('QA_MAX_ITERATIONS', {
+      iteration: outcome.totalIterations,
+      maxIterations: 3,
+    });
   } else {
+    // Pre-QA failure (planning or coding phase)
     postTaskEvent('CODING_FAILED', { error: outcome.error });
   }
 
@@ -572,6 +627,7 @@ async function runQALoop(
         toolContext,
         registry,
         kickoffMessage,
+        true, // skipPhaseLogging — QA loop manages phase start/end
       );
     },
   });
@@ -580,10 +636,16 @@ async function runQALoop(
     postLog(message);
   });
 
+  // Start QA validation phase logging at the loop level
+  if (logWriter) {
+    logWriter.startPhase('qa');
+  }
+
   const outcome = await qaLoop.run();
 
-  // Flush any remaining accumulated log entries
+  // End QA validation phase and flush any remaining accumulated log entries
   if (logWriter) {
+    logWriter.endPhase('qa', outcome.approved);
     logWriter.flush();
   }
 

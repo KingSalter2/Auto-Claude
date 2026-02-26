@@ -10,6 +10,7 @@ import { findAllSpecPaths } from './utils/spec-path-helpers';
 import { ensureAbsolutePath } from './utils/path-helpers';
 import { writeFileAtomicSync } from './utils/atomic-file';
 import { updateRoadmapFeatureOutcome, revertRoadmapFeatureOutcome } from './utils/roadmap-utils';
+import { safeParseJson } from './utils/json-repair';
 
 interface TabState {
   openProjectIds: string[];
@@ -427,12 +428,20 @@ export class ProjectStore {
         if (existsSync(planPath)) {
           try {
             const content = readFileSync(planPath, 'utf-8');
-            plan = JSON.parse(content);
+            const parsed = safeParseJson<ImplementationPlan>(content);
+            if (parsed) {
+              plan = parsed;
+            } else {
+              // safeParseJson returned null — JSON is unrepairable
+              hasJsonError = true;
+              jsonErrorMessage = 'Unrepairable JSON (auto-repair failed)';
+              console.error(`[ProjectStore] Unrepairable JSON for spec ${dir.name} after auto-repair attempt`);
+            }
           } catch (err) {
-            // Don't skip - create task with error indicator so user knows it exists
+            // Read error (not parse — safeParseJson handles that)
             hasJsonError = true;
             jsonErrorMessage = err instanceof Error ? err.message : String(err);
-            console.error(`[ProjectStore] JSON parse error for spec ${dir.name}:`, jsonErrorMessage);
+            console.error(`[ProjectStore] Read error for spec ${dir.name}:`, jsonErrorMessage);
           }
         }
 
@@ -498,15 +507,19 @@ export class ProjectStore {
           : this.determineTaskStatusAndReason(plan);
 
         // Extract subtasks from plan (handle both 'subtasks' and 'chunks' naming)
+        // Accept 'name' as fallback for 'description' since some AI planners output that field instead
         const subtasks = plan?.phases?.flatMap((phase) => {
           const items = phase.subtasks || (phase as { chunks?: PlanSubtask[] }).chunks || [];
-          return items.map((subtask) => ({
-            id: subtask.id,
-            title: subtask.description,
-            description: subtask.description,
-            status: subtask.status,
-            files: []
-          }));
+          return items.map((subtask) => {
+            const desc = subtask.description || (subtask as unknown as { name?: string }).name || '';
+            return {
+              id: subtask.id,
+              title: desc,
+              description: desc,
+              status: subtask.status,
+              files: []
+            };
+          });
         }) || [];
 
         // Auto-correct status to human_review if all subtasks are completed

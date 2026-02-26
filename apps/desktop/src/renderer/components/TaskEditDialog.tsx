@@ -41,7 +41,8 @@ import {
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
   FAST_MODE_MODELS,
-  PHASE_KEYS
+  PHASE_KEYS,
+  getProviderPreset
 } from '../../shared/constants';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import { useSettingsStore } from '../stores/settings-store';
@@ -65,10 +66,17 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const { t } = useTranslation(['tasks', 'common']);
   // Get selected agent profile from settings for defaults
   const { settings } = useSettingsStore();
-  const { isAnthropic } = useActiveProvider();
+  const { isAnthropic, provider: activeProvider } = useActiveProvider();
+
+  // Resolve per-provider settings (same chain as AgentProfileSettings)
+  const providerConfig = activeProvider ? settings.providerAgentConfig?.[activeProvider] : undefined;
+  const resolvedProfileId = providerConfig?.selectedAgentProfile ?? settings.selectedAgentProfile ?? 'auto';
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
-    p => p.id === settings.selectedAgentProfile
+    p => p.id === resolvedProfileId
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
+  const providerPreset = activeProvider ? getProviderPreset(activeProvider, resolvedProfileId) : null;
+  const profilePhaseModels = providerPreset?.phaseModels ?? selectedProfile.phaseModels ?? DEFAULT_PHASE_MODELS;
+  const profilePhaseThinking = providerPreset?.phaseThinking ?? selectedProfile.phaseThinking ?? DEFAULT_PHASE_THINKING;
 
   // Get project path for loading image thumbnails from disk
   const projects = useProjectStore((state) => state.projects);
@@ -103,17 +111,17 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       );
       return matchingProfile?.id || 'custom';
     }
-    return settings.selectedAgentProfile || 'auto';
+    return resolvedProfileId;
   });
   const [model, setModel] = useState<ModelType | ''>(task.metadata?.model || selectedProfile.model);
   const [thinkingLevel, setThinkingLevel] = useState<ThinkingLevel | ''>(
     task.metadata?.thinkingLevel || selectedProfile.thinkingLevel
   );
   const [phaseModels, setPhaseModels] = useState<PhaseModelConfig | undefined>(
-    task.metadata?.phaseModels || selectedProfile.phaseModels || DEFAULT_PHASE_MODELS
+    task.metadata?.phaseModels || profilePhaseModels
   );
   const [phaseThinking, setPhaseThinking] = useState<PhaseThinkingConfig | undefined>(
-    task.metadata?.phaseThinking || selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING
+    task.metadata?.phaseThinking || profilePhaseThinking
   );
 
   // Image attachments
@@ -168,11 +176,11 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         setPhaseModels(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS);
         setPhaseThinking(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
       } else {
-        setProfileId(settings.selectedAgentProfile || 'auto');
+        setProfileId(resolvedProfileId);
         setModel(selectedProfile.model);
         setThinkingLevel(selectedProfile.thinkingLevel);
-        setPhaseModels(selectedProfile.phaseModels || DEFAULT_PHASE_MODELS);
-        setPhaseThinking(selectedProfile.phaseThinking || DEFAULT_PHASE_THINKING);
+        setPhaseModels(profilePhaseModels);
+        setPhaseThinking(profilePhaseThinking);
       }
 
       setImages(task.metadata?.attachedImages || []);
@@ -187,7 +195,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         setShowClassification(false);
       }
     }
-  }, [open, task, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
+  }, [open, task, resolvedProfileId, selectedProfile.model, selectedProfile.thinkingLevel, profilePhaseModels, profilePhaseThinking]);
 
   /**
    * Handle file reference drop from FileTreeItem drag
@@ -243,6 +251,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     if (impact) metadataUpdates.impact = impact;
     if (model) metadataUpdates.model = model as ModelType;
     if (thinkingLevel) metadataUpdates.thinkingLevel = thinkingLevel as ThinkingLevel;
+    if (activeProvider) metadataUpdates.provider = activeProvider;
     if (phaseModels && phaseThinking) {
       metadataUpdates.isAutoProfile = profileId === 'auto';
       metadataUpdates.phaseModels = phaseModels;

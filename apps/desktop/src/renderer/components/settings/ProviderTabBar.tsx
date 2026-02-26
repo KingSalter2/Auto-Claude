@@ -9,6 +9,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../ui/tooltip';
 
 const MAX_VISIBLE_TABS = 3;
 
@@ -19,6 +25,7 @@ interface ProviderTabBarProps {
   showCrossProvider?: boolean;
   isCrossProviderActive?: boolean;
   onCrossProviderClick?: () => void;
+  crossProviderDisabled?: boolean;
 }
 
 function getProviderDisplayName(provider: BuiltinProvider): string {
@@ -33,6 +40,7 @@ export function ProviderTabBar({
   showCrossProvider,
   isCrossProviderActive,
   onCrossProviderClick,
+  crossProviderDisabled,
 }: ProviderTabBarProps) {
   const { t } = useTranslation('settings');
 
@@ -106,18 +114,38 @@ export function ProviderTabBar({
       )}
 
       {showCrossProvider && (
-        <button
-          type="button"
-          onClick={onCrossProviderClick}
-          className={cn(
-            'px-3 py-1.5 text-sm font-medium rounded-full transition-colors',
-            isCrossProviderActive
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-          )}
-        >
-          {t('agentProfile.providerTabs.crossProvider')}
-        </button>
+        crossProviderDisabled ? (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={cn(
+                    'inline-flex px-3 py-1.5 text-sm font-medium rounded-full',
+                    'bg-muted/50 text-muted-foreground/50 cursor-not-allowed'
+                  )}
+                >
+                  {t('agentProfile.providerTabs.crossProvider')}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">{t('agentProfile.providerTabs.crossProviderDisabledTooltip')}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <button
+            type="button"
+            onClick={onCrossProviderClick}
+            className={cn(
+              'px-3 py-1.5 text-sm font-medium rounded-full transition-colors',
+              isCrossProviderActive
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            {t('agentProfile.providerTabs.crossProvider')}
+          </button>
+        )
       )}
     </div>
   );

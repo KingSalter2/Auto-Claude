@@ -221,9 +221,9 @@ describe('Task Logs Integration (IPC → Service → State)', () => {
       expect(result.error).toBe('Project not found');
     });
 
-    it('should return error when spec directory not found', async () => {
+    it('should return null data when spec directory not found yet', async () => {
       const { projectStore } = await import('../../../project-store');
-      const { existsSync } = await import('fs');
+      const { taskLogService } = await import('../../../task-log-service');
 
       const mockProject = {
         id: 'project-123',
@@ -232,13 +232,14 @@ describe('Task Logs Integration (IPC → Service → State)', () => {
       };
 
       (projectStore.getProject as Mock).mockReturnValue(mockProject);
-      (existsSync as Mock).mockReturnValue(false);
+      // loadLogs returns null when the directory/file doesn't exist
+      (taskLogService.loadLogs as Mock).mockReturnValue(null);
 
       const handler = ipcHandlers['task:logsGet'];
-      const result = await handler({}, 'project-123', 'nonexistent-spec') as IPCResult<TaskLogs>;
+      const result = await handler({}, 'project-123', 'nonexistent-spec') as IPCResult<TaskLogs | null>;
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Spec directory not found');
+      expect(result.success).toBe(true);
+      expect(result.data).toBeNull();
     });
 
     it('should handle taskLogService errors gracefully', async () => {
@@ -335,9 +336,9 @@ describe('Task Logs Integration (IPC → Service → State)', () => {
       expect(result.error).toBe('Project not found');
     });
 
-    it('should return error when spec directory not found', async () => {
+    it('should start watching even when spec directory does not exist yet', async () => {
       const { projectStore } = await import('../../../project-store');
-      const { existsSync } = await import('fs');
+      const { taskLogService } = await import('../../../task-log-service');
 
       const mockProject = {
         id: 'project-123',
@@ -346,13 +347,18 @@ describe('Task Logs Integration (IPC → Service → State)', () => {
       };
 
       (projectStore.getProject as Mock).mockReturnValue(mockProject);
-      (existsSync as Mock).mockReturnValue(false);
 
       const handler = ipcHandlers['task:logsWatch'];
       const result = await handler({}, 'project-123', 'nonexistent-spec') as IPCResult;
 
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Spec directory not found');
+      // Watcher starts even if dir doesn't exist — the poll loop handles missing files
+      expect(result.success).toBe(true);
+      expect(taskLogService.startWatching).toHaveBeenCalledWith(
+        'nonexistent-spec',
+        path.join('/absolute/path/to/project', '.auto-claude/specs', 'nonexistent-spec'),
+        '/absolute/path/to/project',
+        '.auto-claude/specs'
+      );
     });
 
     it('should handle taskLogService watch errors gracefully', async () => {

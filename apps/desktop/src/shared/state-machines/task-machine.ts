@@ -97,6 +97,9 @@ export const taskMachine = createMachine(
           // Fallback: if QA_PASSED arrives while still in coding (missed QA_STARTED), go to human_review
           QA_PASSED: { target: 'human_review', actions: 'setReviewReasonCompleted' },
           CODING_FAILED: { target: 'error', actions: ['setReviewReasonErrors', 'setError'] },
+          // Fallback: if QA fails while XState is still in coding (missed QA_STARTED), handle gracefully
+          QA_MAX_ITERATIONS: { target: 'error', actions: 'setReviewReasonErrors' },
+          QA_AGENT_ERROR: { target: 'error', actions: 'setReviewReasonErrors' },
           USER_STOPPED: { target: 'human_review', actions: 'setReviewReasonStopped' },
           PROCESS_EXITED: { target: 'error', guard: 'unexpectedExit', actions: 'setReviewReasonErrors' }
         }

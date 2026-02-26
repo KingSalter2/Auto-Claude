@@ -463,7 +463,8 @@
       "moreProviders": "More",
       "noProviders": "No providers connected. Add accounts in the Accounts settings to configure provider-specific agent settings.",
       "configureFor": "Configure agent settings for {{provider}}",
-      "crossProvider": "Cross-Provider"
+      "crossProvider": "Cross-Provider",
+      "crossProviderDisabledTooltip": "Connect two or more provider accounts to enable cross-provider capabilities"
     },
     "crossProviderTab": {
       "title": "Cross-Provider Configuration",

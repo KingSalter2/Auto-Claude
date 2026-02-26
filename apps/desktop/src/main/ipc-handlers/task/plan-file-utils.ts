@@ -24,6 +24,7 @@ import type { TaskStatus, Project, Task } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import type { TaskEventPayload } from '../../agent/task-event-schema';
 import { writeFileAtomicSync } from '../../utils/atomic-file';
+import { safeParseJson } from '../../utils/json-repair';
 
 // In-memory locks for plan file operations
 // Key: plan file path, Value: Promise chain for serializing operations
@@ -107,7 +108,11 @@ export async function persistPlanStatus(planPath: string, status: TaskStatus, pr
       console.warn(`[plan-file-utils] Reading implementation_plan.json to update status to: ${status}`, { planPath });
       // Read file directly without existence check to avoid TOCTOU race condition
       const planContent = readFileSync(planPath, 'utf-8');
-      const plan = JSON.parse(planContent);
+      const plan = safeParseJson<Record<string, unknown>>(planContent);
+      if (!plan) {
+        console.warn(`[plan-file-utils] Unrepairable JSON in ${planPath} - status not persisted`);
+        return false;
+      }
 
       plan.status = status;
       plan.planStatus = mapStatusToPlanStatus(status);
@@ -163,7 +168,11 @@ export function persistPlanStatusSync(planPath: string, status: TaskStatus, proj
   try {
     // Read file directly without existence check to avoid TOCTOU race condition
     const planContent = readFileSync(planPath, 'utf-8');
-    const plan = JSON.parse(planContent);
+    const plan = safeParseJson<Record<string, unknown>>(planContent);
+    if (!plan) {
+      console.warn(`[plan-file-utils] Unrepairable JSON in ${planPath} - sync status not persisted`);
+      return false;
+    }
 
     plan.status = status;
     plan.planStatus = mapStatusToPlanStatus(status);
@@ -196,7 +205,11 @@ export function persistPlanStatusSync(planPath: string, status: TaskStatus, proj
 export function persistPlanLastEventSync(planPath: string, event: TaskEventPayload): boolean {
   try {
     const planContent = readFileSync(planPath, 'utf-8');
-    const plan = JSON.parse(planContent);
+    const plan = safeParseJson<Record<string, unknown>>(planContent);
+    if (!plan) {
+      console.warn(`[plan-file-utils] Unrepairable JSON in ${planPath} - lastEvent not persisted`);
+      return false;
+    }
 
     plan.lastEvent = {
       eventId: event.eventId,
@@ -238,7 +251,12 @@ export function persistPlanStatusAndReasonSync(
 
     try {
       const planContent = readFileSync(planPath, 'utf-8');
-      plan = JSON.parse(planContent);
+      const parsed = safeParseJson<Record<string, unknown>>(planContent);
+      if (!parsed) {
+        console.warn(`[plan-file-utils] Unrepairable JSON in ${planPath} - status/reason not persisted`);
+        return false;
+      }
+      plan = parsed;
     } catch (readErr) {
       if (!isFileNotFoundError(readErr)) {
         throw readErr;
@@ -293,7 +311,12 @@ export function persistPlanPhaseSync(
 
     try {
       const planContent = readFileSync(planPath, 'utf-8');
-      plan = JSON.parse(planContent);
+      const parsed = safeParseJson<Record<string, unknown>>(planContent);
+      if (!parsed) {
+        console.warn(`[plan-file-utils] Unrepairable JSON in ${planPath} - phase not persisted`);
+        return false;
+      }
+      plan = parsed;
     } catch (readErr) {
       if (!isFileNotFoundError(readErr)) {
         throw readErr;
@@ -357,7 +380,11 @@ export async function updatePlanFile<T extends Record<string, unknown>>(
       console.warn(`[plan-file-utils] Reading implementation_plan.json for update`, { planPath });
       // Read file directly without existence check to avoid TOCTOU race condition
       const planContent = readFileSync(planPath, 'utf-8');
-      const plan = JSON.parse(planContent) as T;
+      const plan = safeParseJson<T>(planContent);
+      if (!plan) {
+        console.warn(`[plan-file-utils] Unrepairable JSON in ${planPath} - update skipped`);
+        return null;
+      }
 
       const updatedPlan = updater(plan);
       // Add updated_at timestamp - use type assertion since T extends Record<string, unknown>
@@ -450,7 +477,11 @@ export async function resetStuckSubtasks(planPath: string, projectId?: string): 
 
       // Read file directly without existence check to avoid TOCTOU race condition
       const planContent = readFileSync(planPath, 'utf-8');
-      const plan = JSON.parse(planContent);
+      const plan = safeParseJson<Record<string, unknown>>(planContent);
+      if (!plan) {
+        console.warn(`[plan-file-utils] Unrepairable JSON in ${planPath} - subtask reset skipped`);
+        return { success: false, resetCount: 0 };
+      }
 
       let resetCount = 0;
 
@@ -516,7 +547,7 @@ export function updateTaskMetadataPrUrl(metadataPath: string, prUrl: string): bo
     // Try to read existing metadata
     try {
       const content = readFileSync(metadataPath, 'utf-8');
-      metadata = JSON.parse(content);
+      metadata = safeParseJson<Record<string, unknown>>(content) || {};
     } catch (err) {
       if (!isFileNotFoundError(err)) {
         throw err;
@@ -540,6 +571,46 @@ export function updateTaskMetadataPrUrl(metadataPath: string, prUrl: string): bo
 }
 
 /**
+ * Sync phases (subtask data) from a source plan to the main project's plan file.
+ * This ensures that subtask completion statuses written by the agent in the worktree
+ * are reflected in the main project plan, which is the source of truth for getTasks().
+ *
+ * Preserves all existing fields in the main plan (status, reviewReason, xstateState, etc.)
+ * and only updates the phases array and updated_at timestamp.
+ */
+export function syncPlanPhasesToMainSync(
+  mainPlanPath: string,
+  phases: unknown[],
+  projectId?: string
+): boolean {
+  try {
+    const planContent = readFileSync(mainPlanPath, 'utf-8');
+    const plan = safeParseJson<Record<string, unknown>>(planContent);
+    if (!plan) {
+      console.warn(`[plan-file-utils] Unrepairable JSON in ${mainPlanPath} - phase sync skipped`);
+      return false;
+    }
+
+    plan.phases = phases;
+    plan.updated_at = new Date().toISOString();
+
+    writeFileAtomicSync(mainPlanPath, JSON.stringify(plan, null, 2));
+
+    if (projectId) {
+      projectStore.invalidateTasksCache(projectId);
+    }
+
+    return true;
+  } catch (err) {
+    if (isFileNotFoundError(err)) {
+      return false;
+    }
+    console.warn(`[plan-file-utils] Could not sync phases to ${mainPlanPath}:`, err);
+    return false;
+  }
+}
+
+/**
  * Check if a task has a valid implementation plan with subtasks.
  * A plan is considered valid if it has at least one subtask across all phases.
  *
@@ -555,7 +626,8 @@ export function hasPlanWithSubtasks(project: Project, task: Task): boolean {
       return false;
     }
 
-    const plan = JSON.parse(planContent);
+    const plan = safeParseJson<Record<string, unknown>>(planContent);
+    if (!plan) return false;
     // A plan exists if it has phases with subtasks (totalCount > 0)
     const phases = plan.phases as Array<{ subtasks?: Array<unknown> }> | undefined;
     const totalCount = phases?.flatMap(p => p.subtasks || []).length || 0;

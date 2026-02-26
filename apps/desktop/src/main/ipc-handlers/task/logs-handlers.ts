@@ -2,11 +2,10 @@ import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS, getSpecsDir } from '../../../shared/constants';
 import type { IPCResult, TaskLogs, TaskLogStreamChunk } from '../../../shared/types';
 import path from 'path';
-import { existsSync } from 'fs';
 import { projectStore } from '../../project-store';
 import { taskLogService } from '../../task-log-service';
 import { isValidTaskId } from '../../utils/spec-path-helpers';
-import { debugLog, debugWarn } from '../../../shared/utils/debug-logger';
+import { debugLog } from '../../../shared/utils/debug-logger';
 import { ensureAbsolutePath } from '../../utils/path-helpers';
 
 /**
@@ -45,11 +44,8 @@ export function registerTaskLogsHandlers(getMainWindow: () => BrowserWindow | nu
           specDir,
         });
 
-        if (!existsSync(specDir)) {
-          debugWarn('[TASK_LOGS_GET] Spec directory not found:', specDir);
-          return { success: false, error: 'Spec directory not found' };
-        }
-
+        // Don't fail if specDir doesn't exist yet — the agent may not have created it.
+        // taskLogService.loadLogs() handles missing directories gracefully (returns null).
         const logs = taskLogService.loadLogs(specDir, absoluteProjectPath, specsRelPath, specId);
 
         debugLog('[TASK_LOGS_GET] Logs loaded:', {
@@ -101,11 +97,9 @@ export function registerTaskLogsHandlers(getMainWindow: () => BrowserWindow | nu
           specDir,
         });
 
-        if (!existsSync(specDir)) {
-          debugWarn('[TASK_LOGS_WATCH] Spec directory not found:', specDir);
-          return { success: false, error: 'Spec directory not found' };
-        }
-
+        // Start watching even if specDir doesn't exist yet — the poll loop
+        // in TaskLogService handles missing files gracefully and will pick up
+        // task_logs.json once the agent creates it during execution.
         taskLogService.startWatching(specId, specDir, absoluteProjectPath, specsRelPath);
         return { success: true };
       } catch (error) {

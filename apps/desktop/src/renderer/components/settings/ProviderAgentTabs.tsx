@@ -79,9 +79,10 @@ export function ProviderAgentTabs() {
           }
           setActiveTab(provider);
         }}
-        showCrossProvider={connectedProviders.length >= 2}
+        showCrossProvider
         isCrossProviderActive={isCrossProviderActive}
         onCrossProviderClick={() => setActiveTab('cross-provider')}
+        crossProviderDisabled={connectedProviders.length < 2}
       />
 
       {isCrossProviderActive ? (

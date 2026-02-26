@@ -488,6 +488,9 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: worktreeSpecDir,
       projectDir: effectiveProjectDir,
+      // When running in a worktree, sourceSpecDir points to the main project spec dir
+      // so the subtask iterator can sync phase updates in real time (not just on exit).
+      sourceSpecDir: worktreePath ? specDir : undefined,
       provider: resolved.provider,
       modelId: resolved.modelId,
       apiKey: resolved.auth?.apiKey,

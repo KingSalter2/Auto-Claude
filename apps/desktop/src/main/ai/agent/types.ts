@@ -42,6 +42,8 @@ export interface SerializableSessionConfig {
   maxSteps: number;
   specDir: string;
   projectDir: string;
+  /** Source spec dir in main project (for worktree → main sync during execution) */
+  sourceSpecDir?: string;
   phase?: SessionConfig['phase'];
   modelShorthand?: SessionConfig['modelShorthand'];
   thinkingLevel?: SessionConfig['thinkingLevel'];

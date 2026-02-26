@@ -156,6 +156,8 @@ export interface BuildOutcome {
   durationMs: number;
   /** Error message if failed */
   error?: string;
+  /** Whether the coding phase completed before failure (indicates QA-phase failure) */
+  codingCompleted: boolean;
 }
 
 // =============================================================================
@@ -367,6 +369,7 @@ export class BuildOrchestrator extends EventEmitter {
     const iteratorConfig: SubtaskIteratorConfig = {
       specDir: this.config.specDir,
       projectDir: this.config.projectDir,
+      sourceSpecDir: this.config.sourceSpecDir,
       maxRetries: MAX_SUBTASK_RETRIES,
       autoContinueDelayMs: AUTO_CONTINUE_DELAY_MS,
       abortSignal: this.config.abortSignal,
@@ -751,7 +754,11 @@ export class BuildOrchestrator extends EventEmitter {
       if (lower.includes('status: passed') || lower.includes('status: approved')) {
         return 'passed';
       }
-      if (lower.includes('status: failed') || lower.includes('status: issues')) {
+      // If the report file exists with content but doesn't explicitly pass,
+      // treat it as failed. QA agents may use various failure formats
+      // (e.g., "Status: Needs Changes", "Issues Found", custom phrasing).
+      // Only return 'unknown' when the file doesn't exist or is empty.
+      if (content.trim().length > 0) {
         return 'failed';
       }
       return 'unknown';
@@ -771,6 +778,7 @@ export class BuildOrchestrator extends EventEmitter {
       totalIterations: this.iteration,
       durationMs,
       error,
+      codingCompleted: this.completedPhases.includes('coding'),
     };
 
     if (!success && !isTerminalPhase(this.currentPhase)) {

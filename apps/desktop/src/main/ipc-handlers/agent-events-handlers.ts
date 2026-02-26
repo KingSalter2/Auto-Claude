@@ -1,6 +1,7 @@
 import type { BrowserWindow } from "electron";
 import path from "path";
 import { existsSync, readFileSync } from "fs";
+import { safeParseJson } from "../utils/json-repair";
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir } from "../../shared/constants";
 import type {
   SDKRateLimitInfo,
@@ -13,7 +14,7 @@ import type { ProcessType, ExecutionProgressData } from "../agent";
 import { titleGenerator } from "../title-generator";
 import { fileWatcher } from "../file-watcher";
 import { notificationService } from "../notification-service";
-import { persistPlanLastEventSync, getPlanPath, persistPlanPhaseSync, persistPlanStatusAndReasonSync, hasPlanWithSubtasks } from "./task/plan-file-utils";
+import { persistPlanLastEventSync, getPlanPath, persistPlanPhaseSync, persistPlanStatusAndReasonSync, hasPlanWithSubtasks, syncPlanPhasesToMainSync } from "./task/plan-file-utils";
 import { findTaskWorktree } from "../worktree-paths";
 import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
@@ -125,14 +126,25 @@ export function registerAgenteventsHandlers(
       if (currentState && XSTATE_ACTIVE_STATES.has(currentState)) {
         const { task: checkTask, project: checkProject } = findTaskAndProject(taskId, projectId);
         if (checkTask && checkProject) {
-          // Use shared utility to determine if a valid implementation plan exists
-          const hasPlan = hasPlanWithSubtasks(checkProject, checkTask);
-
-          console.warn(
-            `[agent-events-handlers] Task ${taskId} still in XState ${currentState} ` +
-            `${STUCK_TASK_FALLBACK_TIMEOUT_MS}ms after exit, forcing USER_STOPPED (hasPlan: ${hasPlan})`
-          );
-          taskStateManager.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan }, checkTask, checkProject);
+          if (code === 0) {
+            // Clean exit (code 0) means the task completed successfully but the terminal
+            // event (e.g., QA_PASSED) was lost in transit. Treat as completed, not stopped.
+            console.warn(
+              `[agent-events-handlers] Task ${taskId} still in XState ${currentState} ` +
+              `${STUCK_TASK_FALLBACK_TIMEOUT_MS}ms after clean exit (code 0), forcing QA_PASSED`
+            );
+            taskStateManager.handleUiEvent(taskId, {
+              type: 'QA_PASSED', iteration: 0, testsRun: {}
+            }, checkTask, checkProject);
+          } else {
+            // Non-zero exit code — task was stopped or crashed
+            const hasPlan = hasPlanWithSubtasks(checkProject, checkTask);
+            console.warn(
+              `[agent-events-handlers] Task ${taskId} still in XState ${currentState} ` +
+              `${STUCK_TASK_FALLBACK_TIMEOUT_MS}ms after exit (code ${code}), forcing USER_STOPPED (hasPlan: ${hasPlan})`
+            );
+            taskStateManager.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan }, checkTask, checkProject);
+          }
         }
       }
       // Clean up timer reference after it fires
@@ -146,20 +158,23 @@ export function registerAgenteventsHandlers(
 
     // Send final plan state to renderer BEFORE unwatching
     // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)
-    // Try the file watcher's current path first, then fall back to worktree path
+    // Always prefer the worktree plan — it has the most current subtask data
+    // from agent execution. The file watcher may have been watching main project.
     let finalPlan = fileWatcher.getCurrentPlan(taskId);
-    if (!finalPlan && exitTask && exitProject) {
-      // File watcher may have been watching the wrong path (main vs worktree)
-      // Try reading directly from the worktree
+    if (exitTask && exitProject) {
       const worktreePath = findTaskWorktree(exitProject.path, exitTask.specId);
       if (worktreePath) {
         const specsBaseDir = getSpecsDir(exitProject.autoBuildPath);
         const worktreePlanPath = path.join(worktreePath, specsBaseDir, exitTask.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
         try {
           const content = readFileSync(worktreePlanPath, 'utf-8');
-          finalPlan = JSON.parse(content);
+          const parsed = safeParseJson<ImplementationPlan>(content);
+          if (parsed) {
+            finalPlan = parsed;
+          }
+          // If null, JSON is corrupt even after repair — keep fileWatcher plan
         } catch {
-          // Worktree plan file not readable - not critical
+          // Worktree plan file not readable - keep fileWatcher plan
         }
       }
     }
@@ -171,6 +186,13 @@ export function registerAgenteventsHandlers(
         finalPlan,
         exitProjectId
       );
+    }
+
+    // Sync subtask data from worktree plan to main project's plan file.
+    // The agent writes subtask statuses to the worktree; the main plan's phases
+    // may be stale. Syncing ensures getTasks() dedup (which prefers main) sees correct data.
+    if (finalPlan?.phases && exitTask && exitProject) {
+      syncPlanPhasesToMainSync(getPlanPath(exitProject, exitTask), finalPlan.phases, exitProjectId);
     }
 
     fileWatcher.unwatch(taskId).catch((err) => {

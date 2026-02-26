@@ -138,9 +138,12 @@ export function registerTaskExecutionHandlers(
       const profileManager = initResult.profileManager;
 
       // Find task and project
-      const { task, project } = findTaskAndProject(taskId);
+      // First search all projects to find the task, then verify the project matches
+      // task.projectId to prevent cross-project contamination when multiple projects
+      // have tasks with overlapping specIds (e.g., after delete/recreate).
+      const { task, project: foundProject } = findTaskAndProject(taskId);
 
-      if (!task || !project) {
+      if (!task || !foundProject) {
         console.warn('[TASK_START] Task or project not found for taskId:', taskId);
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
@@ -149,6 +152,11 @@ export function registerTaskExecutionHandlers(
         );
         return;
       }
+
+      // Use task's own projectId as the authoritative source (prevents wrong-project execution)
+      const project = (task.projectId && task.projectId !== foundProject.id)
+        ? (projectStore.getProject(task.projectId) ?? foundProject)
+        : foundProject;
 
       // Check git status - Auto Claude requires git for worktree-based builds
       const gitStatus = checkGitStatus(project.path);

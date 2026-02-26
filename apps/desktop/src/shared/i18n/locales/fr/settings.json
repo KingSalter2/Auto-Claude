@@ -463,7 +463,8 @@
       "moreProviders": "Plus",
       "noProviders": "Aucun fournisseur connecté. Ajoutez des comptes dans les paramètres Comptes pour configurer les paramètres d'agent par fournisseur.",
       "configureFor": "Configurer les paramètres d'agent pour {{provider}}",
-      "crossProvider": "Multi-fournisseur"
+      "crossProvider": "Multi-fournisseur",
+      "crossProviderDisabledTooltip": "Connectez deux comptes fournisseurs ou plus pour activer les capacités multi-fournisseur"
     },
     "crossProviderTab": {
       "title": "Configuration multi-fournisseur",
