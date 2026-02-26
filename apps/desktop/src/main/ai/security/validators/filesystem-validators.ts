@@ -4,7 +4,9 @@
  *
  * Validators for file system operations (chmod, rm, init scripts).
  *
- * See apps/desktop/src/main/ai/security/validators/filesystem-validators.ts for the TypeScript implementation.
+ * Security model: DENYLIST-based (consistent with the overall security system).
+ * - rm: blocks dangerous targets (/, /home, /etc, etc.)
+ * - chmod: blocks setuid/setgid bits (privilege escalation), allows all other modes
  */
 
 import type { ValidationResult } from '../bash-validator';
@@ -13,21 +15,21 @@ import type { ValidationResult } from '../bash-validator';
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Safe chmod modes */
-const SAFE_CHMOD_MODES = new Set([
-  '+x',
-  'a+x',
-  'u+x',
-  'g+x',
-  'o+x',
-  'ug+x',
-  '755',
-  '644',
-  '700',
-  '600',
-  '775',
-  '664',
-]);
+/**
+ * Dangerous chmod mode patterns — setuid/setgid bits that enable
+ * privilege escalation. All other modes (755, 644, 777, +x, o+w, etc.)
+ * are allowed since agents work within project boundaries.
+ */
+const DANGEROUS_CHMOD_PATTERNS: RegExp[] = [
+  // Numeric modes with special bits: 4xxx (setuid), 2xxx (setgid), 6xxx (both)
+  /^[4267]\d{3}$/,
+  // Symbolic setuid/setgid
+  /[+]s/,
+  /u[+]s/,
+  /g[+]s/,
+  /o[+]s/,
+  /a[+]s/,
+];
 
 /** Dangerous rm target patterns */
 const DANGEROUS_RM_PATTERNS: RegExp[] = [
@@ -103,10 +105,12 @@ function shellSplit(input: string): string[] | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Validate chmod commands — only allow making files executable with +x
- * and common safe modes.
+ * Validate chmod commands — block setuid/setgid (privilege escalation).
  *
- * Ported from: validate_chmod_command()
+ * Uses a denylist model: any mode is allowed UNLESS it sets the setuid or
+ * setgid special permission bits, which enable privilege escalation.
+ * Normal permission modes (755, 644, 777, +x, o+w, etc.) are all permitted
+ * since agents work within project boundaries.
  */
 export function validateChmodCommand(commandString: string): ValidationResult {
   const tokens = shellSplit(commandString);
@@ -123,10 +127,11 @@ export function validateChmodCommand(commandString: string): ValidationResult {
 
   for (const token of tokens.slice(1)) {
     if (token === '-R' || token === '--recursive') {
-      // Allow recursive for +x
       continue;
     }
     if (token.startsWith('-')) {
+      // Allow common flags like -v (verbose), -c (changes), -f (silent)
+      if (/^-[vcf]+$/.test(token)) continue;
       return [false, `chmod flag '${token}' is not allowed`];
     }
     if (mode === null) {
@@ -144,12 +149,15 @@ export function validateChmodCommand(commandString: string): ValidationResult {
     return [false, 'chmod requires at least one file'];
   }
 
-  // Only allow +x variants or common safe modes
-  if (!SAFE_CHMOD_MODES.has(mode) && !/^[ugoa]*\+x$/.test(mode)) {
-    return [
-      false,
-      `chmod only allowed with executable modes (+x, 755, etc.), got: ${mode}`,
-    ];
+  // Block dangerous modes (setuid/setgid — privilege escalation)
+  for (const pattern of DANGEROUS_CHMOD_PATTERNS) {
+    if (pattern.test(mode)) {
+      return [
+        false,
+        `chmod mode '${mode}' is not allowed — setuid/setgid bits enable privilege escalation. ` +
+          `Use standard permission modes (755, 644, +x, etc.) instead.`,
+      ];
+    }
   }
 
   return [true, ''];

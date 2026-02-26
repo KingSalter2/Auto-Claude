@@ -17,7 +17,7 @@
  * - Memory-aware step limits via calibration factor
  */
 
-import { streamText, stepCountIs } from 'ai';
+import { streamText, stepCountIs, Output } from 'ai';
 import type { Tool as AITool } from 'ai';
 import type { WorkerObserverProxy } from '../memory/ipc/worker-observer-proxy';
 import { StepMemoryState } from '../memory/injection/step-memory-state';
@@ -292,11 +292,14 @@ async function executeStream(
   const isCodex = modelId?.includes('codex') ?? false;
 
   // Execute streamText — prepareStep is only added when memory context exists
+  // When outputSchema is provided, use Output.object() for provider-agnostic
+  // structured output validation. This counts as one step in the agent loop.
   const result = streamText({
     model: config.model,
     system: isCodex ? undefined : config.systemPrompt,
     messages: aiMessages,
     tools: tools ?? {},
+    ...(config.outputSchema ? { output: Output.object({ schema: config.outputSchema }) } : {}),
     stopWhen: stopCondition,
     abortSignal: config.abortSignal,
     ...(isCodex ? {
@@ -398,6 +401,21 @@ async function executeStream(
   // Collect response text from the stream result
   const responseText = await result.text;
 
+  // Extract structured output if schema was provided
+  let structuredOutput: Record<string, unknown> | undefined;
+  if (config.outputSchema) {
+    try {
+      // AI SDK validates the output against the schema and returns typed data
+      const output = await result.output;
+      if (output) {
+        structuredOutput = output as Record<string, unknown>;
+      }
+    } catch {
+      // Structured output extraction failed — this is non-fatal.
+      // The caller can fall back to parsing responseText as JSON.
+    }
+  }
+
   // Add assistant response to messages
   if (responseText) {
     messages.push({ role: 'assistant', content: responseText });
@@ -420,6 +438,7 @@ async function executeStream(
     usage,
     messages,
     toolCallCount: summary.toolCallCount,
+    ...(structuredOutput ? { structuredOutput } : {}),
   };
 }
 

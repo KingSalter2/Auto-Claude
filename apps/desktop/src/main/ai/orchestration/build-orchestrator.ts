@@ -11,7 +11,7 @@
  * defined in phase-protocol.ts.
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EventEmitter } from 'events';
 
@@ -23,6 +23,13 @@ import {
 } from '../../../shared/constants/phase-protocol';
 import type { AgentType } from '../config/agent-configs';
 import type { Phase } from '../config/types';
+import {
+  ImplementationPlanSchema,
+  validateAndNormalizeJsonFile,
+  buildValidationRetryPrompt,
+  IMPLEMENTATION_PLAN_SCHEMA_HINT,
+} from '../schema';
+import { safeParseJson } from '../../utils/json-repair';
 import type { SessionResult } from '../session/types';
 import { iterateSubtasks } from './subtask-iterator';
 import type { SubtaskIteratorConfig, SubtaskResult } from './subtask-iterator';
@@ -244,11 +251,12 @@ export class BuildOrchestrator extends EventEmitter {
         await this.resetSubtaskStatuses();
       }
 
-      // Normalize subtask IDs and add missing status fields before coding.
+      // Validate and normalize the plan before coding.
       // This is critical when the spec_orchestrator creates the plan (before the
-      // build orchestrator runs) — it may omit `status` fields, causing the
-      // subtask iterator to find 0 pending subtasks and skip coding entirely.
-      await this.normalizeSubtaskIds();
+      // build orchestrator runs) — it may omit `status` fields or use alternate
+      // field names, causing the subtask iterator to find 0 pending subtasks.
+      const preCodingPlanPath = join(this.config.specDir, 'implementation_plan.json');
+      await validateAndNormalizeJsonFile(preCodingPlanPath, ImplementationPlanSchema);
 
       // Check if build is already complete
       if (await this.isBuildComplete()) {
@@ -321,11 +329,11 @@ export class BuildOrchestrator extends EventEmitter {
         return { success: false, error: result.error?.message ?? 'Planning session failed' };
       }
 
-      // Normalize subtask IDs before validation: some LLMs write "subtask_id" not "id"
-      await this.normalizeSubtaskIds();
-
-      // Validate the implementation plan
-      const validation = await this.validateImplementationPlan();
+      // Validate + normalize the implementation plan using Zod schema.
+      // Zod coercion handles LLM field name variations (title→description,
+      // subtask_id→id, status normalization, etc.) and writes back canonical data.
+      const planPath = join(this.config.specDir, 'implementation_plan.json');
+      const validation = await validateAndNormalizeJsonFile(planPath, ImplementationPlanSchema);
       if (validation.valid) {
         // Sync to source if in worktree mode
         if (this.config.sourceSpecDir && this.config.syncSpecToSource) {
@@ -335,7 +343,7 @@ export class BuildOrchestrator extends EventEmitter {
         return { success: true };
       }
 
-      // Plan is invalid — retry
+      // Plan is invalid — retry with Zod error feedback
       validationFailures++;
       if (validationFailures >= MAX_PLANNING_VALIDATION_RETRIES) {
         return {
@@ -344,15 +352,12 @@ export class BuildOrchestrator extends EventEmitter {
         };
       }
 
-      planningRetryContext =
-        '## IMPLEMENTATION PLAN VALIDATION ERRORS\n\n' +
-        'The previous `implementation_plan.json` is INVALID.\n' +
-        'You MUST rewrite it to match the required schema:\n' +
-        '- Top-level: `feature`, `workflow_type`, `phases`\n' +
-        '- Each phase: `id` (or `phase`) and `name`, and `subtasks`\n' +
-        '- Each subtask: `id`, `description`, `status` (use `pending` for not started)\n\n' +
-        'Validation errors:\n' +
-        validation.errors.map((e) => `- ${e}`).join('\n');
+      // Build LLM-friendly retry prompt from Zod validation errors
+      planningRetryContext = buildValidationRetryPrompt(
+        'implementation_plan.json',
+        validation.errors,
+        IMPLEMENTATION_PLAN_SCHEMA_HINT,
+      );
 
       this.emitTyped('log', `Plan validation failed (attempt ${validationFailures}), retrying...`);
     }
@@ -476,7 +481,7 @@ export class BuildOrchestrator extends EventEmitter {
         return { success: true };
       }
 
-      if (qaStatus === 'failed' && cycle < maxQACycles - 1) {
+      if ((qaStatus === 'failed' || qaStatus === 'unknown') && cycle < maxQACycles - 1) {
         // Run QA fixer — mark qa_review completed BEFORE transitioning to qa_fixing
         // (the phase protocol requires qa_review in completedPhases for the transition)
         this.markPhaseCompleted('qa_review');
@@ -504,6 +509,11 @@ export class BuildOrchestrator extends EventEmitter {
 
         this.emitTyped('session-complete', fixResult, 'qa_fixing');
         this.markPhaseCompleted('qa_fixing');
+
+        // Delete qa_report.md before re-review so the reviewer writes a clean verdict.
+        // The fixer often edits qa_report.md (changing status to "FIXES_APPLIED" etc.)
+        // which corrupts the verdict detection. Deleting ensures a fresh report each cycle.
+        await this.resetQAReport();
 
         // Loop back to QA review
         this.transitionPhase('qa_review', 'Re-running QA review after fixes');
@@ -552,67 +562,14 @@ export class BuildOrchestrator extends EventEmitter {
   // Plan Validation
   // ===========================================================================
 
-  /**
-   * Normalize subtask ID fields written by the planner.
-   *
-   * Some LLMs write "subtask_id" instead of "id". This step runs after each
-   * planner session and before validation so the subtask iterator can reliably
-   * look up subtasks by their "id" field.
-   *
-   * Only ADD/UPDATE fields — never removes existing data.
-   */
-  private async normalizeSubtaskIds(): Promise<void> {
-    const planPath = join(this.config.specDir, 'implementation_plan.json');
-    try {
-      const raw = await readFile(planPath, 'utf-8');
-      const plan = JSON.parse(raw) as ImplementationPlan;
-      let updated = false;
-
-      for (const phase of plan.phases) {
-        // Normalize phase_id → id
-        const phaseAny = phase as PlanPhase & { phase_id?: string };
-        if (phaseAny.phase_id && !phase.id && phase.phase === undefined) {
-          phase.id = phaseAny.phase_id;
-          updated = true;
-        }
-        // Ensure phase has a name (fall back to title or id)
-        if (!phase.name) {
-          const anyPhase = phase as PlanPhase & { title?: string };
-          phase.name = anyPhase.title ?? phase.id ?? 'Phase';
-          updated = true;
-        }
-
-        if (!Array.isArray(phase.subtasks)) continue;
-
-        for (const subtask of phase.subtasks) {
-          // Normalize subtask_id → id
-          const withLegacyId = subtask as PlanSubtask & { subtask_id?: string };
-          if (withLegacyId.subtask_id && !subtask.id) {
-            subtask.id = withLegacyId.subtask_id;
-            updated = true;
-          }
-          // Add default status if missing (critical for subtask iterator)
-          if (!subtask.status) {
-            subtask.status = 'pending';
-            updated = true;
-          }
-          // Normalize file_paths → files_to_modify for iterator compatibility
-          const withFilePaths = subtask as PlanSubtask & { file_paths?: string[] };
-          if (withFilePaths.file_paths && !subtask.files_to_modify) {
-            subtask.files_to_modify = withFilePaths.file_paths;
-            updated = true;
-          }
-        }
-      }
-
-      if (updated) {
-        await writeFile(planPath, JSON.stringify(plan, null, 2));
-        console.warn('[BuildOrchestrator] Normalized implementation plan schema');
-      }
-    } catch {
-      // Non-fatal: if the plan doesn't exist yet validation will catch it
-    }
-  }
+  // normalizeSubtaskIds() REMOVED — replaced by Zod schema coercion in
+  // validateAndNormalizeJsonFile(). The ImplementationPlanSchema handles:
+  // - subtask_id → id, task_id → id
+  // - title → description, name → description
+  // - phase_id → id
+  // - file_paths → files_to_modify
+  // - Status normalization (done→completed, todo→pending, etc.)
+  // - Missing status defaults to "pending"
 
   /**
    * Reset all subtask statuses to "pending" after initial planning.
@@ -625,7 +582,8 @@ export class BuildOrchestrator extends EventEmitter {
     const planPath = join(this.config.specDir, 'implementation_plan.json');
     try {
       const raw = await readFile(planPath, 'utf-8');
-      const plan = JSON.parse(raw) as ImplementationPlan;
+      const plan = safeParseJson<ImplementationPlan>(raw);
+      if (!plan) return;
       let updated = false;
 
       for (const phase of plan.phases) {
@@ -647,61 +605,13 @@ export class BuildOrchestrator extends EventEmitter {
     }
   }
 
-  /**
-   * Validate the implementation plan exists and has correct structure.
-   */
-  private async validateImplementationPlan(): Promise<{ valid: boolean; errors: string[] }> {
-    const planPath = join(this.config.specDir, 'implementation_plan.json');
-    const errors: string[] = [];
-
-    try {
-      const raw = await readFile(planPath, 'utf-8');
-      const plan = JSON.parse(raw) as ImplementationPlan;
-
-      if (!plan.phases || !Array.isArray(plan.phases)) {
-        errors.push('Missing or invalid "phases" array');
-        return { valid: false, errors };
-      }
-
-      if (plan.phases.length === 0) {
-        errors.push('No phases defined');
-        return { valid: false, errors };
-      }
-
-      for (const phase of plan.phases) {
-        if (!phase.name) {
-          errors.push('Phase missing "name"');
-        }
-        if (!phase.id && phase.phase === undefined) {
-          errors.push(`Phase "${phase.name ?? 'unknown'}" missing "id" or "phase" field`);
-        }
-        if (!Array.isArray(phase.subtasks)) {
-          errors.push(`Phase "${phase.name ?? 'unknown'}" missing "subtasks" array`);
-          continue;
-        }
-        for (const subtask of phase.subtasks) {
-          if (!subtask.id) {
-            errors.push(`Subtask in phase "${phase.name ?? 'unknown'}" missing "id"`);
-          }
-          if (!subtask.description) {
-            errors.push(`Subtask "${subtask.id ?? 'unknown'}" missing "description"`);
-          }
-          if (!subtask.status) {
-            errors.push(`Subtask "${subtask.id ?? 'unknown'}" missing "status"`);
-          }
-        }
-      }
-
-      return { valid: errors.length === 0, errors };
-    } catch (error: unknown) {
-      if (error instanceof SyntaxError) {
-        errors.push(`Invalid JSON: ${error.message}`);
-      } else {
-        errors.push('implementation_plan.json not found');
-      }
-      return { valid: false, errors };
-    }
-  }
+  // validateImplementationPlan() REMOVED — replaced by Zod schema validation
+  // via validateAndNormalizeJsonFile(planPath, ImplementationPlanSchema).
+  // The Zod schema provides:
+  // - Structural validation (required fields, types, array shapes)
+  // - Coercion of LLM field name variations (title→description, etc.)
+  // - Status enum validation with normalization (done→completed, etc.)
+  // - Human-readable error messages for LLM retry feedback
 
   // ===========================================================================
   // State Queries
@@ -727,7 +637,8 @@ export class BuildOrchestrator extends EventEmitter {
     const planPath = join(this.config.specDir, 'implementation_plan.json');
     try {
       const raw = await readFile(planPath, 'utf-8');
-      const plan = JSON.parse(raw) as ImplementationPlan;
+      const plan = safeParseJson<ImplementationPlan>(raw);
+      if (!plan) return false;
 
       for (const phase of plan.phases) {
         for (const subtask of phase.subtasks) {
@@ -754,16 +665,38 @@ export class BuildOrchestrator extends EventEmitter {
       if (lower.includes('status: passed') || lower.includes('status: approved')) {
         return 'passed';
       }
-      // If the report file exists with content but doesn't explicitly pass,
-      // treat it as failed. QA agents may use various failure formats
-      // (e.g., "Status: Needs Changes", "Issues Found", custom phrasing).
-      // Only return 'unknown' when the file doesn't exist or is empty.
-      if (content.trim().length > 0) {
+      // Explicitly detect failure patterns so intermediate states don't short-circuit.
+      // The QA fixer may write "FIXES_APPLIED" — that's an intermediate state that
+      // should NOT count as a verdict. Only the reviewer writes the final verdict.
+      if (
+        lower.includes('status: failed') ||
+        lower.includes('status: rejected') ||
+        lower.includes('status: needs changes')
+      ) {
         return 'failed';
+      }
+      // If the report has content but no recognizable verdict, treat as unknown
+      // so the orchestrator can retry rather than permanently failing.
+      if (content.trim().length > 0) {
+        return 'unknown';
       }
       return 'unknown';
     } catch {
       return 'unknown';
+    }
+  }
+
+  /**
+   * Delete qa_report.md so the next QA review cycle writes a fresh verdict.
+   * The QA fixer often edits qa_report.md (adding "FIXES_APPLIED" etc.),
+   * which corrupts verdict detection. Resetting ensures clean state.
+   */
+  private async resetQAReport(): Promise<void> {
+    const qaReportPath = join(this.config.specDir, 'qa_report.md');
+    try {
+      await unlink(qaReportPath);
+    } catch {
+      // File may not exist — that's fine
     }
   }
 

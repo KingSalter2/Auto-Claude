@@ -507,11 +507,11 @@ export class ProjectStore {
           : this.determineTaskStatusAndReason(plan);
 
         // Extract subtasks from plan (handle both 'subtasks' and 'chunks' naming)
-        // Accept 'name' as fallback for 'description' since some AI planners output that field instead
+        // Accept 'title' and 'name' as fallbacks since AI planners vary in field naming
         const subtasks = plan?.phases?.flatMap((phase) => {
           const items = phase.subtasks || (phase as { chunks?: PlanSubtask[] }).chunks || [];
           return items.map((subtask) => {
-            const desc = subtask.description || (subtask as unknown as { name?: string }).name || '';
+            const desc = subtask.description || subtask.title || (subtask as unknown as { name?: string }).name || '';
             return {
               id: subtask.id,
               title: desc,

@@ -20,6 +20,8 @@ import * as crypto from 'node:crypto';
 
 import { createSimpleClient } from '../../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../../config/types';
+import { parseLLMJson } from '../../schema/structured-output';
+import { SpecialistOutputSchema, SynthesisResultSchema } from '../../schema/pr-review';
 import type {
   PRContext,
   PRReviewFinding,
@@ -203,60 +205,31 @@ Return ONLY valid JSON (no markdown fencing):
 // Parse specialist JSON
 // =============================================================================
 
-interface RawFinding {
-  severity?: string;
-  category?: string;
-  title?: string;
-  description?: string;
-  file?: string;
-  line?: number;
-  end_line?: number;
-  endLine?: number;
-  suggested_fix?: string;
-  suggestedFix?: string;
-  fixable?: boolean;
-  evidence?: string;
-  is_impact_finding?: boolean;
-}
-
 function parseSpecialistOutput(
-  name: string,
+  _name: string,
   text: string,
 ): PRReviewFinding[] {
+  const parsed = parseLLMJson(text, SpecialistOutputSchema);
+  if (!parsed) return [];
+
   const findings: PRReviewFinding[] = [];
-
-  // Try to extract JSON from response
-  let jsonStr = text.trim();
-  const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  if (fenceMatch) {
-    jsonStr = fenceMatch[1];
+  for (const f of parsed.findings) {
+    if (!f.title || !f.file) continue;
+    const id = generateFindingId(f.file, f.line ?? 0, f.title);
+    findings.push({
+      id,
+      severity: mapSeverity(f.severity ?? 'medium'),
+      category: mapCategory(f.category ?? 'quality'),
+      title: f.title,
+      description: f.description ?? '',
+      file: f.file,
+      line: f.line ?? 0,
+      endLine: f.endLine,
+      suggestedFix: f.suggestedFix,
+      fixable: f.fixable ?? false,
+      evidence: f.evidence,
+    });
   }
-
-  try {
-    const data = JSON.parse(jsonStr) as { findings?: RawFinding[] };
-    if (!Array.isArray(data.findings)) return findings;
-
-    for (const f of data.findings) {
-      if (!f.title || !f.file) continue;
-      const id = generateFindingId(f.file, f.line ?? 0, f.title);
-      findings.push({
-        id,
-        severity: mapSeverity(f.severity ?? 'medium'),
-        category: mapCategory(f.category ?? 'quality'),
-        title: f.title,
-        description: f.description ?? '',
-        file: f.file,
-        line: f.line ?? 0,
-        endLine: f.end_line ?? f.endLine,
-        suggestedFix: f.suggested_fix ?? f.suggestedFix,
-        fixable: f.fixable ?? false,
-        evidence: f.evidence,
-      });
-    }
-  } catch {
-    // Could not parse specialist output — return empty
-  }
-
   return findings;
 }
 
@@ -495,6 +468,13 @@ export class ParallelOrchestratorReviewer {
       thinkingLevel,
     });
 
+    const verdictMap: Record<string, MergeVerdict> = {
+      ready_to_merge: MergeVerdict.READY_TO_MERGE,
+      merge_with_changes: MergeVerdict.MERGE_WITH_CHANGES,
+      needs_revision: MergeVerdict.NEEDS_REVISION,
+      blocked: MergeVerdict.BLOCKED,
+    };
+
     try {
       const result = await generateText({
         model: client.model,
@@ -503,34 +483,18 @@ export class ParallelOrchestratorReviewer {
         abortSignal,
       });
 
-      // Parse synthesis result
-      let jsonStr = result.text.trim();
-      const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (fenceMatch) {
-        jsonStr = fenceMatch[1];
+      const data = parseLLMJson(result.text, SynthesisResultSchema);
+      if (!data) {
+        throw new Error('Failed to parse synthesis result');
       }
 
-      const data = JSON.parse(jsonStr) as {
-        verdict?: string;
-        verdict_reasoning?: string;
-        kept_finding_ids?: string[];
-        removed_finding_ids?: string[];
-      };
-
-      const verdictMap: Record<string, MergeVerdict> = {
-        ready_to_merge: MergeVerdict.READY_TO_MERGE,
-        merge_with_changes: MergeVerdict.MERGE_WITH_CHANGES,
-        needs_revision: MergeVerdict.NEEDS_REVISION,
-        blocked: MergeVerdict.BLOCKED,
-      };
-
-      const verdict = verdictMap[data.verdict ?? ''] ?? MergeVerdict.NEEDS_REVISION;
-      const removedIds = new Set(data.removed_finding_ids ?? []);
+      const verdict = verdictMap[data.verdict] ?? MergeVerdict.NEEDS_REVISION;
+      const removedIds = new Set(data.removedFindingIds);
       const keptFindings = allFindings.filter((f) => !removedIds.has(f.id));
 
       return {
         verdict,
-        verdictReasoning: data.verdict_reasoning ?? '',
+        verdictReasoning: data.verdictReasoning,
         keptFindings,
       };
     } catch {

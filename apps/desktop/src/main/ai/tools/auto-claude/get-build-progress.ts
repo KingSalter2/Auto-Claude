@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { z } from 'zod/v3';
 
+import { safeParseJson } from '../../../utils/json-repair';
 import { Tool } from '../define';
 import { DEFAULT_EXECUTION_OPTIONS, ToolPermission } from '../types';
 
@@ -63,11 +64,12 @@ export const getBuildProgressTool = Tool.define({
     }
 
     let plan: ImplementationPlan;
-    try {
-      plan = JSON.parse(fs.readFileSync(planFile, 'utf-8')) as ImplementationPlan;
-    } catch (e) {
-      return `Error reading build progress: ${e}`;
+    const raw = fs.readFileSync(planFile, 'utf-8');
+    const parsed = safeParseJson<ImplementationPlan>(raw);
+    if (!parsed) {
+      return 'Error reading build progress: Invalid JSON in implementation_plan.json';
     }
+    plan = parsed;
 
     const stats = { total: 0, completed: 0, in_progress: 0, pending: 0, failed: 0 };
     const phasesSummary: string[] = [];

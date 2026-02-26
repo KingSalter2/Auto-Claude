@@ -15,12 +15,12 @@
  *   - COMPLEX: Full pipeline including research and self-critique
  */
 
-import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EventEmitter } from 'events';
 
 import type { AgentType } from '../config/agent-configs';
 import type { Phase } from '../config/types';
+import { validateJsonFile, ComplexityAssessmentSchema } from '../schema';
 import type { SessionResult } from '../session/types';
 
 // =============================================================================
@@ -426,13 +426,11 @@ export class SpecOrchestrator extends EventEmitter {
     // Try to load assessment from file
     try {
       const assessmentPath = join(this.config.specDir, 'complexity_assessment.json');
-      const raw = await readFile(assessmentPath, 'utf-8');
-      const parsed = JSON.parse(raw) as ComplexityAssessment;
+      const result = await validateJsonFile(assessmentPath, ComplexityAssessmentSchema);
 
-      // Validate
-      if (['simple', 'standard', 'complex'].includes(parsed.complexity)) {
-        this.assessment = parsed;
-        this.emitTyped('log', `Complexity assessed: ${parsed.complexity} (confidence: ${(parsed.confidence * 100).toFixed(0)}%)`);
+      if (result.valid && result.data) {
+        this.assessment = result.data as ComplexityAssessment;
+        this.emitTyped('log', `Complexity assessed: ${result.data.complexity} (confidence: ${(result.data.confidence * 100).toFixed(0)}%)`);
         return { phase: 'complexity_assessment', success: true, errors: [], retries: 0 };
       }
     } catch {

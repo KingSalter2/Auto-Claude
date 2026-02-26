@@ -12,6 +12,7 @@
  */
 
 import type { LanguageModel } from 'ai';
+import type { ZodSchema } from 'zod';
 
 import type { AgentType } from '../config/agent-configs';
 import type { ModelShorthand, Phase, ThinkingLevel } from '../config/types';
@@ -59,6 +60,23 @@ export interface SessionConfig {
   subtaskId?: string;
   /** Context window limit in tokens for reactive compaction guard */
   contextWindowLimit?: number;
+  /**
+   * Optional Zod schema for structured output via AI SDK's Output.object().
+   *
+   * When provided, the agent's final text response is validated against this
+   * schema by the AI SDK at the provider level. For providers with native
+   * structured output support (OpenAI, Anthropic), the schema is enforced
+   * server-side. For others (Ollama, etc.), it falls back to client-side
+   * JSON parsing + validation.
+   *
+   * Use this for agents that return structured data as text (complexity
+   * assessor, PR scan, etc.). For agents that write files via tools (planner,
+   * roadmap), use post-session file validation with validateJsonFile() instead.
+   *
+   * Structured output counts as one step in the agent loop — account for
+   * this in maxSteps when combining with tools.
+   */
+  outputSchema?: ZodSchema;
 }
 
 // =============================================================================
@@ -105,6 +123,11 @@ export interface SessionResult {
   durationMs: number;
   /** Tool calls made during the session */
   toolCallCount: number;
+  /**
+   * Validated structured output when outputSchema was provided in config.
+   * Null if no schema was provided or if structured output extraction failed.
+   */
+  structuredOutput?: Record<string, unknown>;
 }
 
 /** Token usage breakdown */

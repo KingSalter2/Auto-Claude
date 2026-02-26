@@ -17,6 +17,8 @@ import { join } from 'node:path';
 
 import { createSimpleClient } from '../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../config/types';
+import { parseLLMJson } from '../schema/structured-output';
+import { ExtractedInsightsSchema } from '../schema/insight-extractor';
 
 // =============================================================================
 // Constants
@@ -185,42 +187,10 @@ function formatAttemptHistory(attempts: AttemptRecord[]): string {
 
 /**
  * Parse the LLM response into structured insights.
- * Mirrors Python's `parse_insights()`.
+ * Uses Zod schema validation with field-name coercion.
  */
 function parseInsights(responseText: string): Record<string, unknown> | null {
-  let text = responseText.trim();
-  if (!text) return null;
-
-  // Handle markdown code blocks
-  if (text.startsWith('```')) {
-    const lines = text.split('\n');
-    if (lines[0].startsWith('```')) {
-      lines.shift();
-    }
-    if (lines.length > 0 && lines[lines.length - 1].trim() === '```') {
-      lines.pop();
-    }
-    text = lines.join('\n').trim();
-    if (!text) return null;
-  }
-
-  try {
-    const insights = JSON.parse(text);
-    if (typeof insights !== 'object' || insights === null || Array.isArray(insights)) {
-      return null;
-    }
-
-    // Ensure required keys with defaults
-    insights.file_insights ??= [];
-    insights.patterns_discovered ??= [];
-    insights.gotchas_discovered ??= [];
-    insights.approach_outcome ??= {};
-    insights.recommendations ??= [];
-
-    return insights;
-  } catch {
-    return null;
-  }
+  return parseLLMJson(responseText, ExtractedInsightsSchema) as Record<string, unknown> | null;
 }
 
 // =============================================================================

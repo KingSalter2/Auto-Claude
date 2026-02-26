@@ -10,9 +10,17 @@
  */
 
 import { generateText } from 'ai';
+import { z } from 'zod';
 
 import { createSimpleClient } from '../../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../../config/types';
+import { parseLLMJson } from '../../schema/structured-output';
+import {
+  ScanResultSchema,
+  ReviewFindingsArraySchema,
+  StructuralIssueSchema,
+  AICommentTriageSchema,
+} from '../../schema/pr-review';
 
 // =============================================================================
 // Enums & Types
@@ -267,82 +275,27 @@ Respond with ONLY a JSON array, no markdown fencing.`,
 // =============================================================================
 
 function parseScanResult(text: string): ScanResult {
-  try {
-    const cleaned = text.replace(/```(?:json)?\n?/g, '').replace(/```$/g, '').trim();
-    const parsed = JSON.parse(cleaned) as Record<string, unknown>;
-    return {
-      complexity: (parsed.complexity as string) ?? 'low',
-      riskAreas: (parsed.risk_areas as string[]) ?? [],
-      verdict: parsed.verdict as string | undefined,
-      ...parsed,
-    };
-  } catch {
-    return { complexity: 'low', riskAreas: [] };
-  }
+  const result = parseLLMJson(text, ScanResultSchema);
+  if (result) return result as ScanResult;
+  return { complexity: 'low', riskAreas: [] };
 }
 
 function parseFindings(text: string): PRReviewFinding[] {
-  try {
-    const cleaned = text.replace(/```(?:json)?\n?/g, '').replace(/```$/g, '').trim();
-    const parsed = JSON.parse(cleaned) as Array<Record<string, unknown>>;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.map((item) => ({
-      id: (item.id as string) ?? '',
-      severity: (item.severity as ReviewSeverity) ?? ReviewSeverity.LOW,
-      category: (item.category as ReviewCategory) ?? ReviewCategory.QUALITY,
-      title: (item.title as string) ?? '',
-      description: (item.description as string) ?? '',
-      file: (item.file as string) ?? '',
-      line: (item.line as number) ?? 0,
-      endLine: item.end_line as number | undefined,
-      suggestedFix: item.suggested_fix as string | undefined,
-      fixable: (item.fixable as boolean) ?? false,
-      evidence: item.evidence as string | undefined,
-      verificationNote: item.verification_note as string | undefined,
-    }));
-  } catch {
-    return [];
-  }
+  const result = parseLLMJson(text, ReviewFindingsArraySchema);
+  if (!result) return [];
+  return result as PRReviewFinding[];
 }
 
 function parseStructuralIssues(text: string): StructuralIssue[] {
-  try {
-    const cleaned = text.replace(/```(?:json)?\n?/g, '').replace(/```$/g, '').trim();
-    const parsed = JSON.parse(cleaned) as Array<Record<string, unknown>>;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.map((item) => ({
-      id: (item.id as string) ?? '',
-      issueType: (item.issue_type as string) ?? '',
-      severity: (item.severity as ReviewSeverity) ?? ReviewSeverity.LOW,
-      title: (item.title as string) ?? '',
-      description: (item.description as string) ?? '',
-      impact: (item.impact as string) ?? '',
-      suggestion: (item.suggestion as string) ?? '',
-    }));
-  } catch {
-    return [];
-  }
+  const result = parseLLMJson(text, z.array(StructuralIssueSchema));
+  if (!result) return [];
+  return result as StructuralIssue[];
 }
 
 function parseAICommentTriages(text: string): AICommentTriage[] {
-  try {
-    const cleaned = text.replace(/```(?:json)?\n?/g, '').replace(/```$/g, '').trim();
-    const parsed = JSON.parse(cleaned) as Array<Record<string, unknown>>;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.map((item) => ({
-      commentId: (item.comment_id as number) ?? 0,
-      toolName: (item.tool_name as string) ?? '',
-      originalComment: (item.original_comment as string) ?? '',
-      verdict: (item.verdict as AICommentVerdict) ?? AICommentVerdict.TRIVIAL,
-      reasoning: (item.reasoning as string) ?? '',
-      responseComment: item.response_comment as string | undefined,
-    }));
-  } catch {
-    return [];
-  }
+  const result = parseLLMJson(text, z.array(AICommentTriageSchema));
+  if (!result) return [];
+  return result as AICommentTriage[];
 }
 
 // =============================================================================

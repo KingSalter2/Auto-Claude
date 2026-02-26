@@ -12,6 +12,8 @@ import { generateText } from 'ai';
 
 import { createSimpleClient } from '../../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../../config/types';
+import { parseLLMJson } from '../../schema/structured-output';
+import { TriageResultSchema } from '../../schema/triage';
 
 // =============================================================================
 // Enums & Types
@@ -167,42 +169,42 @@ function parseTriageResult(
   text: string,
   repo: string,
 ): TriageResult {
-  try {
-    const cleaned = text.replace(/```(?:json)?\n?/g, '').replace(/```$/g, '').trim();
-    const parsed = JSON.parse(cleaned) as Record<string, unknown>;
+  const defaults: TriageResult = {
+    issueNumber: issue.number,
+    repo,
+    category: TriageCategory.FEATURE,
+    confidence: 0.0,
+    labelsToAdd: [],
+    labelsToRemove: [],
+    isDuplicate: false,
+    duplicateOf: null,
+    isSpam: false,
+    isFeatureCreep: false,
+    suggestedBreakdown: [],
+    priority: 'medium',
+    comment: null,
+  };
 
-    return {
-      issueNumber: issue.number,
-      repo,
-      category: (parsed.category as TriageCategory) ?? TriageCategory.FEATURE,
-      confidence: (parsed.confidence as number) ?? 0.5,
-      labelsToAdd: (parsed.labels_to_add as string[]) ?? [],
-      labelsToRemove: (parsed.labels_to_remove as string[]) ?? [],
-      isDuplicate: (parsed.is_duplicate as boolean) ?? false,
-      duplicateOf: (parsed.duplicate_of as number | null) ?? null,
-      isSpam: (parsed.is_spam as boolean) ?? false,
-      isFeatureCreep: (parsed.is_feature_creep as boolean) ?? false,
-      suggestedBreakdown: (parsed.suggested_breakdown as string[]) ?? [],
-      priority: (parsed.priority as string) ?? 'medium',
-      comment: (parsed.comment as string | null) ?? null,
-    };
-  } catch {
-    return {
-      issueNumber: issue.number,
-      repo,
-      category: TriageCategory.FEATURE,
-      confidence: 0.0,
-      labelsToAdd: [],
-      labelsToRemove: [],
-      isDuplicate: false,
-      duplicateOf: null,
-      isSpam: false,
-      isFeatureCreep: false,
-      suggestedBreakdown: [],
-      priority: 'medium',
-      comment: null,
-    };
+  const validated = parseLLMJson(text, TriageResultSchema);
+  if (!validated) {
+    return defaults;
   }
+
+  return {
+    issueNumber: issue.number,
+    repo,
+    category: validated.category as TriageCategory,
+    confidence: validated.confidence,
+    labelsToAdd: validated.labelsToAdd,
+    labelsToRemove: validated.labelsToRemove,
+    isDuplicate: validated.isDuplicate,
+    duplicateOf: validated.duplicateOf,
+    isSpam: validated.isSpam,
+    isFeatureCreep: validated.isFeatureCreep,
+    suggestedBreakdown: validated.suggestedBreakdown,
+    priority: validated.priority,
+    comment: validated.comment,
+  };
 }
 
 // =============================================================================

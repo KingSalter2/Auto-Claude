@@ -308,6 +308,8 @@ export interface Phase {
 export interface PlanSubtask {
   id: string;
   description: string;
+  /** Some AI planners output 'title' instead of 'description' */
+  title?: string;
   status: SubtaskStatus;
   verification?: {
     type: string;

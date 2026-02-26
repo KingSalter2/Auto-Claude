@@ -80,8 +80,8 @@ export function resolvePromptsDir(): string {
     // Local prompts dir
     join(__dirname, 'prompts'),
     // Repo root traversal: up to repo root, then apps/desktop/prompts/
-    join(__dirname, '..', '..', '..', '..', '..', 'apps', 'frontend', 'prompts'),
-    join(__dirname, '..', '..', '..', '..', 'apps', 'frontend', 'prompts'),
+    join(__dirname, '..', '..', '..', '..', '..', 'apps', 'desktop', 'prompts'),
+    join(__dirname, '..', '..', '..', '..', 'apps', 'desktop', 'prompts'),
   ];
 
   for (const candidate of candidateBases) {

@@ -19,6 +19,7 @@ import { ToolRegistry } from '../tools/registry';
 import type { ToolContext } from '../tools/types';
 import type { ModelShorthand, ThinkingLevel } from '../config/types';
 import type { SecurityProfile } from '../security/bash-validator';
+import { safeParseJson } from '../../utils/json-repair';
 
 // =============================================================================
 // Constants
@@ -156,15 +157,15 @@ Do NOT ask questions. Make educated inferences and create the file.`;
 
       // Validate output
       if (existsSync(discoveryFile)) {
-        try {
-          const data = JSON.parse(readFileSync(discoveryFile, 'utf-8'));
+        const data = safeParseJson<Record<string, unknown>>(readFileSync(discoveryFile, 'utf-8'));
+        if (data) {
           const required = ['project_name', 'target_audience', 'product_vision'];
           const missing = required.filter((k) => !(k in data));
           if (missing.length === 0) {
             return { phase: 'discovery', success: true, outputs: [discoveryFile], errors: [] };
           }
           errors.push(`Attempt ${attempt + 1}: Missing fields: ${missing.join(', ')}`);
-        } catch {
+        } else {
           errors.push(`Attempt ${attempt + 1}: Invalid JSON in discovery file`);
         }
       } else {
@@ -267,27 +268,27 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
 
       // Validate and merge
       if (existsSync(roadmapFile)) {
-        try {
-          const data = JSON.parse(readFileSync(roadmapFile, 'utf-8'));
+        const data = safeParseJson<Record<string, unknown>>(readFileSync(roadmapFile, 'utf-8'));
+        if (data) {
           const required = ['phases', 'features', 'vision', 'target_audience'];
           const missing = required.filter((k) => !(k in data));
-          const featureCount = (data.features ?? []).length;
+          const featureCount = ((data.features as unknown[]) ?? []).length;
 
           const targetAudience = data.target_audience;
-          if (typeof targetAudience !== 'object' || targetAudience === null || !targetAudience.primary) {
+          if (typeof targetAudience !== 'object' || targetAudience === null || !(targetAudience as Record<string, unknown>).primary) {
             missing.push('target_audience.primary');
           }
 
           if (missing.length === 0 && featureCount >= 3) {
             // Merge preserved features
             if (preservedFeatures.length > 0) {
-              data.features = mergeFeatures(data.features, preservedFeatures);
+              data.features = mergeFeatures(data.features as Record<string, unknown>[], preservedFeatures);
               writeFileSync(roadmapFile, JSON.stringify(data, null, 2), 'utf-8');
             }
             return { phase: 'features', success: true, outputs: [roadmapFile], errors: [] };
           }
           errors.push(`Attempt ${attempt + 1}: Missing fields or too few features (${featureCount})`);
-        } catch {
+        } else {
           errors.push(`Attempt ${attempt + 1}: Invalid JSON in roadmap file`);
         }
       } else {
@@ -312,24 +313,22 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
 function loadPreservedFeatures(roadmapFile: string): Record<string, unknown>[] {
   if (!existsSync(roadmapFile)) return [];
 
-  try {
-    const data = JSON.parse(readFileSync(roadmapFile, 'utf-8'));
-    const features: Record<string, unknown>[] = data.features ?? [];
+  const data = safeParseJson<Record<string, unknown>>(readFileSync(roadmapFile, 'utf-8'));
+  if (!data) return [];
 
-    return features.filter((feature) => {
-      const status = feature.status as string | undefined;
-      const hasLinkedSpec = Boolean(feature.linked_spec_id);
-      const source = feature.source as Record<string, unknown> | undefined;
-      const isInternal = typeof source === 'object' && source !== null && source.provider === 'internal';
+  const features: Record<string, unknown>[] = (data.features as Record<string, unknown>[]) ?? [];
 
-      return (
-        status === 'planned' || status === 'in_progress' || status === 'done' ||
-        hasLinkedSpec || isInternal
-      );
-    });
-  } catch {
-    return [];
-  }
+  return features.filter((feature) => {
+    const status = feature.status as string | undefined;
+    const hasLinkedSpec = Boolean(feature.linked_spec_id);
+    const source = feature.source as Record<string, unknown> | undefined;
+    const isInternal = typeof source === 'object' && source !== null && source.provider === 'internal';
+
+    return (
+      status === 'planned' || status === 'in_progress' || status === 'done' ||
+      hasLinkedSpec || isInternal
+    );
+  });
 }
 
 /**

@@ -630,6 +630,16 @@ If max iterations reached without approval:
 - Focus on functionality and correctness
 - Consider the spec requirements, not perfection
 
+### Be Pragmatic About Documentation Artifacts
+- **Code IS documentation.** If the spec says "produce a route inventory" and the code has a `PUBLIC_ROUTES` constant that IS the inventory, that counts. Don't require a separate markdown document when the code itself satisfies the intent.
+- **Focus on functional requirements over process artifacts.** If the implementation works correctly, is centralized, and is testable, don't block sign-off because a separate strategy document doesn't exist. Code comments, constant names, and test descriptions serve as documentation.
+- **Only block on documentation gaps when they create real risk** — e.g., undocumented security decisions that future maintainers could accidentally change, or missing migration steps that would break deployment.
+
+### Run Tests — Don't Just Read Code
+- **You MUST run available test suites**, not just read test files. Reading a test file tells you what it claims to verify; running it tells you whether it actually passes.
+- If the project has test commands (check `package.json` scripts, `project_index.json`), execute them and report results.
+- If tests pass, give credit. If they fail, report the actual failure output.
+
 ### Document Everything
 - Every check you run
 - Every issue you find

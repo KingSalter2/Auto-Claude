@@ -13,6 +13,8 @@ import * as crypto from 'node:crypto';
 
 import { createSimpleClient } from '../../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../../config/types';
+import { parseLLMJson } from '../../schema/structured-output';
+import { MRReviewResultSchema } from '../../schema/pr-review';
 
 // =============================================================================
 // Enums & Types
@@ -282,77 +284,50 @@ ${diffContent}
     summary: string;
     blockers: string[];
   } {
-    const findings: MRReviewFinding[] = [];
-    let verdict: MergeVerdict = MergeVerdict.READY_TO_MERGE;
-    let summary = '';
-    const blockers: string[] = [];
+    const verdictMap: Record<string, MergeVerdict> = {
+      ready_to_merge: MergeVerdict.READY_TO_MERGE,
+      merge_with_changes: MergeVerdict.MERGE_WITH_CHANGES,
+      needs_revision: MergeVerdict.NEEDS_REVISION,
+      blocked: MergeVerdict.BLOCKED,
+    };
 
-    // Try to extract JSON
-    let jsonStr = resultText.trim();
-    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (fenceMatch) {
-      jsonStr = fenceMatch[1];
+    const parsed = parseLLMJson(resultText, MRReviewResultSchema);
+    if (!parsed) {
+      return {
+        findings: [],
+        verdict: MergeVerdict.MERGE_WITH_CHANGES,
+        summary: 'Review completed but failed to parse structured output. Please re-run the review.',
+        blockers: [],
+      };
     }
 
-    try {
-      const data = JSON.parse(jsonStr) as {
-        summary?: string;
-        verdict?: string;
-        verdict_reasoning?: string;
-        findings?: Array<{
-          severity?: string;
-          category?: string;
-          title?: string;
-          description?: string;
-          file?: string;
-          line?: number;
-          end_line?: number;
-          suggested_fix?: string;
-          fixable?: boolean;
-        }>;
+    const verdict = verdictMap[parsed.verdict] ?? MergeVerdict.READY_TO_MERGE;
+    const summary = parsed.summary;
+    const findings: MRReviewFinding[] = [];
+    const blockers: string[] = [];
+
+    for (const f of parsed.findings) {
+      const sev = (f.severity ?? 'medium') as ReviewSeverity;
+      const cat = (f.category ?? 'quality') as ReviewCategory;
+      const id = `finding-${crypto.randomUUID().slice(0, 8)}`;
+
+      const finding: MRReviewFinding = {
+        id,
+        severity: sev,
+        category: cat,
+        title: f.title || 'Untitled finding',
+        description: f.description || '',
+        file: f.file || 'unknown',
+        line: f.line || 1,
+        endLine: f.endLine,
+        suggestedFix: f.suggestedFix,
+        fixable: f.fixable || false,
       };
+      findings.push(finding);
 
-      summary = data.summary ?? '';
-
-      const verdictMap: Record<string, MergeVerdict> = {
-        ready_to_merge: MergeVerdict.READY_TO_MERGE,
-        merge_with_changes: MergeVerdict.MERGE_WITH_CHANGES,
-        needs_revision: MergeVerdict.NEEDS_REVISION,
-        blocked: MergeVerdict.BLOCKED,
-      };
-      verdict = verdictMap[data.verdict ?? ''] ?? MergeVerdict.READY_TO_MERGE;
-
-      for (const f of data.findings ?? []) {
-        try {
-          const sev = (f.severity ?? 'medium') as ReviewSeverity;
-          const cat = (f.category ?? 'quality') as ReviewCategory;
-          const id = `finding-${crypto.randomUUID().slice(0, 8)}`;
-
-          const finding: MRReviewFinding = {
-            id,
-            severity: sev,
-            category: cat,
-            title: f.title ?? 'Untitled finding',
-            description: f.description ?? '',
-            file: f.file ?? 'unknown',
-            line: f.line ?? 1,
-            endLine: f.end_line,
-            suggestedFix: f.suggested_fix,
-            fixable: f.fixable ?? false,
-          };
-          findings.push(finding);
-
-          if (sev === ReviewSeverity.CRITICAL || sev === ReviewSeverity.HIGH) {
-            blockers.push(`${finding.title} (${finding.file}:${finding.line})`);
-          }
-        } catch {
-          // Skip invalid finding
-        }
+      if (sev === ReviewSeverity.CRITICAL || sev === ReviewSeverity.HIGH) {
+        blockers.push(`${finding.title} (${finding.file}:${finding.line})`);
       }
-    } catch {
-      summary =
-        'Review completed but failed to parse structured output. Please re-run the review.';
-      verdict = MergeVerdict.MERGE_WITH_CHANGES;
     }
 
     return { findings, verdict, summary, blockers };

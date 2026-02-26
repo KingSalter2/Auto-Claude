@@ -155,8 +155,8 @@ function validatePlanData(plan: ImplementationPlan): boolean {
       }
 
       // Description is critical - we can't show a subtask without it.
-      // Accept 'name' as fallback since some AI planners output that instead of 'description'.
-      const desc = subtask.description || (subtask as unknown as { name?: string }).name;
+      // Accept 'title' and 'name' as fallbacks since AI planners vary in field naming.
+      const desc = subtask.description || subtask.title || (subtask as unknown as { name?: string }).name;
       if (!desc || typeof desc !== 'string' || desc.trim() === '') {
         console.warn(`[validatePlanData] Invalid subtask at phase ${i}, index ${j}: missing or empty description`);
         return false;
@@ -373,8 +373,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
               const id = subtask.id || (typeof crypto !== 'undefined' && crypto.randomUUID
                 ? crypto.randomUUID()
                 : `subtask-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
-              // Accept 'name' as fallback since some AI planners output that instead of 'description'
-              const description = subtask.description || (subtask as unknown as { name?: string }).name || 'No description available';
+              // Accept 'title' and 'name' as fallbacks since AI planners vary in field naming
+              const description = subtask.description || subtask.title || (subtask as unknown as { name?: string }).name || 'No description available';
               const title = description; // Title and description are the same for subtasks
               const status = (subtask.status as SubtaskStatus) || 'pending';
 

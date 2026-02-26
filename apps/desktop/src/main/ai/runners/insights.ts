@@ -20,6 +20,9 @@ import { ToolRegistry } from '../tools/registry';
 import type { ToolContext } from '../tools/types';
 import type { ModelShorthand, ThinkingLevel } from '../config/types';
 import type { SecurityProfile } from '../security/bash-validator';
+import { safeParseJson } from '../../utils/json-repair';
+import { parseLLMJson } from '../schema/structured-output';
+import { TaskSuggestionSchema } from '../schema/insight-extractor';
 
 // =============================================================================
 // Types
@@ -98,28 +101,26 @@ function loadProjectContext(projectDir: string): string {
   // Load project index if available
   const indexPath = join(projectDir, '.auto-claude', 'project_index.json');
   if (existsSync(indexPath)) {
-    try {
-      const index = JSON.parse(readFileSync(indexPath, 'utf-8'));
+    const index = safeParseJson<Record<string, unknown>>(readFileSync(indexPath, 'utf-8'));
+    if (index) {
       const summary = {
         project_root: index.project_root ?? '',
         project_type: index.project_type ?? 'unknown',
-        services: Object.keys(index.services ?? {}),
+        services: Object.keys((index.services as Record<string, unknown>) ?? {}),
         infrastructure: index.infrastructure ?? {},
       };
       contextParts.push(
         `## Project Structure\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\``,
       );
-    } catch {
-      // Ignore parse errors
     }
   }
 
   // Load roadmap if available
   const roadmapPath = join(projectDir, '.auto-claude', 'roadmap', 'roadmap.json');
   if (existsSync(roadmapPath)) {
-    try {
-      const roadmap = JSON.parse(readFileSync(roadmapPath, 'utf-8'));
-      const features = (roadmap.features ?? []).slice(0, 10);
+    const roadmap = safeParseJson<Record<string, unknown>>(readFileSync(roadmapPath, 'utf-8'));
+    if (roadmap) {
+      const features = ((roadmap.features as Record<string, unknown>[]) ?? []).slice(0, 10);
       const featureSummary = features.map((f: Record<string, unknown>) => ({
         title: f.title ?? '',
         status: f.status ?? '',
@@ -127,8 +128,6 @@ function loadProjectContext(projectDir: string): string {
       contextParts.push(
         `## Roadmap Features\n\`\`\`json\n${JSON.stringify(featureSummary, null, 2)}\n\`\`\``,
       );
-    } catch {
-      // Ignore parse errors
     }
   }
 
@@ -195,17 +194,14 @@ function extractTaskSuggestion(text: string): TaskSuggestion | null {
   const idx = text.indexOf(TASK_SUGGESTION_PREFIX);
   if (idx === -1) return null;
 
-  try {
-    // Find the JSON on the same line
-    const afterPrefix = text.substring(idx + TASK_SUGGESTION_PREFIX.length);
-    const lineEnd = afterPrefix.indexOf('\n');
-    const jsonStr = lineEnd === -1 ? afterPrefix.trim() : afterPrefix.substring(0, lineEnd).trim();
-    const parsed = JSON.parse(jsonStr) as TaskSuggestion;
-    if (parsed.title && parsed.description) {
-      return parsed;
-    }
-  } catch {
-    // Invalid JSON — ignore
+  // Find the JSON on the same line
+  const afterPrefix = text.substring(idx + TASK_SUGGESTION_PREFIX.length);
+  const lineEnd = afterPrefix.indexOf('\n');
+  const jsonStr = lineEnd === -1 ? afterPrefix.trim() : afterPrefix.substring(0, lineEnd).trim();
+
+  const validated = parseLLMJson(jsonStr, TaskSuggestionSchema);
+  if (validated && validated.title && validated.description) {
+    return validated as TaskSuggestion;
   }
 
   return null;

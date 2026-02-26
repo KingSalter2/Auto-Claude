@@ -309,3 +309,140 @@ describe('bashSecurityHook', () => {
     expect('hookSpecificOutput' in result).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// pkill / killall — denylist-based process management
+// ---------------------------------------------------------------------------
+
+describe('pkill validator (denylist model)', () => {
+  it('allows killing any dev/framework process', () => {
+    const allowedCommands = [
+      'pkill vite',
+      'pkill next',
+      'pkill remix',
+      'pkill astro',
+      'pkill nuxt',
+      'pkill webpack',
+      'pkill node',
+      'pkill -f "npm run dev"',
+      'pkill -f "next dev"',
+      'pkill -f "python manage.py runserver"',
+      'pkill tsx',
+      'pkill bun',
+      'pkill deno',
+      'pkill cargo',
+      'pkill ruby',
+      'pkill rails',
+      'pkill flask',
+      'pkill uvicorn',
+      'pkill my-custom-server',
+      'pkill some-random-script',
+    ];
+    for (const cmd of allowedCommands) {
+      const result = bashSecurityHook({ toolName: 'Bash', toolInput: { command: cmd } });
+      expect(result, `Expected '${cmd}' to be allowed`).toEqual({});
+    }
+  });
+
+  it('blocks killing system-critical processes', () => {
+    const blockedTargets = [
+      'pkill systemd',
+      'pkill launchd',
+      'pkill Finder',
+      'pkill Dock',
+      'pkill WindowServer',
+      'pkill sshd',
+      'pkill init',
+      'pkill loginwindow',
+      'pkill Xorg',
+      'pkill gnome-shell',
+      'pkill electron',
+      'pkill Electron',
+    ];
+    for (const cmd of blockedTargets) {
+      const result = bashSecurityHook({ toolName: 'Bash', toolInput: { command: cmd } });
+      expect('hookSpecificOutput' in result, `Expected '${cmd}' to be blocked`).toBe(true);
+    }
+  });
+
+  it('blocks pkill -u (kill by user — too broad)', () => {
+    const result = bashSecurityHook({
+      toolName: 'Bash',
+      toolInput: { command: 'pkill -u root' },
+    });
+    expect('hookSpecificOutput' in result).toBe(true);
+  });
+
+  it('blocks bare pkill with no target', () => {
+    const result = bashSecurityHook({
+      toolName: 'Bash',
+      toolInput: { command: 'pkill' },
+    });
+    expect('hookSpecificOutput' in result).toBe(true);
+  });
+
+  it('allows killall for non-system processes', () => {
+    const result = bashSecurityHook({
+      toolName: 'Bash',
+      toolInput: { command: 'killall vite' },
+    });
+    expect(result).toEqual({});
+  });
+
+  it('blocks killall for system processes', () => {
+    const result = bashSecurityHook({
+      toolName: 'Bash',
+      toolInput: { command: 'killall Finder' },
+    });
+    expect('hookSpecificOutput' in result).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// chmod — denylist-based (blocks setuid/setgid only)
+// ---------------------------------------------------------------------------
+
+describe('chmod validator (denylist model)', () => {
+  it('allows all standard permission modes', () => {
+    const allowedCommands = [
+      'chmod 755 script.sh',
+      'chmod 644 file.txt',
+      'chmod 700 private/',
+      'chmod 600 secret.key',
+      'chmod 777 shared/',
+      'chmod 775 dir/',
+      'chmod 664 data.csv',
+      'chmod 744 build.sh',
+      'chmod 750 bin/',
+      'chmod 440 readonly.conf',
+      'chmod 400 id_rsa',
+      'chmod 666 socket',
+      'chmod +x script.sh',
+      'chmod a+x binary',
+      'chmod u+x test.sh',
+      'chmod o+w shared/',
+      'chmod g+rw groupdir/',
+      'chmod u+rw,g+r file',
+      'chmod -R 755 dist/',
+    ];
+    for (const cmd of allowedCommands) {
+      const result = bashSecurityHook({ toolName: 'Bash', toolInput: { command: cmd } });
+      expect(result, `Expected '${cmd}' to be allowed`).toEqual({});
+    }
+  });
+
+  it('blocks setuid modes (privilege escalation)', () => {
+    const blockedCommands = [
+      'chmod 4755 binary',     // setuid
+      'chmod 2755 binary',     // setgid
+      'chmod 6755 binary',     // setuid + setgid
+      'chmod +s binary',       // symbolic setuid
+      'chmod u+s binary',      // user setuid
+      'chmod g+s dir/',        // group setgid
+    ];
+    for (const cmd of blockedCommands) {
+      const result = bashSecurityHook({ toolName: 'Bash', toolInput: { command: cmd } });
+      expect('hookSpecificOutput' in result, `Expected '${cmd}' to be blocked`).toBe(true);
+    }
+  });
+});

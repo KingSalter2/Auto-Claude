@@ -14,6 +14,8 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { safeParseJson } from '../../utils/json-repair';
+
 // =============================================================================
 // Constants
 // =============================================================================
@@ -376,12 +378,15 @@ export class RecoveryManager {
   private async loadAttemptHistory(): Promise<AttemptHistory> {
     try {
       const raw = await readFile(this.attemptHistoryPath, 'utf-8');
-      return JSON.parse(raw) as AttemptHistory;
+      const parsed = safeParseJson<AttemptHistory>(raw);
+      if (parsed) return parsed;
+      // Fall through to create empty history
     } catch {
-      const empty = this.createEmptyHistory();
-      await this.saveAttemptHistory(empty);
-      return empty;
+      // Fall through to create empty history
     }
+    const empty = this.createEmptyHistory();
+    await this.saveAttemptHistory(empty);
+    return empty;
   }
 
   private async saveAttemptHistory(history: AttemptHistory): Promise<void> {

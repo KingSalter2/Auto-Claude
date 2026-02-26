@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { z } from 'zod/v3';
 
+import { safeParseJson } from '../../../utils/json-repair';
 import { Tool } from '../define';
 import { DEFAULT_EXECUTION_OPTIONS, ToolPermission } from '../types';
 
@@ -62,7 +63,9 @@ export const recordDiscoveryTool = Tool.define({
 
       if (fs.existsSync(mapFile)) {
         try {
-          codebaseMap = JSON.parse(fs.readFileSync(mapFile, 'utf-8')) as CodebaseMap;
+          const parsed = safeParseJson<CodebaseMap>(fs.readFileSync(mapFile, 'utf-8'));
+          if (parsed) codebaseMap = parsed;
+          // Start fresh if corrupt (parsed === null)
         } catch {
           // Start fresh if corrupt
         }

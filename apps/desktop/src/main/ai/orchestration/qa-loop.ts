@@ -28,6 +28,8 @@ import {
 
 import type { AgentType } from '../config/agent-configs';
 import type { Phase } from '../config/types';
+import { QASignoffSchema, validateStructuredOutput } from '../schema';
+import { safeParseJson } from '../../utils/json-repair';
 import type { SessionResult } from '../session/types';
 
 // =============================================================================
@@ -370,8 +372,12 @@ export class QALoop extends EventEmitter {
     try {
       const planPath = join(this.config.specDir, 'implementation_plan.json');
       const raw = await readFile(planPath, 'utf-8');
-      const plan = JSON.parse(raw) as { qa_signoff?: QASignoff };
-      return plan.qa_signoff ?? null;
+      const plan = safeParseJson<{ qa_signoff?: unknown }>(raw);
+      if (!plan) return null;
+      const qa_signoff = plan.qa_signoff;
+      if (!qa_signoff) return null;
+      const result = validateStructuredOutput(qa_signoff, QASignoffSchema);
+      return result.valid && result.data ? (result.data as QASignoff) : null;
     } catch {
       return null;
     }
@@ -396,9 +402,9 @@ export class QALoop extends EventEmitter {
     try {
       const planPath = join(this.config.specDir, 'implementation_plan.json');
       const raw = await readFile(planPath, 'utf-8');
-      const plan = JSON.parse(raw) as { phases?: Array<{ subtasks: Array<{ status: string }> }> };
+      const plan = safeParseJson<{ phases?: Array<{ subtasks: Array<{ status: string }> }> }>(raw);
 
-      if (!plan.phases) return false;
+      if (!plan || !plan.phases) return false;
 
       for (const phase of plan.phases) {
         for (const subtask of phase.subtasks) {
@@ -519,10 +525,12 @@ export class QALoop extends EventEmitter {
     try {
       const planPath = join(this.config.specDir, 'implementation_plan.json');
       const raw = await readFile(planPath, 'utf-8');
-      const plan = JSON.parse(raw) as {
+      const plan = safeParseJson<{
         qa_iteration_history?: QAIterationRecord[];
         qa_stats?: Record<string, unknown>;
-      };
+      }>(raw);
+
+      if (!plan) return;
 
       if (!plan.qa_iteration_history) {
         plan.qa_iteration_history = [];

@@ -14,6 +14,7 @@ import { z } from 'zod/v3';
 
 import { Tool } from '../define';
 import { DEFAULT_EXECUTION_OPTIONS, ToolPermission } from '../types';
+import { safeParseJson } from '../../../utils/json-repair';
 
 // ---------------------------------------------------------------------------
 // Input Schema
@@ -96,11 +97,9 @@ export const updateSubtaskStatusTool = Tool.define({
       return 'Error: implementation_plan.json not found';
     }
 
-    let plan: ImplementationPlan;
-    try {
-      plan = JSON.parse(fs.readFileSync(planFile, 'utf-8')) as ImplementationPlan;
-    } catch (e) {
-      return `Error: Invalid JSON in implementation_plan.json: ${e}`;
+    const plan = safeParseJson<ImplementationPlan>(fs.readFileSync(planFile, 'utf-8'));
+    if (!plan) {
+      return 'Error: implementation_plan.json contains unrepairable JSON';
     }
 
     const found = updateSubtaskInPlan(plan, subtask_id, status, notes);

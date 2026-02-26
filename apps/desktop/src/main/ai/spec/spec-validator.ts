@@ -16,6 +16,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createSimpleClient } from '../client/factory';
+import { safeParseJson } from '../../utils/json-repair';
 
 // ---------------------------------------------------------------------------
 // Schemas (ported from schemas.py)
@@ -162,23 +163,16 @@ export function autoFixPlan(specDir: string): boolean {
   let plan: Record<string, unknown> | null = null;
   let jsonRepaired = false;
 
-  try {
-    const content = readFileSync(planFile, 'utf-8');
-    plan = JSON.parse(content) as Record<string, unknown>;
-  } catch {
-    // Try JSON repair
-    try {
-      const content = readFileSync(planFile, 'utf-8');
-      const repaired = repairJsonSyntax(content);
-      if (repaired) {
-        plan = JSON.parse(repaired) as Record<string, unknown>;
-        jsonRepaired = true;
-      }
-    } catch {
-      return false;
+  const content = readFileSync(planFile, 'utf-8');
+  plan = safeParseJson<Record<string, unknown>>(content);
+  if (!plan) {
+    // Try local repairJsonSyntax as a secondary pass
+    const repaired = repairJsonSyntax(content);
+    if (repaired) {
+      plan = safeParseJson<Record<string, unknown>>(repaired);
+      if (plan) jsonRepaired = true;
     }
   }
-
   if (!plan) return false;
 
   let fixed = false;
@@ -339,11 +333,10 @@ export function validateContext(specDir: string): ValidationResult {
     return { valid: false, checkpoint: 'context', errors, warnings, fixes };
   }
 
-  let context: Record<string, unknown>;
-  try {
-    context = JSON.parse(readFileSync(contextFile, 'utf-8')) as Record<string, unknown>;
-  } catch (e) {
-    errors.push(`context.json is invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+  const raw = readFileSync(contextFile, 'utf-8');
+  const context = safeParseJson<Record<string, unknown>>(raw);
+  if (!context) {
+    errors.push('context.json is invalid JSON');
     fixes.push('Regenerate context.json or fix JSON syntax');
     return { valid: false, checkpoint: 'context', errors, warnings, fixes };
   }
@@ -426,11 +419,10 @@ export function validateImplementationPlan(specDir: string): ValidationResult {
     return { valid: false, checkpoint: 'plan', errors, warnings, fixes };
   }
 
-  let plan: Record<string, unknown>;
-  try {
-    plan = JSON.parse(readFileSync(planFile, 'utf-8')) as Record<string, unknown>;
-  } catch (e) {
-    errors.push(`implementation_plan.json is invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+  const raw = readFileSync(planFile, 'utf-8');
+  const plan = safeParseJson<Record<string, unknown>>(raw);
+  if (!plan) {
+    errors.push('implementation_plan.json is invalid JSON');
     fixes.push('Regenerate implementation_plan.json or fix JSON syntax');
     return { valid: false, checkpoint: 'plan', errors, warnings, fixes };
   }

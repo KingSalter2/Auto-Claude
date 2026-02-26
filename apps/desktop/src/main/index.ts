@@ -427,8 +427,8 @@ app.whenReady().then(() => {
         // New structure: /path/to/project/apps/desktop/prompts
         let migrated = false;
         const possibleCorrections = [
-          join(validAutoBuildPath.replace(/[/\\]auto-claude$/, ''), 'apps', 'desktop', 'prompts'),
-          join(validAutoBuildPath.replace(/[/\\]backend$/, ''), 'desktop', 'prompts'),
+          join(validAutoBuildPath.replace(/[/\\]auto-claude[/\\]*$/, ''), 'apps', 'desktop', 'prompts'),
+          join(validAutoBuildPath.replace(/[/\\]backend[/\\]*$/, ''), 'desktop', 'prompts'),
         ];
         for (const correctedPath of possibleCorrections) {
           const correctedPlannerPath = join(correctedPath, 'planner.md');
@@ -460,6 +460,15 @@ app.whenReady().then(() => {
         if (!migrated) {
           console.warn('[main] Configured autoBuildPath is invalid (missing planner.md), will use auto-detection:', validAutoBuildPath);
           validAutoBuildPath = undefined; // Let auto-detection find the correct path
+
+          // Clear the stale setting so this warning doesn't repeat every startup
+          try {
+            delete settings.autoBuildPath;
+            writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+            console.log('[main] Cleared stale autoBuildPath from settings');
+          } catch {
+            // Non-critical - warning will just repeat next startup
+          }
         }
       }
     }

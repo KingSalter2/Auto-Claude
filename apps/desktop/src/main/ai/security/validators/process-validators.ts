@@ -4,7 +4,10 @@
  *
  * Validators for process management commands (pkill, kill, killall).
  *
- * See apps/desktop/src/main/ai/security/validators/process-validators.ts for the TypeScript implementation.
+ * Security model: DENYLIST-based (consistent with the overall security system).
+ * Instead of allowlisting known dev processes (which breaks for any new
+ * framework/tool), we block killing system-critical processes that would crash
+ * the OS, desktop environment, or the application itself.
  */
 
 import type { ValidationResult } from '../bash-validator';
@@ -13,49 +16,78 @@ import type { ValidationResult } from '../bash-validator';
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Allowed development process names */
-const ALLOWED_PROCESS_NAMES = new Set([
-  // Node.js ecosystem
-  'node',
-  'npm',
-  'npx',
-  'yarn',
-  'pnpm',
-  'bun',
-  'deno',
-  'vite',
-  'next',
-  'nuxt',
-  'webpack',
-  'esbuild',
-  'rollup',
-  'tsx',
-  'ts-node',
-  // Python ecosystem
-  'python',
-  'python3',
-  'flask',
-  'uvicorn',
-  'gunicorn',
-  'django',
-  'celery',
-  'streamlit',
-  'gradio',
-  'pytest',
-  'mypy',
-  'ruff',
-  // Other languages
-  'cargo',
-  'rustc',
-  'go',
-  'ruby',
-  'rails',
-  'php',
-  // Databases (local dev)
-  'postgres',
-  'mysql',
-  'mongod',
-  'redis-server',
+/**
+ * System-critical process names that must NEVER be killed by autonomous agents.
+ * These are stable OS/desktop/infrastructure processes — they don't change
+ * with every new JS framework release.
+ */
+const BLOCKED_PROCESS_NAMES = new Set([
+  // -- OS init / system --
+  'systemd',
+  'launchd',
+  'init',
+  'loginwindow',
+  'kernel_task',
+  'kerneltask',
+  'containerd',
+  'dockerd',
+
+  // -- macOS desktop --
+  'Finder',
+  'Dock',
+  'WindowServer',
+  'SystemUIServer',
+  'NotificationCenter',
+  'Spotlight',
+  'mds',
+  'mds_stores',
+  'coreaudiod',
+  'corebrightnessd',
+  'securityd',
+  'opendirectoryd',
+  'diskarbitrationd',
+
+  // -- Linux desktop / display --
+  'Xorg',
+  'Xwayland',
+  'gnome-shell',
+  'kwin',
+  'kwin_wayland',
+  'kwin_x11',
+  'plasmashell',
+  'mutter',
+  'gdm',
+  'lightdm',
+  'sddm',
+  'pulseaudio',
+  'pipewire',
+  'wireplumber',
+  'dbus-daemon',
+  'polkitd',
+  'networkmanager',
+  'NetworkManager',
+  'wpa_supplicant',
+
+  // -- Windows critical (for cross-platform) --
+  'explorer.exe',
+  'dwm.exe',
+  'csrss.exe',
+  'winlogon.exe',
+  'lsass.exe',
+  'services.exe',
+  'svchost.exe',
+  'smss.exe',
+  'wininit.exe',
+
+  // -- Remote access --
+  'sshd',
+  'ssh-agent',
+
+  // -- Self-protection (don't let the agent kill its own host) --
+  'electron',
+  'Electron',
+  'auto-claude',
+  'Auto Claude',
 ]);
 
 // ---------------------------------------------------------------------------
@@ -144,9 +176,12 @@ function shellSplit(input: string): string[] | null {
 // ---------------------------------------------------------------------------
 
 /**
- * Validate pkill commands — only allow killing dev-related processes.
+ * Validate pkill commands — block killing system-critical processes.
  *
- * Ported from: validate_pkill_command()
+ * Uses a denylist model: any process can be killed UNLESS it's a known
+ * system-critical process (OS daemons, desktop environment, remote access,
+ * or the application itself). This is framework-agnostic — works with any
+ * dev tooling without needing to maintain an allowlist.
  */
 export function validatePkillCommand(commandString: string): ValidationResult {
   const tokens = shellSplit(commandString);
@@ -158,11 +193,21 @@ export function validatePkillCommand(commandString: string): ValidationResult {
     return [false, 'Empty pkill command'];
   }
 
-  // Separate flags from arguments
+  // Block dangerous flags that have broad blast radius
+  const flags: string[] = [];
   const args: string[] = [];
   for (const token of tokens.slice(1)) {
-    if (!token.startsWith('-')) {
+    if (token.startsWith('-')) {
+      flags.push(token);
+    } else {
       args.push(token);
+    }
+  }
+
+  // Block -u (kill by user — too broad, affects all processes for a user)
+  for (const flag of flags) {
+    if (flag === '-u' || flag.startsWith('-u') || flag === '--euid') {
+      return [false, 'pkill -u (kill by user) is not allowed — too broad, affects all processes for a user'];
     }
   }
 
@@ -178,15 +223,17 @@ export function validatePkillCommand(commandString: string): ValidationResult {
     target = target.split(' ')[0];
   }
 
-  if (ALLOWED_PROCESS_NAMES.has(target)) {
-    return [true, ''];
+  // Check against blocked system-critical processes
+  if (BLOCKED_PROCESS_NAMES.has(target)) {
+    return [
+      false,
+      `Cannot kill system-critical process '${target}'. ` +
+        `Killing OS daemons, desktop environment, or remote access processes ` +
+        `could crash the system or lock out the user.`,
+    ];
   }
 
-  const sortedSample = [...ALLOWED_PROCESS_NAMES].sort().slice(0, 10);
-  return [
-    false,
-    `pkill only allowed for dev processes: ${sortedSample.join(', ')}...`,
-  ];
+  return [true, ''];
 }
 
 /**

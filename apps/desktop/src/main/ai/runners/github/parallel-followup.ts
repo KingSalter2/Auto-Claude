@@ -21,6 +21,8 @@ import * as crypto from 'node:crypto';
 
 import { createSimpleClient } from '../../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../../config/types';
+import { safeParseJson } from '../../../utils/json-repair';
+import { ResolutionVerificationSchema, ReviewFindingsArraySchema } from '../../schema/pr-review';
 import type {
   PRReviewFinding,
   ProgressCallback,
@@ -124,12 +126,14 @@ function generateFindingId(file: string, line: number, title: string): string {
 }
 
 function parseJsonResponse(text: string): unknown {
-  let jsonStr = text.trim();
-  const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  const result = safeParseJson<unknown>(text.trim());
+  if (result !== null) return result;
+  // Try stripping fences and reparsing
+  const fenceMatch = text.trim().match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (fenceMatch) {
-    jsonStr = fenceMatch[1];
+    return safeParseJson<unknown>(fenceMatch[1]);
   }
-  return JSON.parse(jsonStr);
+  return null;
 }
 
 // =============================================================================
@@ -414,47 +418,46 @@ export class ParallelFollowupReviewer {
         agentsInvoked.push(type);
 
         try {
-          const data = parseJsonResponse(result) as Record<string, unknown>;
-
           if (type === 'resolution-verifier') {
-            const verifications = (data.verifications ?? []) as Array<{
-              finding_id?: string;
-              status?: string;
-              evidence?: string;
-            }>;
+            // Validate with ResolutionVerificationSchema
+            const rawData = parseJsonResponse(result);
+            const verification = ResolutionVerificationSchema.safeParse(rawData);
+            const verifications = verification.success
+              ? verification.data.verifications
+              : [];
+
             for (const v of verifications) {
-              if (!v.finding_id) continue;
+              if (!v.findingId) continue;
               if (v.status === 'resolved') {
-                resolvedIds.push(v.finding_id);
+                resolvedIds.push(v.findingId);
               } else {
-                unresolvedIds.push(v.finding_id);
+                unresolvedIds.push(v.findingId);
                 // Re-add unresolved finding from previous review
                 const original = context.previousReview.findings.find(
-                  (f) => f.id === v.finding_id,
+                  (f) => f.id === v.findingId,
                 );
                 if (original) {
                   findings.push({
                     ...original,
                     title: `[UNRESOLVED] ${original.title}`,
-                    description: `${original.description}\n\nResolution note: ${v.evidence ?? 'Not resolved'}`,
+                    description: `${original.description}\n\nResolution note: ${v.evidence || 'Not resolved'}`,
                   });
                 }
               }
             }
           } else {
             // new-code-reviewer or comment-analyzer
+            // Validate with ReviewFindingsArraySchema
+            const rawData = parseJsonResponse(result);
+            // The specialist returns { findings: [...] } — extract findings
+            const rawFindings = rawData && typeof rawData === 'object' && 'findings' in rawData
+              ? (rawData as Record<string, unknown>).findings
+              : rawData;
+            const validatedFindings = ReviewFindingsArraySchema.safeParse(rawFindings);
+            const validFindings = validatedFindings.success ? validatedFindings.data : [];
+
             const prefix = type === 'comment-analyzer' ? '[FROM COMMENTS] ' : '';
-            const rawFindings = (data.findings ?? []) as Array<{
-              severity?: string;
-              category?: string;
-              title?: string;
-              description?: string;
-              file?: string;
-              line?: number;
-              suggested_fix?: string;
-              fixable?: boolean;
-            }>;
-            for (const f of rawFindings) {
+            for (const f of validFindings) {
               if (!f.title || !f.file) continue;
               const id = generateFindingId(f.file, f.line ?? 0, f.title);
               newFindingIds.push(id);
@@ -466,7 +469,7 @@ export class ParallelFollowupReviewer {
                 description: f.description ?? '',
                 file: f.file,
                 line: f.line ?? 0,
-                suggestedFix: f.suggested_fix,
+                suggestedFix: f.suggestedFix,
                 fixable: f.fixable ?? false,
               });
             }

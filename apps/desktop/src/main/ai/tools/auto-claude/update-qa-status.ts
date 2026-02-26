@@ -18,6 +18,7 @@ import { z } from 'zod/v3';
 
 import { Tool } from '../define';
 import { DEFAULT_EXECUTION_OPTIONS, ToolPermission } from '../types';
+import { safeParseJson } from '../../../utils/json-repair';
 
 // ---------------------------------------------------------------------------
 // Input Schema
@@ -85,10 +86,10 @@ export const updateQaStatusTool = Tool.define({
     // Parse issues
     let issues: QAIssue[] = [];
     if (issuesStr) {
-      try {
-        issues = JSON.parse(issuesStr) as QAIssue[];
-        if (!Array.isArray(issues)) issues = [{ description: issuesStr }];
-      } catch {
+      const parsed = safeParseJson<QAIssue[]>(issuesStr);
+      if (parsed !== null && Array.isArray(parsed)) {
+        issues = parsed;
+      } else {
         issues = issuesStr ? [{ description: issuesStr }] : [];
       }
     }
@@ -96,18 +97,15 @@ export const updateQaStatusTool = Tool.define({
     // Parse tests_passed
     let testsPassed: Record<string, unknown> = {};
     if (testsStr) {
-      try {
-        testsPassed = JSON.parse(testsStr) as Record<string, unknown>;
-      } catch {
-        testsPassed = {};
+      const parsed = safeParseJson<Record<string, unknown>>(testsStr);
+      if (parsed !== null) {
+        testsPassed = parsed;
       }
     }
 
-    let plan: ImplementationPlan;
-    try {
-      plan = JSON.parse(fs.readFileSync(planFile, 'utf-8')) as ImplementationPlan;
-    } catch (e) {
-      return `Error: Invalid JSON in implementation_plan.json: ${e}`;
+    const plan = safeParseJson<ImplementationPlan>(fs.readFileSync(planFile, 'utf-8'));
+    if (!plan) {
+      return 'Error: implementation_plan.json contains unrepairable JSON';
     }
 
     // Increment qa_session on new review or rejection

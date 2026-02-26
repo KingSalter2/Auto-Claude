@@ -19,6 +19,7 @@ import { join } from 'node:path';
 
 import { createSimpleClient } from '../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../config/types';
+import { safeParseJson } from '../../utils/json-repair';
 
 // =============================================================================
 // Constants
@@ -131,36 +132,32 @@ function getSpecContext(specDir: string): SpecContext {
   // Try to read requirements.json for metadata
   const reqFile = join(specDir, 'requirements.json');
   if (existsSync(reqFile)) {
-    try {
-      const reqData = JSON.parse(readFileSync(reqFile, 'utf-8'));
+    const reqData = safeParseJson<Record<string, unknown>>(readFileSync(reqFile, 'utf-8'));
+    if (reqData) {
       if (!context.title && reqData.feature) {
-        context.title = reqData.feature;
+        context.title = String(reqData.feature);
       }
       if (reqData.workflow_type) {
-        context.category = reqData.workflow_type;
+        context.category = String(reqData.workflow_type);
       }
       if (reqData.task_description && !context.description) {
         context.description = String(reqData.task_description).slice(0, 200);
       }
-    } catch {
-      // Ignore parse errors
     }
   }
 
   // Try to read implementation_plan.json for GitHub issue
   const planFile = join(specDir, 'implementation_plan.json');
   if (existsSync(planFile)) {
-    try {
-      const planData = JSON.parse(readFileSync(planFile, 'utf-8'));
-      const metadata = planData.metadata ?? {};
+    const planData = safeParseJson<Record<string, unknown>>(readFileSync(planFile, 'utf-8'));
+    if (planData) {
+      const metadata = (planData.metadata as Record<string, unknown>) ?? {};
       if (metadata.githubIssueNumber) {
-        context.githubIssue = metadata.githubIssueNumber;
+        context.githubIssue = metadata.githubIssueNumber as number;
       }
       if (!context.title) {
-        context.title = planData.feature ?? planData.title ?? '';
+        context.title = String(planData.feature ?? planData.title ?? '');
       }
-    } catch {
-      // Ignore parse errors
     }
   }
 
