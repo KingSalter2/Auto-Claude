@@ -691,6 +691,8 @@
       "oauth": "OAuth",
       "codex": "Codex",
       "codexSubscription": "Abonnement Codex",
+      "claudeCode": "Claude Code",
+      "claudeCodeSubscription": "Abonnement Claude Code",
       "apiKey": "Clé API",
       "active": "Actif",
       "setDefault": "Définir actif",
@@ -708,6 +710,7 @@
       "envCredentialDetected": "Identifiants détectés depuis la variable d'environnement {{envVar}}",
       "noAccounts": "Aucun compte configuré",
       "addOAuth": "Ajouter un compte OAuth",
+      "addClaudeCode": "Ajouter un compte Claude Code",
       "addCodexSubscription": "Ajouter abonnement Codex",
       "addApiKey": "Ajouter une clé API",
       "addEndpoint": "Ajouter un point de terminaison"

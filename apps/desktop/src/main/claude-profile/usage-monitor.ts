@@ -20,6 +20,10 @@ import { getCredentialsFromKeychain, clearKeychainCache } from './credential-uti
 import { reactiveTokenRefresh, ensureValidToken } from './token-refresh';
 import { isProfileRateLimited } from './rate-limit-manager';
 import { getOperationRegistry } from './operation-registry';
+import { ensureValidCodexToken } from '../ai/auth/codex-oauth';
+import { fetchCodexUsage, normalizeCodexResponse } from './codex-usage-fetcher';
+import { readSettingsFileAsync } from '../settings-utils';
+import type { ProviderAccount } from '../../shared/types/provider-account';
 
 // Re-export for backward compatibility
 export type { ApiProvider };
@@ -46,6 +50,7 @@ const ALLOWED_USAGE_API_DOMAINS = new Set([
   'api.anthropic.com',
   'api.z.ai',
   'open.bigmodel.cn',
+  'chatgpt.com',
 ]);
 
 /**
@@ -61,6 +66,10 @@ const PROVIDER_USAGE_ENDPOINTS: readonly ProviderUsageEndpoint[] = [
   {
     provider: 'anthropic',
     usagePath: '/api/oauth/usage'
+  },
+  {
+    provider: 'openai',
+    usagePath: '/backend-api/wham/usage'
   },
   {
     provider: 'zai',
@@ -786,7 +795,32 @@ export class UsageMonitor extends EventEmitter {
       this.debugLog('[UsageMonitor:TRACE] Failed to load API profiles, falling back to OAuth:', error);
     }
 
-    // Fall back to OAuth profile - use ensureValidToken for proactive refresh
+    // Check for Codex OAuth token (OpenAI)
+    try {
+      const settings = await readSettingsFileAsync();
+      if (settings) {
+        const providerAccounts = (settings.providerAccounts as ProviderAccount[] | undefined) ?? [];
+        const queue = (settings.globalPriorityOrder as string[] | undefined) ?? [];
+        for (const accountId of queue) {
+          const account = providerAccounts.find(a => a.id === accountId);
+          if (account?.provider === 'openai' && account.authType === 'oauth') {
+            const codexToken = await ensureValidCodexToken();
+            if (codexToken) {
+              this.debugLog('[UsageMonitor:TRACE] Using Codex OAuth token', {
+                tokenFingerprint: getCredentialFingerprint(codexToken)
+              });
+              return codexToken;
+            }
+            this.debugLog('[UsageMonitor:TRACE] Codex OAuth token not available');
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      this.debugLog('[UsageMonitor:TRACE] Failed to get Codex token, falling back to Claude OAuth:', error);
+    }
+
+    // Fall back to Claude OAuth profile - use ensureValidToken for proactive refresh
     const profileManager = getClaudeProfileManager();
     const activeProfile = profileManager.getActiveProfile();
     if (activeProfile) {
@@ -1037,12 +1071,41 @@ export class UsageMonitor extends EventEmitter {
       this.debugLog('[UsageMonitor:TRACE] Failed to load API profiles, falling back to OAuth:', error);
     }
 
-    // If no API profile is active, check OAuth profiles
+    // Check for Codex (OpenAI OAuth) accounts in providerAccounts
+    try {
+      const settings = await readSettingsFileAsync();
+      if (settings) {
+        const providerAccounts = (settings.providerAccounts as ProviderAccount[] | undefined) ?? [];
+        const queue = (settings.globalPriorityOrder as string[] | undefined) ?? [];
+
+        // Find the first Codex OAuth account in the priority queue
+        for (const accountId of queue) {
+          const account = providerAccounts.find(a => a.id === accountId);
+          if (account?.provider === 'openai' && account.authType === 'oauth') {
+            this.debugLog('[UsageMonitor:TRACE] Active auth type: Codex OAuth', {
+              profileId: account.id,
+              profileName: account.name
+            });
+            return {
+              profileId: account.id,
+              profileName: account.name,
+              profileEmail: undefined,
+              isAPIProfile: false,
+              baseUrl: 'https://chatgpt.com'
+            };
+          }
+        }
+      }
+    } catch (error) {
+      this.debugLog('[UsageMonitor:TRACE] Failed to check provider accounts for Codex:', error);
+    }
+
+    // If no API profile or Codex account is active, check Claude OAuth profiles
     const profileManager = getClaudeProfileManager();
     const activeOAuthProfile = profileManager.getActiveProfile();
 
     if (!activeOAuthProfile) {
-      this.debugLog('[UsageMonitor] No active profile (neither API nor OAuth)');
+      this.debugLog('[UsageMonitor] No active profile (neither API, Codex, nor OAuth)');
       return null;
     }
 
@@ -1341,9 +1404,9 @@ export class UsageMonitor extends EventEmitter {
         baseUrl = activeProfile.baseUrl;
         provider = detectProvider(baseUrl);
       } else if (activeProfile && !activeProfile.isAPIProfile) {
-        // OAuth profile - always Anthropic
-        provider = 'anthropic';
-        baseUrl = 'https://api.anthropic.com';
+        // OAuth profile — detect provider from baseUrl (supports Anthropic + Codex)
+        baseUrl = activeProfile.baseUrl;
+        provider = detectProvider(baseUrl);
       } else {
         // No activeProfile passed - need to detect from profiles file
         const profilesFile = await loadProfilesFile();
@@ -1425,6 +1488,17 @@ export class UsageMonitor extends EventEmitter {
         // OAuth authentication requires the beta header
         headers['anthropic-beta'] = 'claude-code-20250219,oauth-2025-04-20';
         headers['anthropic-version'] = '2023-06-01';
+      } else if (provider === 'openai') {
+        // Codex usage endpoint may need account ID for team accounts
+        try {
+          const { getCodexAccountId } = await import('./codex-usage-fetcher');
+          const accountId = getCodexAccountId(credential);
+          if (accountId) {
+            headers['ChatGPT-Account-Id'] = accountId;
+          }
+        } catch {
+          // Non-critical — personal accounts work without the header
+        }
       }
 
       const response = await fetch(usageEndpoint, {
@@ -1536,6 +1610,9 @@ export class UsageMonitor extends EventEmitter {
       switch (provider) {
         case 'anthropic':
           normalizedUsage = this.normalizeAnthropicResponse(rawData, profileId, profileName, profileEmail);
+          break;
+        case 'openai':
+          normalizedUsage = normalizeCodexResponse(rawData, profileId, profileName, profileEmail);
           break;
         case 'zai':
           normalizedUsage = this.normalizeZAIResponse(responseData, profileId, profileName, profileEmail);

@@ -71,21 +71,27 @@ export function ProviderAccountCard({ account, onEdit, onDelete, onReauth }: Pro
 
   const isOAuth = account.authType === 'oauth';
   const isCodex = isOAuth && account.provider === 'openai';
+  const isClaudeCode = isOAuth && account.provider === 'anthropic';
+  const isSubscription = isCodex || isClaudeCode;
   const sessionPercent = account.usage?.sessionUsagePercent ?? 0;
   const weeklyPercent = account.usage?.weeklyUsagePercent ?? 0;
   const hasUsage = isOAuth && (sessionPercent > 0 || weeklyPercent > 0);
 
   const authBadgeLabel = isCodex
     ? t('providers.card.codex')
-    : isOAuth
-      ? t('providers.card.oauth')
-      : t('providers.card.apiKey');
+    : isClaudeCode
+      ? t('providers.card.claudeCode')
+      : isOAuth
+        ? t('providers.card.oauth')
+        : t('providers.card.apiKey');
 
   const identifier = isCodex
     ? t('providers.card.codexSubscription')
-    : isOAuth
-      ? (account.usage ? t('providers.card.oauthLinked') : t('providers.card.oauthAccount'))
-      : account.baseUrl ?? t('providers.card.noEndpoint');
+    : isClaudeCode
+      ? t('providers.card.claudeCodeSubscription')
+      : isOAuth
+        ? (account.usage ? t('providers.card.oauthLinked') : t('providers.card.oauthAccount'))
+        : account.baseUrl ?? t('providers.card.noEndpoint');
 
   return (
     <div
@@ -100,7 +106,7 @@ export function ProviderAccountCard({ account, onEdit, onDelete, onReauth }: Pro
             {/* Auth type badge */}
             <span className={cn(
               'text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0',
-              isCodex
+              isSubscription
                 ? 'bg-emerald-500/15 text-emerald-500'
                 : isOAuth
                   ? 'bg-primary/15 text-primary'

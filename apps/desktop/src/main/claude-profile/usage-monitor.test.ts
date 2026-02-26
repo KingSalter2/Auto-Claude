@@ -65,6 +65,25 @@ vi.mock('./credential-utils', () => ({
   clearKeychainCache: vi.fn()
 }));
 
+// Mock settings-utils to prevent reading real settings file in tests
+vi.mock('../settings-utils', () => ({
+  readSettingsFileAsync: vi.fn(async () => undefined),
+  readSettingsFile: vi.fn(() => undefined),
+  getSettingsPath: vi.fn(() => '/tmp/test-settings.json'),
+}));
+
+// Mock codex-oauth to prevent real OAuth token reads
+vi.mock('../ai/auth/codex-oauth', () => ({
+  ensureValidCodexToken: vi.fn(async () => null),
+}));
+
+// Mock codex-usage-fetcher
+vi.mock('./codex-usage-fetcher', () => ({
+  fetchCodexUsage: vi.fn(async () => null),
+  normalizeCodexResponse: vi.fn(() => null),
+  getCodexAccountId: vi.fn(() => undefined),
+}));
+
 // Mock global fetch
 global.fetch = vi.fn(() =>
   Promise.resolve({

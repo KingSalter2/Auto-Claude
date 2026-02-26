@@ -119,7 +119,9 @@ export function ProviderSection({
                       <Plus className="h-3 w-3" />
                       {provider.id === 'openai'
                         ? t('providers.section.addCodexSubscription')
-                        : t('providers.section.addOAuth')}
+                        : provider.id === 'anthropic'
+                          ? t('providers.section.addClaudeCode')
+                          : t('providers.section.addOAuth')}
                     </Button>
                   )}
                   {hasApiKey && (

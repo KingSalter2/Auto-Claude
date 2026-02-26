@@ -691,6 +691,8 @@
       "oauth": "OAuth",
       "codex": "Codex",
       "codexSubscription": "Codex Subscription",
+      "claudeCode": "Claude Code",
+      "claudeCodeSubscription": "Claude Code Subscription",
       "apiKey": "API Key",
       "active": "Active",
       "setDefault": "Set Active",
@@ -708,6 +710,7 @@
       "envCredentialDetected": "Credentials detected from {{envVar}} environment variable",
       "noAccounts": "No accounts configured",
       "addOAuth": "Add OAuth Account",
+      "addClaudeCode": "Add Claude Code Account",
       "addCodexSubscription": "Add Codex Subscription",
       "addApiKey": "Add API Key",
       "addEndpoint": "Add Endpoint"
