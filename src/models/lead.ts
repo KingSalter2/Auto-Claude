@@ -7,8 +7,14 @@ export type LeadSubmission = {
   status: LeadStatus;
   createdAt: string;
   source?: string | null;
+  assignedToEmail?: string | null;
+  assignedAt?: string | null;
+  followUpAt?: string | null;
+  followUpDone?: boolean | null;
   customer: { name?: string | null; email?: string | null; phone?: string | null };
   vehicle?: { id?: string | null; name?: string | null; stockNumber?: string | null } | null;
+  vehicleId?: string | null;
+  vehicleSnapshot?: Record<string, unknown> | null;
+  message?: string | null;
   payload: Record<string, unknown>;
 };
-

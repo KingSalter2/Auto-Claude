@@ -4,6 +4,10 @@ import { useTheme } from "../../theme/useTheme";
 
 type ButtonVariant = "primary" | "outline" | "ghost" | "destructive";
 
+function isIoniconName(value: unknown): value is keyof typeof Ionicons.glyphMap {
+  return typeof value === "string" && value in Ionicons.glyphMap;
+}
+
 export function Button({
   children,
   onPress,
@@ -12,6 +16,7 @@ export function Button({
   size = "md",
   icon,
   style,
+  textStyle,
 }: {
   children: React.ReactNode;
   onPress?: () => void;
@@ -19,7 +24,8 @@ export function Button({
   variant?: ButtonVariant;
   size?: "sm" | "md" | "lg";
   icon?: React.ReactNode | keyof typeof Ionicons.glyphMap;
-  style?: any;
+  style?: React.ComponentProps<typeof View>["style"];
+  textStyle?: React.ComponentProps<typeof Text>["style"];
 }) {
   const { tokens } = useTheme();
 
@@ -63,9 +69,9 @@ export function Button({
     <Pressable disabled={disabled} onPress={onPress}>
       {({ pressed }) => (
         <View style={[styles.root, { opacity: pressed ? 0.8 : disabled ? 0.6 : 1 }, style]}>
-          {typeof icon === "string" ? (
+          {isIoniconName(icon) ? (
             <Ionicons 
-              name={icon as any} 
+              name={icon} 
               size={size === "sm" ? 16 : 20} 
               color={
                 variant === "primary" 
@@ -78,7 +84,7 @@ export function Button({
           ) : (
             icon
           )}
-          <Text style={styles.text}>{children}</Text>
+          <Text style={[styles.text, textStyle]}>{children}</Text>
         </View>
       )}
     </Pressable>

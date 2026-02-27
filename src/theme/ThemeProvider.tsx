@@ -13,9 +13,9 @@ export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme();
-  const [manualMode, setManualMode] = useState<ThemeMode | null>("light");
+  const [manualMode, setManualMode] = useState<ThemeMode | null>("dark");
 
-  const mode: ThemeMode = manualMode ?? "light";
+  const mode: ThemeMode = manualMode ?? "dark";
 
   const value = useMemo<ThemeContextValue>(() => {
     return {

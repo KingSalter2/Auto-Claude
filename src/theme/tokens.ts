@@ -1,5 +1,13 @@
 export type ThemeMode = "light" | "dark";
 
+type ShadowToken = {
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  elevation: number;
+};
+
 export type ThemeTokens = {
   background: string;
   card: string;
@@ -19,8 +27,8 @@ export type ThemeTokens = {
     full: number;
   };
   shadow: {
-    sm: any;
-    md: any;
+    sm: ShadowToken;
+    md: ShadowToken;
   };
 };
 
@@ -66,15 +74,14 @@ export const lightTokens: ThemeTokens = {
 
 export const darkTokens: ThemeTokens = {
   ...commonTokens,
-  background: "#000000",
-  card: "#121212",
-  border: "#27272a",
-  primary: "#00E0FF", // Neon Cyan
+  background: "#09090b", // Deep Zinc Black
+  card: "#18181b",       // Zinc-900
+  border: "#27272a",     // Zinc-800
+  primary: "#facc15",    // Vibrant Yellow
   primaryForeground: "#000000",
-  muted: "#1E1E1E",
-  mutedForeground: "#A1A1AA",
-  accent: "#FFFFFF",
-  destructive: "#FF453A",
+  muted: "#27272a",
+  mutedForeground: "#a1a1aa",
+  accent: "#ffffff",
+  destructive: "#ef4444",
   destructiveForeground: "#FFFFFF",
 };
-

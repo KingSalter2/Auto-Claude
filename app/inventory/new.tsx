@@ -21,7 +21,7 @@ export default function VehicleNewScreen() {
     setIsSaving(true);
     try {
       // Clean up data before sending
-      const vehicleData = {
+      const vehicleData: Omit<Vehicle, "id" | "createdAt"> = {
         ...data,
         year: Number(data.year),
         price: Number(data.price) || 0,
@@ -43,9 +43,10 @@ export default function VehicleNewScreen() {
         bodyType: data.bodyType || "Sedan",
         images: data.images || [],
         features: data.features || [],
+        branch: data.branch || "Main Branch",
       };
 
-      const created = await createVehicle(vehicleData as any);
+      const created = await createVehicle(vehicleData);
       Alert.alert("Success", "Vehicle created successfully", [
         { text: "OK", onPress: () => router.replace(`/inventory/${created.id}`) }
       ]);

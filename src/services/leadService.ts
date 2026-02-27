@@ -11,10 +11,24 @@ function toIso(v: unknown) {
   return new Date().toISOString();
 }
 
+function toMaybeIso(v: unknown) {
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "object" && v !== null && "toDate" in v && typeof (v as { toDate: () => Date }).toDate === "function") {
+    return (v as { toDate: () => Date }).toDate().toISOString();
+  }
+  return null;
+}
+
 function leadFromFirestore(id: string, data: Record<string, unknown>): LeadSubmission {
   const customer =
     typeof data.customer === "object" && data.customer !== null ? (data.customer as Record<string, unknown>) : null;
   const vehicle = typeof data.vehicle === "object" && data.vehicle !== null ? (data.vehicle as Record<string, unknown>) : null;
+  const payload =
+    typeof data.payload === "object" && data.payload !== null ? (data.payload as Record<string, unknown>) : {};
+
+  const payloadVehicleName = typeof payload.vehicleName === "string" ? payload.vehicleName : null;
+  const payloadStockNumber = typeof payload.stockNumber === "string" ? payload.stockNumber : null;
 
   return {
     id,
@@ -22,6 +36,10 @@ function leadFromFirestore(id: string, data: Record<string, unknown>): LeadSubmi
     status: (data.status as LeadStatus) ?? "new",
     createdAt: toIso(data.createdAt),
     source: typeof data.source === "string" ? data.source : null,
+    assignedToEmail: typeof data.assignedToEmail === "string" ? data.assignedToEmail : null,
+    assignedAt: toMaybeIso(data.assignedAt),
+    followUpAt: toMaybeIso(data.followUpAt),
+    followUpDone: typeof data.followUpDone === "boolean" ? data.followUpDone : null,
     customer:
       customer
         ? {
@@ -34,14 +52,13 @@ function leadFromFirestore(id: string, data: Record<string, unknown>): LeadSubmi
       vehicle
         ? {
             id: typeof vehicle.id === "string" ? vehicle.id : null,
-            name: typeof vehicle.name === "string" ? vehicle.name : null,
-            stockNumber: typeof vehicle.stockNumber === "string" ? vehicle.stockNumber : null,
+            name: typeof vehicle.name === "string" ? vehicle.name : payloadVehicleName,
+            stockNumber: typeof vehicle.stockNumber === "string" ? vehicle.stockNumber : payloadStockNumber,
           }
-        : null,
-    payload: (typeof data.payload === "object" && data.payload !== null ? (data.payload as Record<string, unknown>) : {}) as Record<
-      string,
-      unknown
-    >,
+        : payloadVehicleName || payloadStockNumber
+          ? { id: null, name: payloadVehicleName, stockNumber: payloadStockNumber }
+          : null,
+    payload: payload as Record<string, unknown>,
   };
 }
 
@@ -50,8 +67,45 @@ export function subscribeNewLeadCount(opts: { onNext: (count: number) => void })
   return onSnapshot(q, (snap) => opts.onNext(snap.size), () => opts.onNext(0));
 }
 
+export function subscribeTotalLeadCount(opts: { onNext: (count: number) => void }) {
+  const q = query(collection(firebaseDb, "lead_submissions"));
+  return onSnapshot(q, (snap) => opts.onNext(snap.size), () => opts.onNext(0));
+}
+
 export function subscribeRecentLeads(opts: { onNext: (leads: LeadSubmission[]) => void; take?: number }) {
   const q = query(collection(firebaseDb, "lead_submissions"), orderBy("createdAt", "desc"), limit(opts.take ?? 25));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const leads = snap.docs.map((d) => leadFromFirestore(d.id, d.data() as Record<string, unknown>));
+      opts.onNext(leads);
+    },
+    () => opts.onNext([]),
+  );
+}
+
+export function subscribeAssignedLeads(opts: { recipientEmail: string; onNext: (leads: LeadSubmission[]) => void; take?: number }) {
+  const email = opts.recipientEmail.trim().toLowerCase();
+  const q = query(collection(firebaseDb, "lead_submissions"), where("assignedToEmail", "==", email), orderBy("assignedAt", "desc"), limit(opts.take ?? 25));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const leads = snap.docs.map((d) => leadFromFirestore(d.id, d.data() as Record<string, unknown>));
+      opts.onNext(leads);
+    },
+    () => opts.onNext([]),
+  );
+}
+
+export function subscribePendingFollowUps(opts: { recipientEmail: string; onNext: (leads: LeadSubmission[]) => void; take?: number }) {
+  const email = opts.recipientEmail.trim().toLowerCase();
+  const q = query(
+    collection(firebaseDb, "lead_submissions"),
+    where("assignedToEmail", "==", email),
+    where("followUpDone", "==", false),
+    orderBy("followUpAt", "asc"),
+    limit(opts.take ?? 50),
+  );
   return onSnapshot(
     q,
     (snap) => {

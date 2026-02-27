@@ -1,6 +1,11 @@
 import { StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../theme/useTheme";
+import type { KeyboardTypeOptions } from "react-native";
+
+function isIoniconName(value: unknown): value is keyof typeof Ionicons.glyphMap {
+  return typeof value === "string" && value in Ionicons.glyphMap;
+}
 
 export function Input({
   value,
@@ -12,16 +17,22 @@ export function Input({
   multiline,
   numberOfLines,
   leftIcon,
+  style,
+  inputStyle,
+  placeholderTextColor,
 }: {
   value: string;
   onChangeText: (v: string) => void;
   placeholder?: string;
   secureTextEntry?: boolean;
-  keyboardType?: "default" | "email-address" | "phone-pad" | "numeric";
+  keyboardType?: KeyboardTypeOptions;
   autoCapitalize?: "none" | "sentences" | "words" | "characters";
   multiline?: boolean;
   numberOfLines?: number;
-  leftIcon?: React.ReactNode | string;
+  leftIcon?: React.ReactNode | keyof typeof Ionicons.glyphMap;
+  style?: import("react-native").ViewStyle;
+  inputStyle?: import("react-native").TextStyle;
+  placeholderTextColor?: string;
 }) {
   const { tokens } = useTheme();
 
@@ -48,9 +59,9 @@ export function Input({
   });
 
   return (
-    <View style={styles.wrap}>
-      {typeof leftIcon === "string" ? (
-        <Ionicons name={leftIcon as any} size={20} color={tokens.mutedForeground} />
+    <View style={[styles.wrap, style]}>
+      {isIoniconName(leftIcon) ? (
+        <Ionicons name={leftIcon} size={20} color={tokens.mutedForeground} />
       ) : (
         leftIcon
       )}
@@ -58,13 +69,13 @@ export function Input({
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={tokens.mutedForeground}
+        placeholderTextColor={placeholderTextColor || tokens.mutedForeground}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         multiline={multiline}
         numberOfLines={numberOfLines}
-        style={styles.input}
+        style={[styles.input, inputStyle]}
       />
     </View>
   );

@@ -34,6 +34,13 @@
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e9ea9e03-78e4-44bd-bf84-73bf463d8b4c"
+      }
+    },
+    "owner": "kingsalter"
   }
 }

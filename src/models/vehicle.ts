@@ -32,12 +32,16 @@ export type Vehicle = {
 
   // Added for parity with Web App
   drive?: 'FWD' | 'RWD' | 'AWD' | '4x4' | '4x2';
+  driveType?: 'FWD' | 'RWD' | 'AWD' | '4x4' | '4x2'; // Alias for drive
   seats?: number;
   features: string[]; // Web app uses string[]
   estMonthlyPayment?: number;
   vin?: string;
   engineNumber?: string;
+  engineCapacity?: string; // Alias for engineSize
+  powerKw?: string;
   registrationNumber?: string;
+  registration?: string; // Alias for registrationNumber
   costPrice?: number;
   reconditioningCost?: number;
   natisNumber?: string;
@@ -49,4 +53,6 @@ export type Vehicle = {
   description?: string;
   descriptionMode?: 'ai' | 'manual';
   warrantyMonths?: number;
+  videoUrl?: string;
+  adminNotes?: string;
 };

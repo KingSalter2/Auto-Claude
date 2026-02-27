@@ -9,18 +9,31 @@ import {
   Image,
   Alert,
   ActivityIndicator,
-  TextInput
+  TextInput,
+  Modal,
+  Dimensions
 } from "react-native";
+import type { KeyboardTypeOptions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { useCameraPermissions } from "expo-camera";
 
 import { useTheme } from "../../theme/useTheme";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
-import { Badge } from "../ui/Badge";
 import type { Vehicle, FuelType, Transmission, VehicleStatus, VehicleCondition } from "../../models/vehicle";
 import { supabase, supabaseBucket } from "../../lib/supabase";
+
+// --- Theme Constants (Dark Mode) ---
+const THEME = {
+  background: "#09090b", // Deep black/zinc
+  card: "#18181b",       // Zinc-900
+  primary: "#facc15",    // Vibrant Yellow
+  text: "#ffffff",
+  textMuted: "#a1a1aa",
+  border: "#27272a",
+  destructive: "#ef4444",
+};
 
 // --- Types & Constants ---
 
@@ -34,11 +47,11 @@ interface VehicleFormProps {
 }
 
 const TABS: { key: TabKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: "basic", label: "Basic", icon: "information-circle-outline" },
-  { key: "specs", label: "Specs", icon: "car-sport-outline" },
-  { key: "pricing", label: "Pricing", icon: "pricetag-outline" },
-  { key: "media", label: "Media", icon: "images-outline" },
-  { key: "internal", label: "Internal", icon: "file-tray-full-outline" },
+  { key: "basic", label: "Basic", icon: "information-circle" },
+  { key: "specs", label: "Specs", icon: "car-sport" },
+  { key: "pricing", label: "Pricing", icon: "pricetag" },
+  { key: "media", label: "Media", icon: "images" },
+  { key: "internal", label: "Internal", icon: "file-tray-full" },
 ];
 
 const FUEL_TYPES: FuelType[] = ["Petrol", "Diesel", "Electric", "Hybrid"];
@@ -74,13 +87,35 @@ async function uploadImageToSupabase(uri: string) {
 
 // --- Component ---
 
+type VehicleFormData = Partial<Vehicle> & {
+  make: string;
+  model: string;
+  year: number;
+  price: number;
+  mileage: number;
+  fuelType: FuelType;
+  transmission: Transmission;
+  bodyType: string;
+  condition: VehicleCondition;
+  color: string;
+  stockNumber: string;
+  status: VehicleStatus;
+  images: string[];
+  features: string[];
+  branch: string;
+  descriptionMode: "ai" | "manual";
+};
+
 export function VehicleForm({ initialData, onSubmit, isSaving = false, submitLabel = "Save Vehicle" }: VehicleFormProps) {
   const { tokens } = useTheme();
   const [activeTab, setActiveTab] = useState<TabKey>("basic");
   const [isUploading, setIsUploading] = useState(false);
+  const [isVinScanOpen, setIsVinScanOpen] = useState(false);
+  const [hasScannedVin, setHasScannedVin] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
 
   // Form State
-  const [formData, setFormData] = useState<any>({
+  const [formData, setFormData] = useState<VehicleFormData>({
     make: "",
     model: "",
     variant: "",
@@ -102,9 +137,18 @@ export function VehicleForm({ initialData, onSubmit, isSaving = false, submitLab
   });
 
   // Helper to update fields
-  const updateField = (key: keyof Vehicle, value: any) => {
-    setFormData((prev: any) => ({ ...prev, [key]: value }));
+  const updateField = (key: keyof VehicleFormData, value: unknown) => {
+    setFormData((prev) => ({ ...prev, [key]: value } as VehicleFormData));
   };
+
+  useEffect(() => {
+    if (!isVinScanOpen) {
+      setHasScannedVin(false);
+      return;
+    }
+    if (cameraPermission?.granted) return;
+    requestCameraPermission();
+  }, [cameraPermission?.granted, isVinScanOpen, requestCameraPermission]);
 
   // Image Picker
   const pickImage = async () => {
@@ -149,15 +193,18 @@ export function VehicleForm({ initialData, onSubmit, isSaving = false, submitLab
   };
 
   // Renderers
-  const renderInput = (label: string, key: keyof Vehicle, placeholder?: string, keyboardType: any = "default", multiline = false) => (
+  const renderInput = (label: string, key: keyof Vehicle, placeholder?: string, keyboardType: KeyboardTypeOptions = "default", multiline = false) => (
     <View style={styles.fieldContainer}>
       <Text style={styles.label}>{label}</Text>
       <Input
-        value={formData[key]?.toString() || ""}
+        value={formData[key] != null ? String(formData[key]) : ""}
         onChangeText={(text) => updateField(key, text)}
         placeholder={placeholder}
         keyboardType={keyboardType}
         multiline={multiline}
+        style={{ backgroundColor: THEME.card, borderColor: THEME.border }}
+        inputStyle={{ color: THEME.text }}
+        placeholderTextColor={THEME.textMuted}
       />
     </View>
   );
@@ -172,13 +219,13 @@ export function VehicleForm({ initialData, onSubmit, isSaving = false, submitLab
             onPress={() => updateField(key, opt)}
             style={[
               styles.chip,
-              formData[key] === opt && { backgroundColor: tokens.primary, borderColor: tokens.primary },
+              formData[key] === opt && { backgroundColor: THEME.primary, borderColor: THEME.primary },
             ]}
           >
             <Text
               style={[
                 styles.chipText,
-                formData[key] === opt && { color: tokens.background, fontWeight: "700" },
+                formData[key] === opt && { color: "#000", fontWeight: "700" },
               ]}
             >
               {opt}
@@ -195,101 +242,112 @@ export function VehicleForm({ initialData, onSubmit, isSaving = false, submitLab
       <Switch
         value={!!formData[key]}
         onValueChange={(val) => updateField(key, val)}
-        trackColor={{ false: tokens.border, true: tokens.primary }}
-        thumbColor={tokens.card}
+        trackColor={{ false: THEME.border, true: THEME.primary }}
+        thumbColor={THEME.text}
       />
     </View>
   );
 
   // Styles
   const styles = StyleSheet.create({
-    container: { flex: 1 },
-    tabsContainer: {
-        paddingHorizontal: 16,
+    container: { flex: 1, backgroundColor: THEME.background },
+    tabsWrapper: {
+        backgroundColor: THEME.background,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: tokens.border,
-        backgroundColor: tokens.card,
+        borderBottomColor: THEME.border,
+    },
+    tabsContainer: {
+        paddingHorizontal: 16,
     },
     tab: {
-      marginRight: 16,
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: tokens.radius.full,
-      backgroundColor: tokens.background,
+      marginRight: 12,
+      paddingVertical: 10,
+      paddingHorizontal: 18,
+      borderRadius: 100,
+      backgroundColor: THEME.card,
       borderWidth: 1,
-      borderColor: tokens.border,
+      borderColor: THEME.border,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 6,
+      gap: 8,
     },
     activeTab: {
-      backgroundColor: tokens.primary,
-      borderColor: tokens.primary,
+      backgroundColor: THEME.primary,
+      borderColor: THEME.primary,
     },
     tabText: {
-      color: tokens.mutedForeground,
+      color: THEME.textMuted,
       fontWeight: "600",
       fontSize: 13,
     },
     activeTabText: {
-      color: tokens.background,
+      color: "#000",
       fontWeight: "800",
     },
     content: {
-      padding: 16,
+      padding: 20,
+      paddingBottom: 100, // Extra padding for footer
     },
     sectionTitle: {
-      fontSize: 18,
+      fontSize: 20,
       fontWeight: "800",
-      color: tokens.accent,
-      marginBottom: 16,
+      color: THEME.text,
+      marginBottom: 20,
       marginTop: 8,
+      letterSpacing: -0.5,
     },
     fieldContainer: {
-      marginBottom: 16,
+      marginBottom: 20,
     },
     label: {
-      fontSize: 13,
-      fontWeight: "700",
-      color: tokens.mutedForeground,
+      fontSize: 14,
+      fontWeight: "600",
+      color: THEME.textMuted,
       marginBottom: 8,
     },
     chipsContainer: {
-      gap: 8,
+      gap: 10,
     },
     chip: {
       paddingHorizontal: 16,
-      paddingVertical: 8,
-      borderRadius: tokens.radius.md,
+      paddingVertical: 10,
+      borderRadius: 12,
       borderWidth: 1,
-      borderColor: tokens.border,
-      backgroundColor: tokens.card,
+      borderColor: THEME.border,
+      backgroundColor: THEME.card,
     },
     chipText: {
-      fontSize: 13,
-      fontWeight: "600",
-      color: tokens.accent,
+      color: THEME.textMuted,
+      fontSize: 14,
+      fontWeight: "500",
     },
     switchRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 16,
-      paddingVertical: 4,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+      backgroundColor: THEME.card,
+      padding: 16,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: THEME.border,
     },
     imageGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 12,
-        marginTop: 8
+        marginBottom: 16,
     },
     imageItem: {
-        width: 100,
-        height: 100,
-        borderRadius: tokens.radius.md,
+        width: (Dimensions.get('window').width - 52) / 3,
+        height: (Dimensions.get('window').width - 52) / 3,
+        borderRadius: 12,
         overflow: 'hidden',
-        position: 'relative'
+        position: 'relative',
+        backgroundColor: THEME.card,
+        borderWidth: 1,
+        borderColor: THEME.border,
     },
     image: {
         width: '100%',
@@ -300,202 +358,210 @@ export function VehicleForm({ initialData, onSubmit, isSaving = false, submitLab
         top: 4,
         right: 4,
         backgroundColor: 'rgba(0,0,0,0.6)',
-        borderRadius: 12,
-        padding: 4
-    },
-    addImageBtn: {
-        width: 100,
-        height: 100,
-        borderRadius: tokens.radius.md,
-        borderWidth: 2,
-        borderColor: tokens.border,
-        borderStyle: 'dashed',
+        borderRadius: 10,
+        width: 20,
+        height: 20,
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: tokens.card
     },
-    featureRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginTop: 8
-    },
-    featureChip: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: tokens.card,
-        borderRadius: tokens.radius.full,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        marginRight: 8,
-        marginBottom: 8,
+    uploadBtn: {
+        width: (Dimensions.get('window').width - 52) / 3,
+        height: (Dimensions.get('window').width - 52) / 3,
+        borderRadius: 12,
+        backgroundColor: THEME.card,
         borderWidth: 1,
-        borderColor: tokens.border
+        borderColor: THEME.border,
+        borderStyle: 'dashed',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+    },
+    uploadText: {
+        fontSize: 12,
+        color: THEME.textMuted,
+        fontWeight: "600",
+    },
+    featuresList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginBottom: 12,
+    },
+    featureTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: THEME.card,
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 100,
+        borderWidth: 1,
+        borderColor: THEME.border,
+        gap: 6,
+    },
+    footer: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 20,
+        backgroundColor: THEME.background,
+        borderTopWidth: 1,
+        borderTopColor: THEME.border,
     }
   });
 
   return (
     <View style={styles.container}>
       {/* Tabs */}
-      <View style={styles.tabsContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {TABS.map((tab) => (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
-              style={[styles.tab, activeTab === tab.key && styles.activeTab]}
-            >
-              <Ionicons 
-                name={tab.icon} 
-                size={16} 
-                color={activeTab === tab.key ? tokens.background : tokens.mutedForeground} 
-              />
-              <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
-                {tab.label}
-              </Text>
-            </Pressable>
-          ))}
+      <View style={styles.tabsWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsContainer}>
+            {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+                <Pressable
+                key={tab.key}
+                onPress={() => setActiveTab(tab.key)}
+                style={[styles.tab, isActive && styles.activeTab]}
+                >
+                <Ionicons 
+                    name={tab.icon} 
+                    size={16} 
+                    color={isActive ? "#000" : THEME.textMuted} 
+                />
+                <Text style={[styles.tabText, isActive && styles.activeTabText]}>
+                    {tab.label}
+                </Text>
+                </Pressable>
+            );
+            })}
         </ScrollView>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         
-        {/* Basic Info Tab */}
+        {/* BASIC INFO TAB */}
         {activeTab === "basic" && (
           <View>
             <Text style={styles.sectionTitle}>Basic Information</Text>
-            {renderInput("Make", "make", "e.g. BMW")}
-            {renderInput("Model", "model", "e.g. 3 Series")}
-            {renderInput("Variant", "variant", "e.g. 320i M Sport")}
-            {renderInput("Year", "year", "2024", "numeric")}
-            {renderInput("Stock Number", "stockNumber", "e.g. STK001")}
-            {renderInput("Branch", "branch", "Main Branch")}
             {renderSelect("Condition", "condition", CONDITIONS)}
-            {renderSelect("Status", "status", STATUSES)}
-            {renderSwitch("Show on Homepage", "showOnHomepage")}
-            {renderSwitch("Special Offer Badge", "isSpecialOffer")}
+            {renderInput("Make", "make", "e.g. Toyota")}
+            {renderInput("Model", "model", "e.g. Hilux")}
+            {renderInput("Variant", "variant", "e.g. 2.8 GD-6 Legend")}
+            {renderInput("Year", "year", "YYYY", "numeric")}
+            {renderInput("Color", "color", "e.g. Glacier White")}
           </View>
         )}
 
-        {/* Specs Tab */}
+        {/* SPECS TAB */}
         {activeTab === "specs" && (
           <View>
             <Text style={styles.sectionTitle}>Specifications</Text>
             {renderInput("Mileage (km)", "mileage", "0", "numeric")}
-            {renderInput("Color", "color", "e.g. Alpine White")}
-            {renderInput("Engine Size", "engineSize", "e.g. 2.0L")}
-            {renderInput("Seats", "seats", "5", "numeric")}
             {renderSelect("Transmission", "transmission", TRANSMISSIONS)}
             {renderSelect("Fuel Type", "fuelType", FUEL_TYPES)}
-            {renderSelect("Drive Type", "drive", DRIVE_TYPES)}
             {renderSelect("Body Type", "bodyType", BODY_TYPES)}
+            {renderSelect("Drive Type", "driveType", DRIVE_TYPES)}
+            {renderInput("Engine Capacity (cc)", "engineCapacity", "e.g. 2800", "numeric")}
+            {renderInput("Power (kW)", "powerKw", "e.g. 150", "numeric")}
+            
+            <View style={styles.fieldContainer}>
+                <Text style={styles.label}>Features</Text>
+                <View style={styles.featuresList}>
+                    {formData.features?.map((f, i) => (
+                        <View key={i} style={styles.featureTag}>
+                            <Text style={{ color: THEME.text, fontSize: 13 }}>{f}</Text>
+                            <Pressable onPress={() => removeFeature(i)}>
+                                <Ionicons name="close-circle" size={16} color={THEME.textMuted} />
+                            </Pressable>
+                        </View>
+                    ))}
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                        <Input
+                            value={newFeature}
+                            onChangeText={setNewFeature}
+                            placeholder="Add feature..."
+                            style={{ backgroundColor: THEME.card, borderColor: THEME.border }}
+                            inputStyle={{ color: THEME.text }}
+                            placeholderTextColor={THEME.textMuted}
+                        />
+                    </View>
+                    <Button onPress={addFeature} style={{ width: 50, height: 50, borderRadius: 12, paddingHorizontal: 0 }} variant="outline">
+                        <Ionicons name="add" size={24} color={THEME.primary} />
+                    </Button>
+                </View>
+            </View>
           </View>
         )}
 
-        {/* Pricing Tab */}
+        {/* PRICING TAB */}
         {activeTab === "pricing" && (
           <View>
-            <Text style={styles.sectionTitle}>Pricing</Text>
+            <Text style={styles.sectionTitle}>Pricing & Costs</Text>
             {renderInput("Selling Price (R)", "price", "0.00", "numeric")}
-            {renderSwitch("On Promotion (Show Was Price)", "showOriginalPrice")}
-            {formData.showOriginalPrice && (
-                renderInput("Was Price (Original)", "originalPrice", "0.00", "numeric")
-            )}
-            {renderInput("Est. Monthly Payment", "estMonthlyPayment", "0.00", "numeric")}
+            {renderInput("Cost Price (R)", "costPrice", "0.00", "numeric")}
+            {renderInput("Est. Reconditioning (R)", "reconditioningCost", "0.00", "numeric")}
+            {renderInput("Est. Monthly Payment (R)", "estMonthlyPayment", "0.00", "numeric")}
+            {renderSwitch("Show Original Price?", "showOriginalPrice")}
+            {formData.showOriginalPrice && renderInput("Original Price (R)", "originalPrice", "0.00", "numeric")}
+            {renderSwitch("Special Offer?", "isSpecialOffer")}
           </View>
         )}
 
-        {/* Media Tab */}
+        {/* MEDIA TAB */}
         {activeTab === "media" && (
           <View>
-            <Text style={styles.sectionTitle}>Media & Content</Text>
-            
-            <Text style={styles.label}>Photos ({formData.images?.length || 0})</Text>
+            <Text style={styles.sectionTitle}>Photos</Text>
             <View style={styles.imageGrid}>
-                {formData.images?.map((uri: string, index: number) => (
+                {formData.images?.map((uri, index) => (
                     <View key={index} style={styles.imageItem}>
                         <Image source={{ uri }} style={styles.image} resizeMode="cover" />
-                        <Pressable style={styles.removeBtn} onPress={() => removeImage(index)}>
-                            <Ionicons name="close" size={14} color="white" />
+                        <Pressable onPress={() => removeImage(index)} style={styles.removeBtn}>
+                            <Ionicons name="close" size={12} color="#fff" />
                         </Pressable>
                     </View>
                 ))}
-                <Pressable style={styles.addImageBtn} onPress={pickImage} disabled={isUploading}>
+                <Pressable onPress={pickImage} style={styles.uploadBtn} disabled={isUploading}>
                     {isUploading ? (
-                        <ActivityIndicator color={tokens.primary} />
+                        <ActivityIndicator color={THEME.primary} />
                     ) : (
-                        <Ionicons name="add" size={32} color={tokens.mutedForeground} />
+                        <>
+                            <Ionicons name="camera-outline" size={24} color={THEME.textMuted} />
+                            <Text style={styles.uploadText}>Add Photo</Text>
+                        </>
                     )}
                 </Pressable>
             </View>
-
-            <View style={{ height: 24 }} />
-
-            <Text style={styles.label}>Description</Text>
-            {renderSelect("Description Mode", "descriptionMode", ["ai", "manual"])}
-            {formData.descriptionMode === 'manual' && (
-                renderInput("Manual Description", "description", "Enter vehicle description...", "default", true)
-            )}
-            
-            <View style={{ height: 24 }} />
-            
-            <Text style={styles.label}>Features</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                {formData.features?.map((feat: string, idx: number) => (
-                    <View key={idx} style={styles.featureChip}>
-                        <Text style={{ color: tokens.accent, fontSize: 12 }}>{feat}</Text>
-                        <Pressable onPress={() => removeFeature(idx)}>
-                            <Ionicons name="close-circle" size={16} color={tokens.mutedForeground} style={{ marginLeft: 4 }} />
-                        </Pressable>
-                    </View>
-                ))}
-            </View>
-            <View style={styles.featureRow}>
-                <View style={{ flex: 1 }}>
-                    <Input 
-                        value={newFeature} 
-                        onChangeText={setNewFeature} 
-                        placeholder="Add feature (e.g. Sunroof)" 
-                    />
-                </View>
-                <Button size="sm" onPress={addFeature} disabled={!newFeature.trim()}>Add</Button>
-            </View>
+            {renderInput("Video URL", "videoUrl", "https://youtube.com/...", "url")}
           </View>
         )}
 
-        {/* Internal Tab */}
+        {/* INTERNAL TAB */}
         {activeTab === "internal" && (
           <View>
-            <Text style={styles.sectionTitle}>Internal & Admin</Text>
-            {renderInput("VIN Number", "vin", "Vehicle Identification Number")}
-            {renderInput("Engine Number", "engineNumber", "")}
-            {renderInput("Natis Number", "natisNumber", "")}
-            {renderInput("Registration Number", "registrationNumber", "")}
-            {renderInput("Cost Price (R)", "costPrice", "0.00", "numeric")}
-            {renderInput("Reconditioning Cost (R)", "reconditioningCost", "0.00", "numeric")}
-            {renderInput("Supplier / Source", "supplier", "")}
-            {renderInput("Previous Owner", "previousOwner", "")}
-            {renderInput("Key Number", "keyNumber", "")}
-            {renderSwitch("Service History", "serviceHistory")}
-            {renderSwitch("Active Motoplan", "motoplan")}
-            {formData.motoplan && (
-                renderInput("Motoplan Expiry (YYYY-MM-DD)", "motoplanUntil", "2025-12-31")
-            )}
-            {renderInput("Purchase Date (YYYY-MM-DD)", "purchaseDate", "2024-01-01")}
+            <Text style={styles.sectionTitle}>Internal Details</Text>
+            {renderInput("Stock Number", "stockNumber", "e.g. STK001")}
+            {renderInput("VIN Number", "vin", "17 Characters")}
+            {renderInput("License Plate", "registration", "e.g. CA 123-456")}
+            {renderInput("Branch", "branch", "Main Branch")}
+            {renderSelect("Status", "status", STATUSES)}
+            {renderInput("Private Notes", "adminNotes", "Internal use only...", "default", true)}
           </View>
         )}
+      </ScrollView>
 
-        <View style={{ height: 32 }} />
+      {/* Footer Action */}
+      <View style={styles.footer}>
         <Button 
             onPress={() => onSubmit(formData)} 
-            disabled={isSaving || isUploading}
-            size="lg"
+            disabled={isSaving}
+            style={{ backgroundColor: THEME.primary, height: 56 }}
+            textStyle={{ color: "#000", fontSize: 16, fontWeight: "800" }}
         >
             {isSaving ? "Saving..." : submitLabel}
         </Button>
-        <View style={{ height: 48 }} />
-
-      </ScrollView>
+      </View>
     </View>
   );
 }

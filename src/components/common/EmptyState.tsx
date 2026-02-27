@@ -9,7 +9,7 @@ export function EmptyState({
 }: {
   title: string;
   description?: string;
-  icon?: string;
+  icon?: keyof typeof Ionicons.glyphMap;
 }) {
   const { tokens } = useTheme();
   const styles = StyleSheet.create({
@@ -28,7 +28,7 @@ export function EmptyState({
 
   return (
     <View style={styles.wrap}>
-      {icon && <Ionicons name={icon as any} size={48} color={tokens.mutedForeground} />}
+      {icon && <Ionicons name={icon} size={48} color={tokens.mutedForeground} />}
       <Text style={styles.title}>{title}</Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
     </View>

@@ -6,9 +6,11 @@ type BadgeVariant = "default" | "muted" | "destructive" | "outline";
 export function Badge({
   children,
   variant = "muted",
+  style,
 }: {
   children: React.ReactNode;
   variant?: BadgeVariant;
+  style?: import("react-native").ViewStyle;
 }) {
   const { tokens } = useTheme();
 
@@ -44,7 +46,7 @@ export function Badge({
   });
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, style]}>
       <Text style={styles.text}>{children}</Text>
     </View>
   );

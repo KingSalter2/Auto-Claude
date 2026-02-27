@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, limit, onSnapshot, orderBy, query, updateDoc } from "firebase/firestore";
 import { firebaseDb } from "../lib/firebase";
 import type { FuelType, Transmission, Vehicle, VehicleCondition, VehicleStatus } from "../models/vehicle";
 
@@ -41,6 +41,17 @@ function toMaybeIso(v: unknown) {
   return null;
 }
 
+function toMaybeNumber(v: unknown): number | undefined {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string") {
+    const normalized = v.trim().replace(/[^0-9.-]/g, "");
+    if (normalized.length === 0) return undefined;
+    const n = Number(normalized);
+    if (Number.isFinite(n)) return n;
+  }
+  return undefined;
+}
+
 function vehicleFromFirestore(id: string, data: Record<string, unknown>): Vehicle {
   return {
     id,
@@ -69,16 +80,15 @@ function vehicleFromFirestore(id: string, data: Record<string, unknown>): Vehicl
     images: Array.isArray(data.images) ? (data.images.filter((x) => typeof x === "string") as string[]) : [],
     createdAt: toIso(data.createdAt),
     
-    // New fields
-    drive: typeof data.drive === "string" && ["FWD", "RWD", "AWD", "4x4", "4x2"].includes(data.drive) ? data.drive as any : undefined,
-    seats: typeof data.seats === "number" ? data.seats : undefined,
+    drive: typeof data.drive === "string" && ["FWD", "RWD", "AWD", "4x4", "4x2"].includes(data.drive) ? (data.drive as Vehicle["drive"]) : undefined,
+    seats: toMaybeNumber(data.seats),
     features: Array.isArray(data.features) ? (data.features.filter((x) => typeof x === "string") as string[]) : [],
-    estMonthlyPayment: typeof data.estMonthlyPayment === "number" ? data.estMonthlyPayment : undefined,
+    estMonthlyPayment: toMaybeNumber(data.estMonthlyPayment),
     vin: typeof data.vin === "string" ? data.vin : undefined,
     engineNumber: typeof data.engineNumber === "string" ? data.engineNumber : undefined,
     registrationNumber: typeof data.registrationNumber === "string" ? data.registrationNumber : undefined,
-    costPrice: typeof data.costPrice === "number" ? data.costPrice : undefined,
-    reconditioningCost: typeof data.reconditioningCost === "number" ? data.reconditioningCost : undefined,
+    costPrice: toMaybeNumber(data.costPrice),
+    reconditioningCost: toMaybeNumber(data.reconditioningCost),
     natisNumber: typeof data.natisNumber === "string" ? data.natisNumber : undefined,
     previousOwner: typeof data.previousOwner === "string" ? data.previousOwner : undefined,
     keyNumber: typeof data.keyNumber === "string" ? data.keyNumber : undefined,
@@ -86,8 +96,8 @@ function vehicleFromFirestore(id: string, data: Record<string, unknown>): Vehicl
     purchaseDate: toMaybeIso(data.purchaseDate) || undefined,
     branch: typeof data.branch === "string" ? data.branch : "Main",
     description: typeof data.description === "string" ? data.description : undefined,
-    descriptionMode: typeof data.descriptionMode === "string" && ["ai", "manual"].includes(data.descriptionMode) ? data.descriptionMode as any : "manual",
-    warrantyMonths: typeof data.warrantyMonths === "number" ? data.warrantyMonths : undefined,
+    descriptionMode: typeof data.descriptionMode === "string" && ["ai", "manual"].includes(data.descriptionMode) ? (data.descriptionMode as Vehicle["descriptionMode"]) : "manual",
+    warrantyMonths: toMaybeNumber(data.warrantyMonths),
   };
 }
 
@@ -103,10 +113,37 @@ export function subscribeInventoryVehicles(opts: { onNext: (vehicles: Vehicle[])
   );
 }
 
+export function subscribeRecentInventoryVehicles(opts: { onNext: (vehicles: Vehicle[]) => void; take?: number }) {
+  const q = query(collection(firebaseDb, "inventory"), orderBy("createdAt", "desc"), limit(opts.take ?? 50));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const vehicles = snap.docs.map((d) => vehicleFromFirestore(d.id, d.data() as Record<string, unknown>));
+      opts.onNext(vehicles);
+    },
+    () => opts.onNext([]),
+  );
+}
+
 export async function getVehicle(id: string) {
   const snap = await getDoc(doc(firebaseDb, "inventory", id));
   if (!snap.exists()) throw new Error("Vehicle not found");
-  return vehicleFromFirestore(snap.id, snap.data() as Record<string, unknown>);
+  const vehicle = vehicleFromFirestore(snap.id, snap.data() as Record<string, unknown>);
+
+  const hasStoredMonthly =
+    typeof vehicle.estMonthlyPayment === "number" && Number.isFinite(vehicle.estMonthlyPayment) && vehicle.estMonthlyPayment > 0;
+  if (hasStoredMonthly) return vehicle;
+
+  const publicSnap = await getDoc(doc(firebaseDb, "inventory_public", id));
+  if (!publicSnap.exists()) return vehicle;
+
+  const publicData = publicSnap.data() as Record<string, unknown>;
+  const publicMonthly = toMaybeNumber(publicData.estMonthlyPayment);
+  if (typeof publicMonthly === "number" && Number.isFinite(publicMonthly) && publicMonthly > 0) {
+    return { ...vehicle, estMonthlyPayment: publicMonthly };
+  }
+
+  return vehicle;
 }
 
 function cleanUndefined(obj: Record<string, unknown>) {

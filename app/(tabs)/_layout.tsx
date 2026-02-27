@@ -1,10 +1,16 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { Animated, StyleSheet, View } from "react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 
 import { useTheme } from "../../src/theme/useTheme";
-import { subscribeNewLeadCount } from "../../src/services/leadService";
+import { subscribeAssignedLeads, subscribeNewLeadCount, subscribePendingFollowUps, subscribeRecentLeads } from "../../src/services/leadService";
+import { useAuth } from "../../src/auth/AuthContext";
+import { subscribeRecentInventoryVehicles } from "../../src/services/vehicleService";
+import { subscribeNotifications, subscribeUnreadNotificationCount, upsertNotification } from "../../src/services/notificationService";
 
 function TabIcon({
   name,
@@ -65,60 +71,362 @@ function TabIcon({
 }
 
 export default function TabLayout() {
-  const { tokens, mode } = useTheme();
+  const { tokens } = useTheme();
+  const router = useRouter();
+  const { user, userProfile, canAccess } = useAuth();
   const [newLeadCount, setNewLeadCount] = useState(0);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const canSeeLeads = canAccess("Leads & CRM");
+  const canSeeInventory = canAccess("Inventory");
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
+    if (!canSeeLeads) {
+      setNewLeadCount(0);
+      return;
+    }
     return subscribeNewLeadCount({ onNext: setNewLeadCount });
-  }, []);
+  }, [canSeeLeads]);
+
+  useEffect(() => {
+    if (!userProfile?.email) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+    return subscribeUnreadNotificationCount({ recipientEmail: userProfile.email, onNext: setUnreadNotificationCount });
+  }, [userProfile?.email]);
+
+  const notificationSoundInitRef = useRef(false);
+  const lastSoundNotificationIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!userProfile?.email) {
+      notificationSoundInitRef.current = false;
+      lastSoundNotificationIdRef.current = null;
+      return;
+    }
+
+    const email = userProfile.email.trim().toLowerCase();
+    return subscribeNotifications({
+      recipientEmail: email,
+      take: 5,
+      onNext: (items) => {
+        const newest = items[0];
+        if (!notificationSoundInitRef.current) {
+          notificationSoundInitRef.current = true;
+          lastSoundNotificationIdRef.current = newest?.id ?? null;
+          return;
+        }
+        if (!newest) return;
+        if (newest.id === lastSoundNotificationIdRef.current) return;
+        lastSoundNotificationIdRef.current = newest.id;
+        void Notifications.scheduleNotificationAsync({
+          content: {
+            title: newest.title || "Notification",
+            body: newest.message || "",
+            sound: "default",
+            data: {
+              entityType: newest.entityType,
+              entityId: newest.entityId,
+              link: newest.link ?? null,
+              notificationId: newest.id,
+            },
+          },
+          trigger: null,
+        }).catch(() => {});
+      },
+      onError: () => {},
+    });
+  }, [userProfile?.email]);
+
+  const leadInitRef = useRef(false);
+  const leadLastCheckRef = useRef(0);
+  useEffect(() => {
+    if (!userProfile?.email) return;
+    if (!canSeeLeads) return;
+
+    const email = userProfile.email.trim().toLowerCase();
+    const key = `automate.notifications.leads.new.lastCheck.${email}`;
+    let unsub: (() => void) | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      const raw = await AsyncStorage.getItem(key);
+      const lastCheck = Number(raw ?? "0");
+      leadLastCheckRef.current = Number.isFinite(lastCheck) ? lastCheck : 0;
+      leadInitRef.current = leadLastCheckRef.current > 0;
+
+      if (cancelled) return;
+      unsub = subscribeRecentLeads({
+        take: 25,
+        onNext: (leads) => {
+          const nowMs = Date.now();
+          for (const lead of leads) {
+            if (lead.status !== "new") continue;
+            const createdAtMs = Date.parse(lead.createdAt);
+            if (!Number.isFinite(createdAtMs)) continue;
+            if (leadLastCheckRef.current > 0 && createdAtMs <= leadLastCheckRef.current) continue;
+            if (!leadInitRef.current && leadLastCheckRef.current === 0) continue;
+
+            void upsertNotification({
+              type: "lead_new",
+              recipientEmail: email,
+              recipientUid: user?.uid ?? null,
+              title: "New lead",
+              message: "A new lead just came in.",
+              entityType: "lead_submission",
+              entityId: lead.id,
+              link: `/leads/${lead.id}`,
+              eventKey: lead.id,
+            }).catch(() => {});
+          }
+          leadInitRef.current = true;
+          leadLastCheckRef.current = nowMs;
+          void AsyncStorage.setItem(key, String(nowMs));
+        },
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [canSeeLeads, user?.uid, userProfile?.email]);
+
+  const assignedInitRef = useRef(false);
+  const assignedLastCheckRef = useRef(0);
+  useEffect(() => {
+    if (!userProfile?.email) return;
+    if (!canSeeLeads) return;
+
+    const email = userProfile.email.trim().toLowerCase();
+    const key = `automate.notifications.leads.assigned.lastCheck.${email}`;
+    let unsub: (() => void) | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      const raw = await AsyncStorage.getItem(key);
+      const lastCheck = Number(raw ?? "0");
+      assignedLastCheckRef.current = Number.isFinite(lastCheck) ? lastCheck : 0;
+      assignedInitRef.current = assignedLastCheckRef.current > 0;
+
+      if (cancelled) return;
+      unsub = subscribeAssignedLeads({
+        recipientEmail: email,
+        take: 25,
+        onNext: (leads) => {
+          const nowMs = Date.now();
+          for (const lead of leads) {
+            const assignedAt = lead.assignedAt ? Date.parse(lead.assignedAt) : Number.NaN;
+            if (!Number.isFinite(assignedAt)) continue;
+            if (assignedLastCheckRef.current > 0 && assignedAt <= assignedLastCheckRef.current) continue;
+            if (!assignedInitRef.current && assignedLastCheckRef.current === 0) continue;
+
+            void upsertNotification({
+              type: "lead_assigned",
+              recipientEmail: email,
+              recipientUid: user?.uid ?? null,
+              title: "Lead assigned",
+              message: "A lead was assigned to you.",
+              entityType: "lead_submission",
+              entityId: lead.id,
+              link: `/leads/${lead.id}`,
+              eventKey: `${lead.id}__${lead.assignedAt ?? ""}`,
+            }).catch(() => {});
+          }
+          assignedInitRef.current = true;
+          assignedLastCheckRef.current = nowMs;
+          void AsyncStorage.setItem(key, String(nowMs));
+        },
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      unsub?.();
+    };
+  }, [canSeeLeads, user?.uid, userProfile?.email]);
+
+  const followUpNotifiedRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!userProfile?.email) return;
+    if (!canSeeLeads) return;
+
+    const email = userProfile.email.trim().toLowerCase();
+    return subscribePendingFollowUps({
+      recipientEmail: email,
+      take: 50,
+      onNext: (leads) => {
+        const now = Date.now();
+        for (const lead of leads) {
+          if (!lead.followUpAt) continue;
+          const followUpAtMs = Date.parse(lead.followUpAt);
+          if (!Number.isFinite(followUpAtMs)) continue;
+          if (followUpAtMs > now) continue;
+
+          const eventKey = `${lead.id}__${lead.followUpAt}`;
+          if (followUpNotifiedRef.current.has(eventKey)) continue;
+          followUpNotifiedRef.current.add(eventKey);
+
+          void upsertNotification({
+            type: "lead_followup_due",
+            recipientEmail: email,
+            recipientUid: user?.uid ?? null,
+            title: "Follow-up due",
+            message: "A follow-up is due now.",
+            entityType: "lead_submission",
+            entityId: lead.id,
+            link: `/leads/${lead.id}`,
+            eventKey,
+          }).catch(() => {});
+        }
+      },
+    });
+  }, [canSeeLeads, user?.uid, userProfile?.email]);
+
+  const vehicleInitRef = useRef(false);
+  const vehicleStatusRef = useRef(new Map<string, string>());
+  useEffect(() => {
+    if (!userProfile?.email) return;
+    if (!canSeeInventory) return;
+
+    const email = userProfile.email.trim().toLowerCase();
+    return subscribeRecentInventoryVehicles({
+      take: 50,
+      onNext: (vehicles) => {
+        for (const v of vehicles) {
+          const prev = vehicleStatusRef.current.get(v.id);
+          vehicleStatusRef.current.set(v.id, v.status);
+          if (!vehicleInitRef.current) continue;
+          if (prev && prev !== v.status) {
+            const title = "Vehicle status changed";
+            const message = `${[String(v.make ?? ""), String(v.model ?? "")].filter(Boolean).join(" ")}${
+              v.stockNumber ? ` (#${v.stockNumber})` : ""
+            } is now ${v.status}.`;
+            void upsertNotification({
+              type: "vehicle_status_changed",
+              recipientEmail: email,
+              recipientUid: user?.uid ?? null,
+              title,
+              message,
+              entityType: "inventory",
+              entityId: v.id,
+              link: `/inventory/${v.id}`,
+              eventKey: `${v.id}__${prev}->${v.status}`,
+            }).catch(() => {});
+          }
+        }
+        vehicleInitRef.current = true;
+      },
+    });
+  }, [canSeeInventory, user?.uid, userProfile?.email]);
 
   const tabBarStyle = useMemo(
     () => ({
-      backgroundColor: tokens.card,
-      borderTopColor: tokens.border,
+      position: "absolute" as const,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 85 + (insets.bottom > 0 ? insets.bottom - 10 : 0), // Adjust height for safe area
+      borderTopLeftRadius: 30,
+      borderTopRightRadius: 30,
+      backgroundColor: "#27272a", // Lighter zinc-800 to stand out from black background
+      borderTopWidth: 1,
+      borderWidth: 0,
+      borderColor: "#3f3f46", // Lighter border
+      elevation: 5,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 10,
+      paddingTop: 10,
+      paddingBottom: insets.bottom, // Add safe area padding
     }),
-    [tokens.card, tokens.border],
+    [insets.bottom],
   );
 
   return (
-    <Tabs
-      screenOptions={{
-        headerStyle: { backgroundColor: tokens.background },
-        headerTitleStyle: { color: tokens.accent },
-        headerTintColor: tokens.accent,
-        tabBarStyle,
-        tabBarActiveTintColor: tokens.primary,
-        tabBarInactiveTintColor: mode === "dark" ? "rgba(255,255,255,0.6)" : tokens.mutedForeground,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          headerStyle: { backgroundColor: tokens.background },
+          headerTitleStyle: { color: tokens.accent },
+          headerTintColor: tokens.accent,
+          tabBarStyle,
+          tabBarActiveTintColor: "#FACC15", // Yellow active color
+          tabBarInactiveTintColor: "#A1A1AA", // Muted grey
+          tabBarLabelStyle: {
+            fontSize: 10,
+            fontWeight: "600",
+            marginBottom: 5,
+          },
         }}
-      />
-      <Tabs.Screen
-        name="leads"
-        options={{
-          title: "Leads",
-          tabBarIcon: ({ color }) => <TabIcon name="users" color={color} badgeCount={newLeadCount} />,
-        }}
-      />
-      <Tabs.Screen
-        name="inventory"
-        options={{
-          title: "Inventory",
-          tabBarIcon: ({ color }) => <TabIcon name="car" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: "Settings",
-          tabBarIcon: ({ color }) => <TabIcon name="cog" color={color} />,
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Dashboard",
+            tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="leads"
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              router.replace("/leads");
+            },
+          }}
+          options={{
+            title: "Leads",
+            headerShown: false,
+            tabBarIcon: ({ color }) => <TabIcon name="users" color={color} badgeCount={newLeadCount} />,
+          }}
+        />
+        <Tabs.Screen
+          name="inventory"
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              router.replace("/inventory");
+            },
+          }}
+          options={{
+            title: "Inventory",
+            headerShown: false,
+            tabBarIcon: ({ color }) => <TabIcon name="car" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="contacts"
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault();
+              router.replace("/contacts");
+            },
+          }}
+          options={{
+            title: "Contacts",
+            headerShown: false,
+            tabBarIcon: ({ color }) => <TabIcon name="address-book" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="notifications"
+          options={{
+            href: null,
+            title: "Alerts",
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="settings"
+          options={{
+            title: "Settings",
+            headerShown: false,
+            tabBarIcon: ({ color }) => <TabIcon name="cog" color={color} />,
+          }}
+        />
+      </Tabs>
+    </View>
   );
 }
