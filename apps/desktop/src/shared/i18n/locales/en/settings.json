@@ -410,6 +410,7 @@
     "resetToDefaults": "Reset to defaults",
     "resetToProfileDefaults": "Reset to {{profile}} defaults",
     "customized": "Customized",
+    "ollamaNotConfigured": "Select models below",
     "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
     "adaptiveThinking": {
       "badge": "Adaptive",
@@ -467,7 +468,8 @@
       "noProviders": "No providers connected. Add accounts in the Accounts settings to configure provider-specific agent settings.",
       "configureFor": "Configure agent settings for {{provider}}",
       "crossProvider": "Cross-Provider",
-      "crossProviderDisabledTooltip": "Connect two or more provider accounts to enable cross-provider capabilities"
+      "crossProviderDisabledTooltip": "Connect two or more provider accounts to enable cross-provider capabilities",
+      "needsSetup": "Setup required"
     },
     "crossProviderTab": {
       "title": "Cross-Provider Configuration",
@@ -710,6 +712,9 @@
       "codexSubscription": "Codex Subscription",
       "claudeCode": "Claude Code",
       "claudeCodeSubscription": "Claude Code Subscription",
+      "zaiCodingPlan": "Coding Plan",
+      "zaiUsageBased": "Usage-Based",
+      "zaiCodingPlanSubscription": "Z.AI Coding Plan",
       "apiKey": "API Key",
       "active": "Active",
       "setDefault": "Set Active",
@@ -730,6 +735,8 @@
       "addOAuth": "Add OAuth Account",
       "addClaudeCode": "Add Claude Code Account",
       "addCodexSubscription": "Add Codex Subscription",
+      "addCodingPlan": "Add Coding Plan",
+      "addUsageBased": "Add Usage-Based API Key",
       "addApiKey": "Add API Key",
       "addEndpoint": "Add Endpoint"
     },
@@ -747,6 +754,8 @@
       "optional": "(optional)",
       "oauthDescription": "Connect using OAuth authentication",
       "apiKeyDescription": "Add your API key and configuration",
+      "zaiCodingPlanDescription": "Add your Z.AI Coding Plan API key to use GLM models with your subscription",
+      "zaiUsageBasedDescription": "Add your Z.AI usage-based API key for pay-per-use access to GLM models",
       "codexOAuthDescription": "Sign in with your ChatGPT Plus or Pro subscription to use Codex models",
       "codexAuthenticating": "Opening OpenAI login in your browser...",
       "codexWaiting": "Waiting for browser authentication...",

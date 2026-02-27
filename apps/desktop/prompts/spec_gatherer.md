@@ -37,17 +37,14 @@ You MUST create `requirements.json` with this EXACT structure:
 
 ---
 
-## PHASE 0: LOAD PROJECT CONTEXT
+## PHASE 0: REVIEW PROVIDED CONTEXT
 
-```bash
-# Read project structure
-cat project_index.json
-```
-
-Understand:
+The project index and any prior phase outputs have been provided in your kickoff message. Review them to understand:
 - What type of project is this? (monorepo, single service)
 - What services exist?
 - What tech stack is used?
+
+**IMPORTANT**: Do NOT re-read the entire project structure from scratch. The project index already contains this information. Only read specific files if you need details not covered in the provided context.
 
 ---
 
@@ -235,4 +232,4 @@ cat requirements.json
 
 ## BEGIN
 
-Start by reading project_index.json, then engage with the user.
+Review the project index provided in your kickoff message, then engage with the user.

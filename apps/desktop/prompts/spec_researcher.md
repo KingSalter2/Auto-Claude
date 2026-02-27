@@ -17,11 +17,11 @@ You MUST create `research.json` with validated information about each integratio
 
 ---
 
-## PHASE 0: LOAD REQUIREMENTS
+## PHASE 0: REVIEW PROVIDED CONTEXT
 
-```bash
-cat requirements.json
-```
+The requirements.json and project index have been provided in your kickoff message. Review them.
+
+**IMPORTANT**: Do NOT re-read requirements.json from disk — it is already in your kickoff message.
 
 Identify from the requirements:
 1. **External libraries** mentioned (packages, SDKs)
@@ -339,4 +339,4 @@ Input: {
 
 ## BEGIN
 
-Start by reading requirements.json, then research each integration mentioned.
+Review the requirements provided in your kickoff message, then research each integration mentioned.

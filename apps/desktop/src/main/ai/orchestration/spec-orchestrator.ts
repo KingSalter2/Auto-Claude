@@ -2,19 +2,19 @@
  * Spec Orchestrator
  * =================
  *
- * See apps/desktop/src/main/ai/orchestration/spec-orchestrator.ts for the TypeScript implementation.
+ * Drives the spec creation pipeline through complexity-first phase selection:
+ *   complexity_assessment → [phases based on tier]
  *
- * Drives the spec creation pipeline through dynamic complexity-based phase selection:
- *   discovery → requirements → complexity_assessment → [research] → context →
- *   spec_writing → [self_critique] → planning → validation
- *
- * Each phase invokes `runSession()` with the appropriate agent type and prompt.
- * Complexity assessment determines which phases to run:
- *   - SIMPLE: discovery → requirements → quick_spec → validation (3 phases)
- *   - STANDARD: discovery → requirements → context → spec_writing → planning → validation
+ * Complexity assessment runs FIRST to gate the workflow:
+ *   - SIMPLE: quick_spec → validation (2 phases — no discovery/requirements)
+ *   - STANDARD: discovery → requirements → spec_writing → planning → validation
  *   - COMPLEX: Full pipeline including research and self-critique
+ *
+ * Context accumulation: after each phase, output files are captured and injected
+ * into the next phase's kickoff message, eliminating redundant file re-reads.
  */
 
+import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EventEmitter } from 'events';
 
@@ -30,11 +30,14 @@ import type { SessionResult } from '../session/types';
 /** Maximum retries for a single phase */
 const MAX_PHASE_RETRIES = 2;
 
+/** Maximum characters of a single phase output to carry forward */
+const MAX_PHASE_OUTPUT_SIZE = 12_000;
+
 // =============================================================================
 // Types
 // =============================================================================
 
-/** Complexity tiers (matches Python spec/complexity.py) */
+/** Complexity tiers */
 export type ComplexityTier = 'simple' | 'standard' | 'complex';
 
 /** Spec creation phases (ordered) */
@@ -66,10 +69,18 @@ const PHASE_AGENT_MAP: Record<SpecPhase, AgentType> = {
   quick_spec: 'spec_writer',
 } as const;
 
-/** Phases to run for each complexity tier */
+/**
+ * Phases to run for each complexity tier.
+ * Complexity assessment runs BEFORE these phases as the gating step.
+ *
+ * - SIMPLE: skip discovery & requirements entirely — quick_spec handles everything.
+ * - STANDARD: discovery builds context.json, requirements gathers formal reqs,
+ *   then spec_writing + planning. 'context' phase removed (redundant with discovery).
+ * - COMPLEX: full pipeline including research and self-critique.
+ */
 const COMPLEXITY_PHASES: Record<ComplexityTier, SpecPhase[]> = {
-  simple: ['discovery', 'requirements', 'quick_spec', 'validation'],
-  standard: ['discovery', 'requirements', 'context', 'spec_writing', 'planning', 'validation'],
+  simple: ['quick_spec', 'validation'],
+  standard: ['discovery', 'requirements', 'spec_writing', 'planning', 'validation'],
   complex: [
     'discovery',
     'requirements',
@@ -81,6 +92,19 @@ const COMPLEXITY_PHASES: Record<ComplexityTier, SpecPhase[]> = {
     'validation',
   ],
 } as const;
+
+/** Maps each phase to the output files it typically produces */
+const PHASE_OUTPUTS: Partial<Record<SpecPhase, string[]>> = {
+  discovery: ['context.json'],
+  requirements: ['requirements.json'],
+  complexity_assessment: ['complexity_assessment.json'],
+  research: ['research.json'],
+  context: ['context.json'],
+  spec_writing: ['spec.md'],
+  self_critique: ['spec.md', 'critique_report.json'],
+  planning: ['implementation_plan.json'],
+  quick_spec: ['spec.md', 'implementation_plan.json'],
+};
 
 /** Configuration for the spec orchestrator */
 export interface SpecOrchestratorConfig {
@@ -94,6 +118,8 @@ export interface SpecOrchestratorConfig {
   complexityOverride?: ComplexityTier;
   /** Whether to use AI for complexity assessment (default: true) */
   useAiAssessment?: boolean;
+  /** Pre-generated project index JSON content (injected into all phases) */
+  projectIndex?: string;
   /** CLI model override */
   cliModel?: string;
   /** CLI thinking level override */
@@ -118,8 +144,10 @@ export interface SpecPromptContext {
   taskDescription?: string;
   /** Complexity tier (after assessment) */
   complexity?: ComplexityTier;
-  /** Summaries from prior phases (for conversation compaction) */
-  priorPhaseSummaries?: Record<string, string>;
+  /** Pre-generated project index (JSON string) */
+  projectIndex?: string;
+  /** Accumulated outputs from prior phases (filename → content) */
+  priorPhaseOutputs?: Record<string, string>;
   /** Retry attempt number (0 = first try) */
   attemptCount: number;
 }
@@ -135,6 +163,10 @@ export interface SpecSessionRunConfig {
   abortSignal?: AbortSignal;
   cliModel?: string;
   cliThinking?: string;
+  /** Accumulated outputs from prior phases (filename → content) for kickoff enrichment */
+  priorPhaseOutputs?: Record<string, string>;
+  /** Pre-generated project index (JSON string) */
+  projectIndex?: string;
 }
 
 /** Result of a single phase execution */
@@ -210,98 +242,95 @@ export class SpecOrchestrator extends EventEmitter {
    * Run the full spec creation pipeline.
    *
    * Phase progression:
-   * 1. Discovery — analyze project structure and gather context
-   * 2. Requirements — gather and validate user requirements
-   * 3. Complexity assessment — determine task complexity
-   * 4. Remaining phases based on complexity tier
-   * 5. Validation — validate the final spec
+   * 1. Complexity assessment — gate the workflow (uses task description + project index)
+   * 2. Phases based on complexity tier (SIMPLE skips discovery/requirements entirely)
+   *
+   * After each phase, output files are captured and injected into subsequent phases
+   * to eliminate redundant file re-reads between agents.
    */
   async run(): Promise<SpecOutcome> {
     const startTime = Date.now();
     const phasesExecuted: SpecPhase[] = [];
 
     try {
-      // Determine complexity and phases to run
-      const complexity = this.config.complexityOverride ?? 'standard';
-      let phasesToRun = [...COMPLEXITY_PHASES[complexity]];
+      // ===================================================================
+      // Step 1: Determine complexity (runs FIRST to gate the workflow)
+      // ===================================================================
+      let complexity: ComplexityTier;
 
-      // Run initial phases: discovery + requirements
-      for (const phase of ['discovery', 'requirements'] as SpecPhase[]) {
+      if (this.config.complexityOverride) {
+        complexity = this.config.complexityOverride;
+        this.emitTyped('log', `Complexity override: ${complexity}`);
+      } else if (this.config.useAiAssessment !== false) {
+        // Run AI complexity assessment as the first phase
         if (this.aborted) {
           return this.outcome(false, phasesExecuted, Date.now() - startTime, 'Cancelled');
         }
 
-        const result = await this.runPhase(phase, phasesExecuted.length + 1, phasesToRun.length);
-        phasesExecuted.push(phase);
+        const assessResult = await this.runComplexityAssessment(1);
+        phasesExecuted.push('complexity_assessment');
+        await this.capturePhaseOutput('complexity_assessment');
 
-        if (!result.success) {
-          return this.outcome(false, phasesExecuted, Date.now() - startTime, result.errors.join('; '));
-        }
-      }
-
-      // Run complexity assessment (if not overridden)
-      if (!this.config.complexityOverride) {
-        if (this.config.useAiAssessment !== false) {
-          const assessResult = await this.runComplexityAssessment(phasesExecuted.length + 1);
-          phasesExecuted.push('complexity_assessment');
-
-          if (!assessResult.success) {
-            // Fall back to standard complexity on assessment failure
-            this.assessment = {
-              complexity: 'standard',
-              confidence: 0.5,
-              reasoning: 'Fallback: AI assessment failed',
-            };
-          }
-        } else {
-          // Heuristic: default to standard
+        if (!assessResult.success) {
+          // Fall back to standard on assessment failure
           this.assessment = {
             complexity: 'standard',
             confidence: 0.5,
-            reasoning: 'Heuristic assessment (AI disabled)',
+            reasoning: 'Fallback: AI assessment failed',
           };
-          phasesExecuted.push('complexity_assessment');
         }
 
-        // Update phases based on assessment
-        const assessedComplexity = this.assessment?.complexity ?? 'standard';
-        phasesToRun = [...COMPLEXITY_PHASES[assessedComplexity]];
+        complexity = this.assessment?.complexity ?? 'standard';
+      } else {
+        // Heuristic fallback
+        complexity = 'standard';
+        this.assessment = {
+          complexity: 'standard',
+          confidence: 0.5,
+          reasoning: 'Heuristic assessment (AI disabled)',
+        };
+        phasesExecuted.push('complexity_assessment');
+      }
 
-        // Add research phase if needed but not already included
-        if (this.assessment?.needs_research && !phasesToRun.includes('research')) {
-          const contextIdx = phasesToRun.indexOf('context');
-          if (contextIdx !== -1) {
-            phasesToRun.splice(contextIdx, 0, 'research');
-          }
-        }
+      // ===================================================================
+      // Step 2: Determine and run phases based on assessed complexity
+      // ===================================================================
+      const phasesToRun = [...COMPLEXITY_PHASES[complexity]];
 
-        // Add self-critique if needed but not already included
-        if (this.assessment?.needs_self_critique && !phasesToRun.includes('self_critique')) {
-          const planningIdx = phasesToRun.indexOf('planning');
-          if (planningIdx !== -1) {
-            phasesToRun.splice(planningIdx, 0, 'self_critique');
-          }
+      // Inject research/self-critique if flagged but not already in the tier
+      if (this.assessment?.needs_research && !phasesToRun.includes('research')) {
+        // Insert research before context (or before spec_writing if no context phase)
+        const insertBefore = phasesToRun.indexOf('context') !== -1
+          ? phasesToRun.indexOf('context')
+          : phasesToRun.indexOf('spec_writing');
+        if (insertBefore !== -1) {
+          phasesToRun.splice(insertBefore, 0, 'research');
         }
       }
 
-      // Run remaining phases (skip already-executed discovery + requirements)
-      const remainingPhases = phasesToRun.filter(
-        (p) => !phasesExecuted.includes(p) && p !== 'complexity_assessment',
-      );
+      if (this.assessment?.needs_self_critique && !phasesToRun.includes('self_critique')) {
+        const planningIdx = phasesToRun.indexOf('planning');
+        if (planningIdx !== -1) {
+          phasesToRun.splice(planningIdx, 0, 'self_critique');
+        }
+      }
 
-      this.emitTyped('log', `Running ${this.assessment?.complexity ?? complexity} workflow: ${remainingPhases.join(' → ')}`);
+      this.emitTyped('log', `Running ${complexity} workflow: ${phasesToRun.join(' → ')}`);
 
-      for (const phase of remainingPhases) {
+      for (const phase of phasesToRun) {
         if (this.aborted) {
           return this.outcome(false, phasesExecuted, Date.now() - startTime, 'Cancelled');
         }
 
-        const result = await this.runPhase(phase, phasesExecuted.length + 1, phasesToRun.length);
+        const result = await this.runPhase(phase, phasesExecuted.length + 1, phasesToRun.length + (phasesExecuted.includes('complexity_assessment') ? 1 : 0));
         phasesExecuted.push(phase);
 
         if (!result.success) {
           return this.outcome(false, phasesExecuted, Date.now() - startTime, result.errors.join('; '));
         }
+
+        // Capture phase outputs for injection into subsequent phases
+        await this.capturePhaseOutput(phase);
       }
 
       return this.outcome(true, phasesExecuted, Date.now() - startTime);
@@ -335,13 +364,16 @@ export class SpecOrchestrator extends EventEmitter {
 
       this.sessionNumber++;
 
+      const phaseOutputs = Object.keys(this.phaseSummaries).length > 0 ? { ...this.phaseSummaries } : undefined;
+
       const prompt = await this.config.generatePrompt(agentType, phase, {
         phaseNumber,
         totalPhases,
         phaseName: phase,
         taskDescription: this.config.taskDescription,
         complexity: this.assessment?.complexity,
-        priorPhaseSummaries: Object.keys(this.phaseSummaries).length > 0 ? this.phaseSummaries : undefined,
+        projectIndex: this.config.projectIndex,
+        priorPhaseOutputs: phaseOutputs,
         attemptCount: attempt,
       });
 
@@ -355,6 +387,8 @@ export class SpecOrchestrator extends EventEmitter {
         abortSignal: this.config.abortSignal,
         cliModel: this.config.cliModel,
         cliThinking: this.config.cliThinking,
+        priorPhaseOutputs: phaseOutputs,
+        projectIndex: this.config.projectIndex,
       });
 
       this.emitTyped('session-complete', result, phase);
@@ -402,6 +436,7 @@ export class SpecOrchestrator extends EventEmitter {
       totalPhases: 0,
       phaseName: 'complexity_assessment',
       taskDescription: this.config.taskDescription,
+      projectIndex: this.config.projectIndex,
       attemptCount: 0,
     });
 
@@ -415,6 +450,7 @@ export class SpecOrchestrator extends EventEmitter {
       abortSignal: this.config.abortSignal,
       cliModel: this.config.cliModel,
       cliThinking: this.config.cliThinking,
+      projectIndex: this.config.projectIndex,
     });
 
     this.emitTyped('session-complete', result, 'complexity_assessment');
@@ -444,6 +480,33 @@ export class SpecOrchestrator extends EventEmitter {
       errors: ['Complexity assessment file not created or invalid'],
       retries: 0,
     };
+  }
+
+  // ===========================================================================
+  // Context Accumulation
+  // ===========================================================================
+
+  /**
+   * Capture output files from a completed phase and store them in phaseSummaries.
+   * These are injected into subsequent phases to eliminate redundant file re-reads.
+   */
+  private async capturePhaseOutput(phase: SpecPhase): Promise<void> {
+    const outputFiles = PHASE_OUTPUTS[phase];
+    if (!outputFiles?.length) return;
+
+    for (const fileName of outputFiles) {
+      try {
+        const filePath = join(this.config.specDir, fileName);
+        const content = await readFile(filePath, 'utf-8');
+        if (content.trim()) {
+          this.phaseSummaries[fileName] = content.length > MAX_PHASE_OUTPUT_SIZE
+            ? content.slice(0, MAX_PHASE_OUTPUT_SIZE) + '\n... (truncated)'
+            : content;
+        }
+      } catch {
+        // File may not exist if phase didn't produce it — that's fine
+      }
+    }
   }
 
   // ===========================================================================

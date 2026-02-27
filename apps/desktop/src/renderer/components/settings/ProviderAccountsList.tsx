@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '../ui/alert-dialog';
-import type { BuiltinProvider, ProviderAccount, ProviderCategory } from '@shared/types/provider-account';
+import type { BillingModel, BuiltinProvider, ProviderAccount, ProviderCategory } from '@shared/types/provider-account';
 
 export function ProviderAccountsList() {
   const { t } = useTranslation('settings');
@@ -38,6 +38,7 @@ export function ProviderAccountsList() {
     open: boolean;
     provider: BuiltinProvider;
     authType: 'oauth' | 'api-key';
+    billingModel?: BillingModel;
     editAccount?: ProviderAccount;
   }>({
     open: false,
@@ -86,8 +87,8 @@ export function ProviderAccountsList() {
     return { key, label: t(labelKey), providers };
   });
 
-  const handleAddAccount = (provider: BuiltinProvider, authType: 'oauth' | 'api-key') => {
-    setDialogState({ open: true, provider, authType });
+  const handleAddAccount = (provider: BuiltinProvider, authType: 'oauth' | 'api-key', billingModel?: BillingModel) => {
+    setDialogState({ open: true, provider, authType, billingModel });
   };
 
   const handleEditAccount = (account: ProviderAccount) => {
@@ -205,6 +206,7 @@ export function ProviderAccountsList() {
         onOpenChange={(open) => setDialogState(s => ({ ...s, open }))}
         provider={dialogState.provider}
         authType={dialogState.authType}
+        billingModel={dialogState.billingModel}
         editAccount={dialogState.editAccount}
       />
 

@@ -21,21 +21,16 @@ You MUST create `spec.md` with ALL required sections (see template below).
 
 ---
 
-## PHASE 0: LOAD ALL CONTEXT (MANDATORY)
+## PHASE 0: REVIEW PROVIDED CONTEXT
 
-```bash
-# Read all input files (some may not exist for greenfield/empty projects)
-cat project_index.json
-cat requirements.json
-cat context.json
-```
-
-Extract from these files:
-- **From project_index.json**: Services, tech stacks, ports, run commands
+Prior phase outputs (project index, requirements.json, context.json) have been provided in your kickoff message. Review them to extract:
+- **From project index**: Services, tech stacks, ports, run commands
 - **From requirements.json**: Task description, workflow type, services, acceptance criteria
 - **From context.json**: Files to modify, files to reference, patterns
 
-**IMPORTANT**: If any input file is missing, empty, or shows 0 files, this is likely a **greenfield/new project**. Adapt accordingly:
+**IMPORTANT**: Do NOT re-read these files from disk — they are already in your kickoff message. Only read additional project files if you need specific code patterns or details not covered in the provided context.
+
+If any prior phase output is missing or shows 0 files, this is likely a **greenfield/new project**. Adapt accordingly:
 - Skip sections that reference existing code (e.g., "Files to Modify", "Patterns to Follow")
 - Instead, focus on files to CREATE and the initial project structure
 - Define the tech stack, dependencies, and setup instructions from scratch
@@ -323,4 +318,4 @@ EOF
 
 ## BEGIN
 
-Start by reading all input files (project_index.json, requirements.json, context.json), then write the complete spec.md.
+Review the context provided in your kickoff message (project index, requirements.json, context.json), then write the complete spec.md. Only read additional project files if you need specific code snippets or patterns not already covered.

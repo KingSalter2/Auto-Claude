@@ -26,6 +26,7 @@ interface ProviderTabBarProps {
   isCrossProviderActive?: boolean;
   onCrossProviderClick?: () => void;
   crossProviderDisabled?: boolean;
+  needsSetup?: (provider: BuiltinProvider) => boolean;
 }
 
 function getProviderDisplayName(provider: BuiltinProvider): string {
@@ -41,6 +42,7 @@ export function ProviderTabBar({
   isCrossProviderActive,
   onCrossProviderClick,
   crossProviderDisabled,
+  needsSetup,
 }: ProviderTabBarProps) {
   const { t } = useTranslation('settings');
 
@@ -62,19 +64,26 @@ export function ProviderTabBar({
     <div className="flex items-center gap-1.5 flex-wrap">
       {visibleProviders.map((provider) => {
         const isActive = provider === activeProvider;
+        const showSetupDot = needsSetup?.(provider) ?? false;
         return (
           <button
             key={provider}
             type="button"
             onClick={() => onProviderChange(provider)}
             className={cn(
-              'px-3 py-1.5 text-sm font-medium rounded-full transition-colors',
+              'relative px-3 py-1.5 text-sm font-medium rounded-full transition-colors',
               isActive
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
           >
             {getProviderDisplayName(provider)}
+            {showSetupDot && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+              </span>
+            )}
           </button>
         );
       })}
@@ -103,10 +112,14 @@ export function ProviderTabBar({
                 key={provider}
                 onClick={() => onProviderChange(provider)}
                 className={cn(
+                  'relative',
                   provider === activeProvider && 'bg-accent text-accent-foreground'
                 )}
               >
                 {getProviderDisplayName(provider)}
+                {needsSetup?.(provider) && (
+                  <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                )}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>

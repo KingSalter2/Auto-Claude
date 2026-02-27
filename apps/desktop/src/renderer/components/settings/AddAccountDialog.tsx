@@ -15,7 +15,7 @@ import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useSettingsStore } from '../../stores/settings-store';
 import { useToast } from '../../hooks/use-toast';
-import type { BuiltinProvider, CustomModel, ProviderAccount } from '@shared/types/provider-account';
+import type { BillingModel, BuiltinProvider, CustomModel, ProviderAccount } from '@shared/types/provider-account';
 
 const AWS_REGIONS = [
   'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
@@ -30,6 +30,8 @@ interface AddAccountDialogProps {
   onOpenChange: (open: boolean) => void;
   provider: BuiltinProvider;
   authType: 'oauth' | 'api-key';
+  /** Override billing model (e.g., Z.AI Coding Plan vs usage-based API key) */
+  billingModel?: BillingModel;
   editAccount?: ProviderAccount;
 }
 
@@ -38,6 +40,7 @@ export function AddAccountDialog({
   onOpenChange,
   provider,
   authType,
+  billingModel: billingModelOverride,
   editAccount,
 }: AddAccountDialogProps) {
   const { t } = useTranslation('settings');
@@ -84,7 +87,12 @@ export function AddAccountDialog({
       } else {
         setName('');
         setApiKey('');
-        setBaseUrl(provider === 'ollama' ? 'http://localhost:11434' : provider === 'zai' ? 'https://api.z.ai/api/paas/v4' : '');
+        setBaseUrl(
+          provider === 'ollama' ? 'http://localhost:11434'
+          : provider === 'zai' && billingModelOverride === 'subscription' ? 'https://api.z.ai/api/anthropic'
+          : provider === 'zai' ? 'https://api.z.ai/api/paas/v4'
+          : ''
+        );
         setRegion('us-east-1');
         setCustomModels([]);
       }
@@ -341,7 +349,7 @@ export function AddAccountDialog({
         provider,
         name: name.trim(),
         authType,
-        billingModel: authType === 'oauth' ? 'subscription' as const : 'pay-per-use' as const,
+        billingModel: billingModelOverride ?? (authType === 'oauth' ? 'subscription' as const : 'pay-per-use' as const),
         apiKey: needsApiKey ? apiKey.trim() : undefined,
         baseUrl: needsBaseUrl && baseUrl.trim() ? baseUrl.trim() : undefined,
         region: needsRegion ? region : undefined,
@@ -402,7 +410,11 @@ export function AddAccountDialog({
               ? t('providers.dialog.codexOAuthDescription')
               : isOAuthOnly
                 ? t('providers.dialog.oauthDescription')
-                : t('providers.dialog.apiKeyDescription')}
+                : provider === 'zai' && billingModelOverride === 'subscription'
+                  ? t('providers.dialog.zaiCodingPlanDescription')
+                  : provider === 'zai'
+                    ? t('providers.dialog.zaiUsageBasedDescription')
+                    : t('providers.dialog.apiKeyDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -543,9 +555,11 @@ export function AddAccountDialog({
                       ? 'http://localhost:11434'
                       : provider === 'anthropic'
                         ? 'https://api.anthropic.com'
-                        : provider === 'zai'
-                          ? 'https://api.z.ai/api/paas/v4'
-                          : t('providers.dialog.placeholders.baseUrl')
+                        : provider === 'zai' && billingModelOverride === 'subscription'
+                          ? 'https://api.z.ai/api/anthropic'
+                          : provider === 'zai'
+                            ? 'https://api.z.ai/api/paas/v4'
+                            : t('providers.dialog.placeholders.baseUrl')
                   }
                 />
               </div>

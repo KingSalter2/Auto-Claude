@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useActiveProvider } from '../../hooks/useActiveProvider';
 import { PROVIDER_REGISTRY } from '@shared/constants/providers';
@@ -9,7 +9,7 @@ import { FeatureModelSettings } from './FeatureModelSettings';
 import { CrossProviderTabContent } from './CrossProviderTabContent';
 import { OllamaModelManager } from './OllamaModelManager';
 import { Separator } from '../ui/separator';
-import { saveSettings } from '../../stores/settings-store';
+import { saveSettings, useSettingsStore } from '../../stores/settings-store';
 
 /**
  * ProviderAgentTabs
@@ -21,6 +21,15 @@ import { saveSettings } from '../../stores/settings-store';
 export function ProviderAgentTabs() {
   const { t } = useTranslation('settings');
   const { connectedProviders } = useActiveProvider();
+  const settings = useSettingsStore((s) => s.settings);
+
+  const needsSetup = useCallback((provider: BuiltinProvider): boolean => {
+    if (provider !== 'ollama') return false;
+    const ollamaConfig = settings.providerAgentConfig?.ollama;
+    if (!ollamaConfig?.customPhaseModels) return true;
+    const models = ollamaConfig.customPhaseModels;
+    return !models.spec && !models.planning && !models.coding && !models.qa;
+  }, [settings.providerAgentConfig]);
 
   // Order: anthropic first, then remaining providers alphabetically
   const orderedProviders = useMemo<BuiltinProvider[]>(() => {
@@ -84,6 +93,7 @@ export function ProviderAgentTabs() {
         isCrossProviderActive={isCrossProviderActive}
         onCrossProviderClick={() => setActiveTab('cross-provider')}
         crossProviderDisabled={connectedProviders.length < 2}
+        needsSetup={needsSetup}
       />
 
       {isCrossProviderActive ? (

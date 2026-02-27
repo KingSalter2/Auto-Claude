@@ -6,13 +6,13 @@ import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
 import { ProviderAccountCard } from './ProviderAccountCard';
 import { OllamaConnectionPanel } from './OllamaConnectionPanel';
-import type { BuiltinProvider, ProviderAccount, ProviderInfo } from '@shared/types/provider-account';
+import type { BillingModel, BuiltinProvider, ProviderAccount, ProviderInfo } from '@shared/types/provider-account';
 
 interface ProviderSectionProps {
   provider: ProviderInfo;
   accounts: ProviderAccount[];
   envDetected: boolean;
-  onAddAccount: (provider: BuiltinProvider, authType: 'oauth' | 'api-key') => void;
+  onAddAccount: (provider: BuiltinProvider, authType: 'oauth' | 'api-key', billingModel?: BillingModel) => void;
   onEditAccount: (account: ProviderAccount) => void;
   onDeleteAccount: (id: string) => void;
   onReauthAccount?: (account: ProviderAccount) => void;
@@ -142,6 +142,18 @@ export function ProviderSection({
                               : t('providers.section.addOAuth')}
                         </Button>
                       )}
+                      {/* Z.AI: Coding Plan subscription button before generic API Key */}
+                      {provider.id === 'zai' && hasApiKey && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onAddAccount(provider.id, 'api-key', 'subscription')}
+                          className="h-7 text-xs gap-1"
+                        >
+                          <Plus className="h-3 w-3" />
+                          {t('providers.section.addCodingPlan')}
+                        </Button>
+                      )}
                       {hasApiKey && (
                         <Button
                           variant="outline"
@@ -150,7 +162,9 @@ export function ProviderSection({
                           className="h-7 text-xs gap-1"
                         >
                           <Plus className="h-3 w-3" />
-                          {t('providers.section.addApiKey')}
+                          {provider.id === 'zai'
+                            ? t('providers.section.addUsageBased')
+                            : t('providers.section.addApiKey')}
                         </Button>
                       )}
                       {/* No-key providers with baseUrl (non-Ollama) */}

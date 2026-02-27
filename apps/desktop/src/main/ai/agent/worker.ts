@@ -53,6 +53,7 @@ import { TaskLogWriter } from '../logging/task-log-writer';
 import { loadClaudeMd, loadAgentsMd, injectContext } from '../prompts/prompt-loader';
 import { createMcpClientsForAgent, mergeMcpTools, closeAllMcpClients } from '../mcp/client';
 import type { McpClientResult } from '../mcp/types';
+import { runProjectIndexer } from '../project/project-indexer';
 
 // =============================================================================
 // Validation
@@ -806,12 +807,25 @@ async function runSpecOrchestrator(
       : 'Create the specification as described in your system prompt.'
     : 'Create the specification as described in your system prompt.';
 
-  postLog(`Starting SpecOrchestrator pipeline (complexity-based phase routing)`);
+  postLog(`Starting SpecOrchestrator pipeline (complexity-first phase routing)`);
+
+  // Generate project index BEFORE any agent runs — gives all phases project context
+  let projectIndexContent: string | undefined;
+  try {
+    const indexOutputPath = join(session.specDir, 'project_index.json');
+    postLog('Generating project index...');
+    runProjectIndexer(session.projectDir, indexOutputPath);
+    projectIndexContent = readFileSync(indexOutputPath, 'utf-8');
+    postLog(`Project index generated (${(projectIndexContent.length / 1024).toFixed(1)}KB)`);
+  } catch (error) {
+    postLog(`Project index generation failed (non-fatal): ${error instanceof Error ? error.message : String(error)}`);
+  }
 
   const orchestrator = new SpecOrchestrator({
     specDir: session.specDir,
     projectDir: session.projectDir,
     taskDescription,
+    projectIndex: projectIndexContent,
     abortSignal: abortController.signal,
 
     generatePrompt: async (_agentType, phase, _context) => {
@@ -826,6 +840,8 @@ async function runSpecOrchestrator(
         runConfig.specDir,
         runConfig.projectDir,
         taskDescription,
+        runConfig.priorPhaseOutputs,
+        runConfig.projectIndex,
       );
       return runSingleSession(
         runConfig.agentType,
@@ -934,31 +950,61 @@ function specPhaseToPromptName(phase: SpecPhase): string {
 
 /**
  * Build a kickoff user message for a spec phase session.
+ * Includes accumulated context from prior phases to eliminate redundant file reads.
  */
 function buildSpecKickoffMessage(
   agentType: AgentType,
   specDir: string,
   projectDir: string,
   taskDescription: string,
+  priorPhaseOutputs?: Record<string, string>,
+  projectIndex?: string,
 ): string {
+  // Build the base task-specific message
+  let baseMessage: string;
   switch (agentType) {
     case 'spec_discovery':
-      return `Analyze the project structure at ${projectDir} to understand the codebase architecture, tech stack, and conventions. Write your findings to ${specDir}/context.json. Task context: ${taskDescription}`;
+      baseMessage = `Analyze the project structure at ${projectDir} to understand the codebase architecture, tech stack, and conventions. Write your findings to ${specDir}/context.json. Task context: ${taskDescription}`;
+      break;
     case 'spec_gatherer':
-      return `Gather and validate requirements for the following task: ${taskDescription}. Project root: ${projectDir}. Write requirements to ${specDir}/requirements.json.`;
+      baseMessage = `Gather and validate requirements for the following task: ${taskDescription}. Project root: ${projectDir}. Write requirements to ${specDir}/requirements.json.`;
+      break;
     case 'spec_researcher':
-      return `Research implementation approaches for: ${taskDescription}. Review relevant code in ${projectDir} and document your findings in ${specDir}/research.json.`;
+      baseMessage = `Research implementation approaches for: ${taskDescription}. Review relevant code in ${projectDir} and document your findings in ${specDir}/research.json.`;
+      break;
     case 'spec_writer':
-      return `Write the specification for: ${taskDescription}. Use the gathered requirements in ${specDir}/requirements.json and context in ${specDir}/context.json. Write spec.md and implementation_plan.json to ${specDir}. Project root: ${projectDir}.`;
+      baseMessage = `Write the specification for: ${taskDescription}. Write spec.md and implementation_plan.json to ${specDir}. Project root: ${projectDir}.`;
+      break;
     case 'spec_critic':
-      return `Review and critique the specification at ${specDir}/spec.md for completeness, clarity, and technical feasibility. Write your critique findings back to ${specDir}/spec.md with improvements.`;
+      baseMessage = `Review and critique the specification at ${specDir}/spec.md for completeness, clarity, and technical feasibility. Write your critique findings back to ${specDir}/spec.md with improvements.`;
+      break;
     case 'spec_context':
-      return `Gather project context relevant to: ${taskDescription}. Analyze the codebase at ${projectDir} and write context to ${specDir}/context.json.`;
+      baseMessage = `Gather project context relevant to: ${taskDescription}. Analyze the codebase at ${projectDir} and write context to ${specDir}/context.json.`;
+      break;
     case 'spec_validation':
-      return `Validate that ${specDir}/spec.md and ${specDir}/implementation_plan.json are complete, consistent, and ready for implementation. Fix any issues found.`;
+      baseMessage = `Validate that ${specDir}/spec.md and ${specDir}/implementation_plan.json are complete, consistent, and ready for implementation. Fix any issues found.`;
+      break;
     default:
-      return `Complete the spec creation task described in your system prompt. Task: ${taskDescription}. Spec directory: ${specDir}. Project directory: ${projectDir}`;
+      baseMessage = `Complete the spec creation task described in your system prompt. Task: ${taskDescription}. Spec directory: ${specDir}. Project directory: ${projectDir}`;
   }
+
+  // Inject accumulated context from prior phases
+  const contextSections: string[] = [baseMessage];
+
+  if (projectIndex) {
+    contextSections.push(`\n\n## PROJECT INDEX (pre-generated)\n\nThe following project structure analysis has been pre-generated for you. Use this as your starting point instead of scanning the entire project:\n\n\`\`\`json\n${projectIndex}\n\`\`\``);
+  }
+
+  if (priorPhaseOutputs && Object.keys(priorPhaseOutputs).length > 0) {
+    contextSections.push('\n\n## CONTEXT FROM PRIOR PHASES\n\nThe following outputs from earlier spec phases are provided to avoid re-reading files:');
+    for (const [fileName, content] of Object.entries(priorPhaseOutputs)) {
+      const ext = fileName.endsWith('.json') ? 'json' : 'markdown';
+      contextSections.push(`\n### ${fileName}\n\n\`\`\`${ext}\n${content}\n\`\`\``);
+    }
+    contextSections.push('\nUse these outputs as your primary source of context. Only read additional project files if you need specific code patterns not covered above.');
+  }
+
+  return contextSections.join('');
 }
 
 /**

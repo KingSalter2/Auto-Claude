@@ -63,15 +63,20 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
   const profilePhaseThinking = providerPreset?.phaseThinking ?? selectedProfile.phaseThinking ?? DEFAULT_PHASE_THINKING;
 
   // Get current phase config from settings (custom) or fall back to profile defaults
-  const currentPhaseModels: PhaseModelConfig = providerConfig?.customPhaseModels ?? settings.customPhaseModels ?? profilePhaseModels;
-  const currentPhaseThinking: PhaseThinkingConfig = providerConfig?.customPhaseThinking ?? settings.customPhaseThinking ?? profilePhaseThinking;
+  // When viewing a provider tab, skip global fallback — use provider-specific config or preset defaults
+  const currentPhaseModels: PhaseModelConfig = provider
+    ? (providerConfig?.customPhaseModels ?? profilePhaseModels)
+    : (settings.customPhaseModels ?? profilePhaseModels);
+  const currentPhaseThinking: PhaseThinkingConfig = provider
+    ? (providerConfig?.customPhaseThinking ?? profilePhaseThinking)
+    : (settings.customPhaseThinking ?? profilePhaseThinking);
 
   /**
    * Check if current config differs from the selected profile's defaults
    */
   const hasCustomConfig = useMemo((): boolean => {
-    const customModels = providerConfig?.customPhaseModels ?? settings.customPhaseModels;
-    const customThinking = providerConfig?.customPhaseThinking ?? settings.customPhaseThinking;
+    const customModels = provider ? providerConfig?.customPhaseModels : settings.customPhaseModels;
+    const customThinking = provider ? providerConfig?.customPhaseThinking : settings.customPhaseThinking;
     if (!customModels && !customThinking) {
       return false; // No custom settings, using profile defaults
     }
@@ -80,7 +85,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
         currentPhaseModels[phase] !== profilePhaseModels[phase] ||
         currentPhaseThinking[phase] !== profilePhaseThinking[phase]
     );
-  }, [providerConfig, settings.customPhaseModels, settings.customPhaseThinking, currentPhaseModels, currentPhaseThinking, profilePhaseModels, profilePhaseThinking]);
+  }, [provider, providerConfig, settings.customPhaseModels, settings.customPhaseThinking, currentPhaseModels, currentPhaseThinking, profilePhaseModels, profilePhaseThinking]);
 
   const handleSelectProfile = async (profileId: string) => {
     const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === profileId);
@@ -225,9 +230,22 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
 
             {/* Model and thinking level badges */}
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                {getModelLabel(displayModel)}
-              </span>
+              {displayModel === '' ? (
+                <span className="inline-flex items-center rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                  {(() => {
+                    const customModels = providerConfig?.customPhaseModels;
+                    if (customModels) {
+                      const firstConfigured = PHASE_KEYS.find(k => customModels[k]);
+                      if (firstConfigured) return customModels[firstConfigured];
+                    }
+                    return t('agentProfile.ollamaNotConfigured');
+                  })()}
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {getModelLabel(displayModel)}
+                </span>
+              )}
               <span className="inline-flex items-center rounded bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                 {getThinkingLabel(displayThinking)} {t('agentProfile.thinking')}
               </span>

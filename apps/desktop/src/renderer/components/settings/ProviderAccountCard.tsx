@@ -72,26 +72,33 @@ export function ProviderAccountCard({ account, onEdit, onDelete, onReauth }: Pro
   const isOAuth = account.authType === 'oauth';
   const isCodex = isOAuth && account.provider === 'openai';
   const isClaudeCode = isOAuth && account.provider === 'anthropic';
-  const isSubscription = isCodex || isClaudeCode;
+  const isZaiCodingPlan = account.provider === 'zai' && account.billingModel === 'subscription';
+  const isSubscription = isCodex || isClaudeCode || isZaiCodingPlan;
   const sessionPercent = account.usage?.sessionUsagePercent ?? 0;
   const weeklyPercent = account.usage?.weeklyUsagePercent ?? 0;
-  const hasUsage = isOAuth && (sessionPercent > 0 || weeklyPercent > 0);
+  const hasUsage = (isOAuth || isZaiCodingPlan) && (sessionPercent > 0 || weeklyPercent > 0);
 
   const authBadgeLabel = isCodex
     ? t('providers.card.codex')
     : isClaudeCode
       ? t('providers.card.claudeCode')
-      : isOAuth
-        ? t('providers.card.oauth')
-        : t('providers.card.apiKey');
+      : isZaiCodingPlan
+        ? t('providers.card.zaiCodingPlan')
+        : isOAuth
+          ? t('providers.card.oauth')
+          : account.provider === 'zai'
+            ? t('providers.card.zaiUsageBased')
+            : t('providers.card.apiKey');
 
   const identifier = isCodex
     ? t('providers.card.codexSubscription')
     : isClaudeCode
       ? t('providers.card.claudeCodeSubscription')
-      : isOAuth
-        ? (account.usage ? t('providers.card.oauthLinked') : t('providers.card.oauthAccount'))
-        : account.baseUrl ?? t('providers.card.noEndpoint');
+      : isZaiCodingPlan
+        ? t('providers.card.zaiCodingPlanSubscription')
+        : isOAuth
+          ? (account.usage ? t('providers.card.oauthLinked') : t('providers.card.oauthAccount'))
+          : account.baseUrl ?? t('providers.card.noEndpoint');
 
   return (
     <div

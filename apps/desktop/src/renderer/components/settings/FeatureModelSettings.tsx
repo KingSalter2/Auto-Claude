@@ -30,15 +30,19 @@ export function FeatureModelSettings({ provider }: FeatureModelSettingsProps) {
   const { t } = useTranslation('settings');
   const settings = useSettingsStore((state) => state.settings);
 
+  // For Ollama, default to empty strings — Anthropic model shorthands are meaningless
+  const providerFeatureDefaults: FeatureModelConfig = provider === 'ollama'
+    ? { insights: '', ideation: '', roadmap: '', githubIssues: '', githubPrs: '', utility: '' }
+    : DEFAULT_FEATURE_MODELS;
+  const providerThinkingDefaults = provider === 'ollama'
+    ? { insights: 'low' as ThinkingLevel, ideation: 'low' as ThinkingLevel, roadmap: 'low' as ThinkingLevel, githubIssues: 'low' as ThinkingLevel, githubPrs: 'low' as ThinkingLevel, utility: 'low' as ThinkingLevel }
+    : DEFAULT_FEATURE_THINKING;
+
   const featureModels: FeatureModelConfig =
-    settings.providerAgentConfig?.[provider]?.featureModels ??
-    settings.featureModels ??
-    DEFAULT_FEATURE_MODELS;
+    settings.providerAgentConfig?.[provider]?.featureModels ?? providerFeatureDefaults;
 
   const featureThinking =
-    settings.providerAgentConfig?.[provider]?.featureThinking ??
-    settings.featureThinking ??
-    DEFAULT_FEATURE_THINKING;
+    settings.providerAgentConfig?.[provider]?.featureThinking ?? providerThinkingDefaults;
 
   const handleModelChange = (feature: keyof FeatureModelConfig, value: string) => {
     saveProviderAgentConfig(provider, {

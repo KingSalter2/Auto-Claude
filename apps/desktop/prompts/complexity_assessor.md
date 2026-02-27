@@ -18,20 +18,18 @@ You MUST create `complexity_assessment.json` with your assessment.
 
 ---
 
-## PHASE 0: LOAD REQUIREMENTS (MANDATORY)
+## PHASE 0: REVIEW PROVIDED CONTEXT
 
-```bash
-# Read the requirements file first - this has the full context
-cat requirements.json
-```
-
-Extract from requirements.json:
+The task description and project index have been provided in your kickoff message. Extract:
 - **task_description**: What the user wants to build
+- **project structure**: Services, tech stack, project type (from project index)
+
+**NOTE**: The complexity assessment runs BEFORE requirements gathering. You determine complexity from the task description and project structure alone — formal requirements are not needed for this assessment.
+
+If a `requirements.json` from a prior phase is available in your context, also extract:
 - **workflow_type**: Type of work (feature, refactor, etc.)
 - **services_involved**: Which services are affected
-- **user_requirements**: Specific requirements
 - **acceptance_criteria**: How success is measured
-- **constraints**: Any limitations or special considerations
 
 ---
 
@@ -670,6 +668,6 @@ START
 
 ## BEGIN
 
-1. Read `requirements.json` to understand the full task context
-2. Analyze the requirements against all assessment criteria
+1. Review the task description and project index provided in your kickoff message
+2. Analyze the task against all assessment criteria
 3. Create `complexity_assessment.json` with your assessment
