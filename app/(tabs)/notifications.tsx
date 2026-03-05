@@ -126,6 +126,10 @@ export default function NotificationsScreen() {
                 }
                 if (item.entityType === "inventory") {
                   router.push(`/inventory/${item.entityId}`);
+                  return;
+                }
+                if (item.entityType === "task") {
+                  router.push(`/leads`);
                 }
               }}
             >

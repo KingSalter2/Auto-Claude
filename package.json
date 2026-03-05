@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "start:lan": "expo start --lan --clear --port 8083",
+    "start:tunnel": "expo start --tunnel --clear --port 8083",
+    "start:lan:win": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:EXPO_HOME=(Join-Path $PWD '.expo-home'); $env:USERPROFILE=$PWD; $env:HOME=$PWD; npx expo start --lan --clear --port 8083\"",
+    "start:tunnel:win": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:EXPO_HOME=(Join-Path $PWD '.expo-home'); $env:USERPROFILE=$PWD; $env:HOME=$PWD; npx expo start --tunnel --clear --port 8083\"",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web"
@@ -11,7 +15,7 @@
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.2.0",
-    "@react-native-community/datetimepicker": "^8.6.0",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@react-navigation/native": "^7.1.8",
     "@supabase/supabase-js": "^2.95.3",
     "expo": "~54.0.33",
@@ -41,6 +45,7 @@
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
+    "@expo/ngrok": "^4.1.3",
     "@types/react": "~19.1.0",
     "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"

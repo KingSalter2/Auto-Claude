@@ -1,8 +1,8 @@
 import { Timestamp, collection, doc, limit, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where } from "firebase/firestore";
 import { firebaseDb } from "../lib/firebase";
 
-export type AppNotificationType = "lead_new" | "lead_assigned" | "lead_followup_due" | "vehicle_status_changed";
-export type AppNotificationEntityType = "lead_submission" | "inventory";
+export type AppNotificationType = "lead_new" | "lead_assigned" | "lead_followup_due" | "vehicle_status_changed" | "task_assigned";
+export type AppNotificationEntityType = "lead_submission" | "inventory" | "task";
 
 export type AppNotification = {
   id: string;

@@ -1,5 +1,5 @@
 import { ScrollView, StyleSheet, Text, View, Pressable, StatusBar, Dimensions, Image } from "react-native";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useNavigation, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -10,6 +10,8 @@ import { subscribeUnreadNotificationCount } from "../../src/services/notificatio
 import type { Vehicle } from "../../src/models/vehicle";
 import type { LeadSubmission } from "../../src/models/lead";
 import { timeAgo } from "../../src/utils/format";
+import { Timestamp, collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
+import { firebaseDb } from "../../src/lib/firebase";
 
 const { width } = Dimensions.get("window");
 
@@ -27,6 +29,19 @@ const COLORS = {
   danger: "#ef4444",
 };
 
+type EventFilter = "today" | "upcoming" | "past" | "all";
+type AppointmentType = "test-drive" | "finance" | "follow-up" | "delivery" | "meeting" | "other";
+type Appointment = {
+  id: string;
+  title: string;
+  customer: string;
+  startAtMs: number;
+  type: AppointmentType;
+  location: string;
+  assignedTo: string | null;
+  leadSubmissionId: string | null;
+};
+
 export default function DashboardScreen() {
   const { userProfile } = useAuth();
   const router = useRouter();
@@ -34,9 +49,11 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [leads, setLeads] = useState<LeadSubmission[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [newLeadCount, setNewLeadCount] = useState(0);
   const [totalLeadCount, setTotalLeadCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [eventFilter, setEventFilter] = useState<EventFilter>("upcoming");
 
   // Hide the default header to implement custom design
   useEffect(() => {
@@ -47,6 +64,38 @@ export default function DashboardScreen() {
   useEffect(() => subscribeRecentLeads({ onNext: setLeads, take: 5 }), []);
   useEffect(() => subscribeNewLeadCount({ onNext: setNewLeadCount }), []);
   useEffect(() => subscribeTotalLeadCount({ onNext: setTotalLeadCount }), []);
+  useEffect(() => {
+    const q = query(collection(firebaseDb, "appointments"), orderBy("startAt", "asc"), limit(500));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const next = snapshot.docs.map((d) => {
+          const data = d.data() as {
+            title?: string;
+            customer?: string;
+            startAt?: Timestamp | null;
+            type?: AppointmentType;
+            location?: string;
+            assignedTo?: string | null;
+            leadSubmissionId?: string | null;
+          };
+          const startAtMs = data.startAt?.toDate?.().getTime?.() ?? Date.now();
+          return {
+            id: d.id,
+            title: data.title ?? "Appointment",
+            customer: data.customer ?? "Unknown Customer",
+            startAtMs,
+            type: data.type ?? "other",
+            location: data.location ?? "",
+            assignedTo: data.assignedTo ?? null,
+            leadSubmissionId: data.leadSubmissionId ?? null,
+          } satisfies Appointment;
+        });
+        setAppointments(next);
+      },
+      () => setAppointments([]),
+    );
+  }, []);
   useEffect(() => {
     if (!userProfile?.email) {
       setUnreadNotificationCount(0);
@@ -80,6 +129,46 @@ export default function DashboardScreen() {
     const base = Number.isFinite(hour) && hour >= 12 && hour < 18 ? "Good Afternoon" : Number.isFinite(hour) && hour >= 18 ? "Good Evening" : "Good Morning";
     return { title: base, name: firstName };
   }, [userProfile?.name]);
+
+  const upcomingEvents = useMemo(() => {
+    const now = Date.now();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartMs = todayStart.getTime();
+    const todayEndMs = todayStartMs + 24 * 60 * 60 * 1000;
+
+    const base = appointments.map((a) => ({
+      id: a.id,
+      at: a.startAtMs,
+      title: a.title,
+      customerName: a.customer,
+      summary: [a.location, a.assignedTo].filter(Boolean).join(" • "),
+      leadSubmissionId: a.leadSubmissionId,
+    }));
+
+    const filtered =
+      eventFilter === "all"
+        ? base
+        : eventFilter === "today"
+          ? base.filter((e) => e.at >= todayStartMs && e.at < todayEndMs)
+          : eventFilter === "past"
+            ? base.filter((e) => e.at < now)
+            : base.filter((e) => e.at >= now);
+
+    const sorted = [...filtered].sort((a, b) => {
+      if (eventFilter === "past") return b.at - a.at;
+      return a.at - b.at;
+    });
+
+    return sorted.slice(0, 25);
+  }, [appointments, eventFilter]);
+
+  const formatEventDate = useCallback((ms: number) => {
+    const d = new Date(ms);
+    const day = d.toLocaleDateString("en-ZA", { weekday: "short", day: "2-digit", month: "short" });
+    const time = d.toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
+    return `${day} • ${time}`;
+  }, []);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -149,7 +238,80 @@ export default function DashboardScreen() {
               </View>
               <Text style={styles.actionLabel}>Leads</Text>
             </Pressable>
+
+            <Pressable
+              style={styles.actionBtn}
+              onPress={() => {
+                router.push("/calendar");
+              }}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: '#3f3f46' }]}>
+                <Ionicons name="calendar" size={22} color={COLORS.text} />
+              </View>
+              <Text style={styles.actionLabel}>Calendar</Text>
+            </Pressable>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Upcoming Events</Text>
+            <Pressable onPress={() => router.push("/calendar")} style={styles.smallLink}>
+              <Text style={styles.smallLinkText}>View</Text>
+            </Pressable>
+          </View>
+          <View style={styles.eventFilters}>
+            {(
+              [
+                { key: "today", label: "Today" },
+                { key: "upcoming", label: "Upcoming" },
+                { key: "past", label: "Past" },
+                { key: "all", label: "All" },
+              ] as const
+            ).map((f) => {
+              const active = eventFilter === f.key;
+              return (
+                <Pressable
+                  key={f.key}
+                  onPress={() => setEventFilter(f.key)}
+                  style={[styles.eventFilterChip, active && styles.eventFilterChipActive]}
+                >
+                  <Text style={[styles.eventFilterText, active && styles.eventFilterTextActive]}>{f.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {upcomingEvents.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>No events</Text>
+            </View>
+          ) : (
+            upcomingEvents.map((e) => (
+              <Pressable
+                key={e.id}
+                style={styles.eventItem}
+                onPress={() => {
+                  if (e.leadSubmissionId) {
+                    router.push(`/leads/${encodeURIComponent(e.leadSubmissionId)}`);
+                    return;
+                  }
+                  const date = new Date(e.at).toISOString().slice(0, 10);
+                  router.push(`/calendar?date=${encodeURIComponent(date)}`);
+                }}
+              >
+                <View style={styles.eventLeft}>
+                  <Ionicons name="time" size={16} color={COLORS.primary} />
+                  <Text style={styles.eventDate}>{formatEventDate(e.at)}</Text>
+                </View>
+                <Text style={styles.eventTitle} numberOfLines={1}>
+                  {e.customerName}
+                </Text>
+                <Text style={styles.eventSub} numberOfLines={1}>
+                  {e.summary}
+                </Text>
+              </Pressable>
+            ))
+          )}
         </View>
 
         {/* Bento Grid */}
@@ -355,14 +517,34 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginBottom: 16,
   },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  smallLink: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  smallLinkText: {
+    color: COLORS.text,
+    fontWeight: "700",
+    fontSize: 12,
+  },
   actionRow: {
-    flexDirection: 'row',
-    gap: 20,
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   actionBtn: {
     alignItems: "center",
     gap: 8,
+    width: (width - 40) / 4,
   },
   actionIcon: {
     width: 64,
@@ -378,6 +560,62 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textMuted,
     fontWeight: "500",
+  },
+  eventFilters: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  eventFilterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  eventFilterChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  eventFilterText: {
+    color: COLORS.text,
+    fontWeight: "800",
+    fontSize: 12,
+  },
+  eventFilterTextActive: {
+    color: COLORS.primaryForeground,
+  },
+  eventItem: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+  },
+  eventLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  eventDate: {
+    color: COLORS.textMuted,
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  eventTitle: {
+    color: COLORS.text,
+    fontWeight: "800",
+    fontSize: 14,
+  },
+  eventSub: {
+    marginTop: 2,
+    color: COLORS.textMuted,
+    fontWeight: "600",
+    fontSize: 12,
   },
   grid: {
     flexDirection: "row",

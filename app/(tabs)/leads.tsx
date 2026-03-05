@@ -4,14 +4,15 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Calendar } from "react-native-calendars";
+import { collection, doc, limit, onSnapshot, orderBy, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 
-import { useTheme } from "../../src/theme/useTheme";
 import { subscribeRecentLeads } from "../../src/services/leadService";
-import type { LeadStatus, LeadSubmission } from "../../src/models/lead";
+import type { CrmStage, LeadStatus, LeadSubmission } from "../../src/models/lead";
 import { timeAgo } from "../../src/utils/format";
 import { useAuth } from "../../src/auth/AuthContext";
 import { EmptyState } from "../../src/components/common/EmptyState";
 import { Badge } from "../../src/components/ui/Badge";
+import { firebaseDb } from "../../src/lib/firebase";
 
 // Modern Dark Theme Colors (matching Dashboard)
 const COLORS = {
@@ -26,21 +27,93 @@ const COLORS = {
   danger: "#ef4444",
 };
 
+const CRM_STAGE_CHOICES: Array<{ label: string; value: CrmStage | "all" }> = [
+  { label: "All", value: "all" },
+  { label: "New", value: "new" },
+  { label: "Contacted", value: "contacted" },
+  { label: "Test Drive", value: "test_drive" },
+  { label: "Finance", value: "finance" },
+  { label: "Unqualified", value: "unqualified" },
+  { label: "Sold", value: "sold" },
+];
+
+type TaskStatus = "pending" | "in-progress" | "completed" | "rejected";
+type TaskType =
+  | "general"
+  | "lead"
+  | "follow_up"
+  | "appointment"
+  | "trade_in"
+  | "finance"
+  | "delivery"
+  | "vehicle_prep"
+  | "admin";
+type AssignedTask = {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: "low" | "medium" | "high";
+  dueDate: Date | null;
+  type: TaskType;
+  leadSubmissionId?: string | null;
+};
+
+const TASK_STATUS_CHOICES: Array<{ label: string; value: TaskStatus | "all" }> = [
+  { label: "All", value: "all" },
+  { label: "Not Started", value: "pending" },
+  { label: "In Progress", value: "in-progress" },
+  { label: "Completed", value: "completed" },
+  { label: "Rejected", value: "rejected" },
+];
+
+type TopTab = "leads" | "assigned" | "archived";
+
+const TOP_TABS: Array<{ key: TopTab; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { key: "leads", label: "Leads", icon: "list" },
+  { key: "assigned", label: "Work", icon: "briefcase" },
+  { key: "archived", label: "Archived", icon: "archive" },
+];
+
 export default function LeadsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { canAccess } = useAuth();
+  const { canAccess, user, userProfile } = useAuth();
   const insets = useSafeAreaInsets();
   const canSeeLeads = canAccess("Leads & CRM");
+  const actorEmail = (userProfile?.email ?? user?.email ?? null)?.trim().toLowerCase() ?? null;
+  const isAdmin = userProfile?.role === "Admin";
 
   const [leads, setLeads] = useState<LeadSubmission[]>([]);
+  const [tasks, setTasks] = useState<AssignedTask[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<LeadStatus | "all">("all");
+  const [filterStage, setFilterStage] = useState<CrmStage | "all">("all");
+  const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatus | "all">("all");
+  const [topTab, setTopTab] = useState<TopTab>("leads");
+  const [hasSetInitialTopTab, setHasSetInitialTopTab] = useState(false);
+  const [taskDueFilter, setTaskDueFilter] = useState<"today" | "overdue" | "all">("all");
+  const [showAssignedLeads, setShowAssignedLeads] = useState(false);
+  const [taskStatusModalTask, setTaskStatusModalTask] = useState<AssignedTask | null>(null);
+  const [showLeadFilters, setShowLeadFilters] = useState(false);
   
   // Date Filtering State
   const [isCalendarVisible, setIsCalendarVisible] = useState(false);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [endDate, setEndDate] = useState<string | null>(null);
+
+  const visibleTabs = useMemo(() => {
+    if (isAdmin) return TOP_TABS;
+    return TOP_TABS.filter((t) => t.key === "assigned");
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!canSeeLeads) return;
+    if (hasSetInitialTopTab) return;
+    if (!userProfile && !user) return;
+    setTopTab(isAdmin ? "leads" : "assigned");
+    setHasSetInitialTopTab(true);
+  }, [canSeeLeads, hasSetInitialTopTab, isAdmin, user, userProfile]);
 
   useEffect(() => {
     if (params.status && typeof params.status === 'string') {
@@ -49,6 +122,28 @@ export default function LeadsScreen() {
       setFilterStatus("all");
     }
   }, [params.status]);
+
+  const taskStatusLabel = useCallback((status: TaskStatus) => {
+    switch (status) {
+      case "pending":
+        return "Not Started";
+      case "in-progress":
+        return "In Progress";
+      case "completed":
+        return "Completed";
+      case "rejected":
+        return "Rejected";
+      default:
+        return String(status);
+    }
+  }, []);
+
+  const updateTaskStatus = useCallback(
+    async (taskId: string, nextStatus: TaskStatus) => {
+      await updateDoc(doc(firebaseDb, "tasks", taskId), { status: nextStatus, updatedAt: serverTimestamp() });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!canSeeLeads) {
@@ -59,12 +154,108 @@ export default function LeadsScreen() {
     return () => unsub();
   }, [canSeeLeads]);
 
+  useEffect(() => {
+    if (topTab === "assigned") {
+      setFilterStatus("all");
+      router.setParams({ status: "all" });
+      setFilterStage("all");
+      setShowAssignedLeads(false);
+      setShowLeadFilters(false);
+      setStartDate(null);
+      setEndDate(null);
+      setIsCalendarVisible(false);
+    }
+  }, [router, topTab]);
+
+  useEffect(() => {
+    if (topTab !== "assigned") {
+      setTasks([]);
+      return;
+    }
+    if (!actorEmail) {
+      setTasks([]);
+      return;
+    }
+    const q = query(
+      collection(firebaseDb, "tasks"),
+      where("assignedToEmail", "==", actorEmail),
+      orderBy("dueDate", "asc"),
+      limit(100),
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const statusValues: TaskStatus[] = ["pending", "in-progress", "completed", "rejected"];
+        const priorityValues: Array<AssignedTask["priority"]> = ["low", "medium", "high"];
+        const typeValues: TaskType[] = [
+          "general",
+          "lead",
+          "follow_up",
+          "appointment",
+          "trade_in",
+          "finance",
+          "delivery",
+          "vehicle_prep",
+          "admin",
+        ];
+        const toDate = (value: unknown) => {
+          if (value instanceof Timestamp) return value.toDate();
+          if (value instanceof Date) return value;
+          if (typeof value === "string") {
+            const d = new Date(value);
+            if (!Number.isNaN(d.getTime())) return d;
+          }
+          return null;
+        };
+
+        const mapped = snap.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          const title = typeof data.title === "string" ? data.title : "";
+          const description = typeof data.description === "string" ? data.description : "";
+          const status = statusValues.includes(data.status as TaskStatus) ? (data.status as TaskStatus) : "pending";
+          const priority = priorityValues.includes(data.priority as AssignedTask["priority"]) ? (data.priority as AssignedTask["priority"]) : "medium";
+          const dueDate = toDate(data.dueDate);
+          const type = typeValues.includes(data.type as TaskType) ? (data.type as TaskType) : "general";
+          const leadSubmissionId = typeof data.leadSubmissionId === "string" ? data.leadSubmissionId : null;
+          return { id: d.id, title, description, status, priority, dueDate, type, leadSubmissionId } satisfies AssignedTask;
+        });
+        setTasks(mapped);
+      },
+      () => setTasks([]),
+    );
+    return () => unsub();
+  }, [actorEmail, topTab]);
+
+  useEffect(() => {
+    if (topTab !== "assigned") setTaskDueFilter("all");
+  }, [topTab]);
+
+  const getEffectiveStage = useCallback((l: LeadSubmission): CrmStage => {
+    if (l.crmStage) return l.crmStage;
+    return l.status === "new" ? "new" : "contacted";
+  }, []);
+
   const filteredLeads = useMemo(() => {
     let result = leads;
-    
-    // Status Filter
+
+    if (topTab === "archived") {
+      result = result.filter((l) => l.status === "archived");
+    } else {
+      result = result.filter((l) => l.status !== "archived");
+    }
+
+    if (topTab === "assigned") {
+      const email = actorEmail ?? "";
+      result = result.filter((l) => (l.assignedToEmail ?? "").trim().toLowerCase() === email);
+    }
+
     if (filterStatus !== "all") {
       result = result.filter((l) => l.status === filterStatus);
+    }
+
+    // Pipeline Filter
+    if (topTab === "leads" && filterStage !== "all") {
+      result = result.filter((l) => getEffectiveStage(l) === filterStage);
     }
 
     // Date Filter
@@ -81,7 +272,52 @@ export default function LeadsScreen() {
     }
 
     return result;
-  }, [leads, filterStatus, startDate, endDate]);
+  }, [leads, topTab, actorEmail, filterStatus, filterStage, startDate, endDate, getEffectiveStage]);
+
+  const allowedTaskTypes = useMemo(() => {
+    const role = userProfile?.role ?? null;
+    if (role === "F&I Manager") return new Set<TaskType>(["finance", "follow_up", "general"]);
+    if (role === "Receptionist") return new Set<TaskType>(["appointment", "general"]);
+    if (role === "Sales Executive") return new Set<TaskType>(["lead", "follow_up", "appointment", "trade_in", "delivery", "general"]);
+    return null;
+  }, [userProfile?.role]);
+
+  const filteredTasks = useMemo(() => {
+    const byRole = allowedTaskTypes ? tasks.filter((t) => allowedTaskTypes.has(t.type)) : tasks;
+    const byStatus = taskStatusFilter === "all" ? byRole : byRole.filter((t) => t.status === taskStatusFilter);
+    if (taskDueFilter === "all") return byStatus;
+
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    if (taskDueFilter === "today") {
+      return byStatus.filter((t) => {
+        if (!t.dueDate) return false;
+        return t.dueDate >= start && t.dueDate < end;
+      });
+    }
+
+    return byStatus.filter((t) => {
+      if (!t.dueDate) return false;
+      if (t.status === "completed") return false;
+      return t.dueDate < start;
+    });
+  }, [allowedTaskTypes, taskDueFilter, taskStatusFilter, tasks]);
+
+  const taskCounts = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    const today = tasks.filter((t) => t.dueDate && t.dueDate >= start && t.dueDate < end);
+    const overdue = tasks.filter((t) => t.dueDate && t.status !== "completed" && t.dueDate < start);
+    return { today: today.length, overdue: overdue.length };
+  }, [tasks]);
 
   // Calendar Marked Dates
   const markedDates = useMemo(() => {
@@ -145,14 +381,23 @@ export default function LeadsScreen() {
 
   // Stats for the "Score" widget
   const stats = useMemo(() => {
-    const total = leads.length;
-    const contacted = leads.filter(l => l.status === 'contacted' || l.status === 'reviewed').length;
-    const newLeads = leads.filter(l => l.status === 'new').length;
+    const active = leads.filter((l) => l.status !== "archived");
+    const total = active.length;
+    const contacted = active.filter((l) => l.status === "contacted" || l.status === "reviewed").length;
+    const newLeads = active.filter((l) => l.status === "new").length;
     const score = total > 0 ? Math.round((contacted / total) * 100) : 0;
     return { total, contacted, newLeads, score };
   }, [leads]);
 
-  const renderItem = ({ item }: { item: LeadSubmission }) => (
+  const assignedLeads = useMemo(() => {
+    if (topTab !== "assigned") return [];
+    const email = actorEmail ?? "";
+    return leads
+      .filter((l) => l.status !== "archived")
+      .filter((l) => (l.assignedToEmail ?? "").trim().toLowerCase() === email);
+  }, [actorEmail, leads, topTab]);
+
+  const renderLeadItem = ({ item }: { item: LeadSubmission }) => (
     <Pressable 
       style={styles.leadCard} 
       onPress={() => router.push(`/leads/${item.id}`)}
@@ -162,7 +407,22 @@ export default function LeadsScreen() {
         </View>
         
         <View style={styles.leadContent}>
-            <Text style={styles.leadTitle}>{item.customer?.name || "Unknown"}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <Text style={styles.leadTitle}>{item.customer?.name || "Unknown"}</Text>
+              <Badge
+                variant="muted"
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  backgroundColor: COLORS.cardHighlight,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <Text style={{ color: COLORS.textMuted, fontSize: 10, fontWeight: "600" }}>
+                  {getEffectiveStage(item).replace(/_/g, " ").toUpperCase()}
+                </Text>
+              </Badge>
+            </View>
             <Text style={styles.leadSubtitle}>
                 {item.vehicle?.name || "General Enquiry"}
             </Text>
@@ -170,6 +430,21 @@ export default function LeadsScreen() {
                 <Ionicons name="time-outline" size={12} color={COLORS.danger} />
                 <Text style={styles.leadMetaText}>{timeAgo(item.createdAt)}</Text>
             </View>
+            {item.followUpAt && item.followUpDone !== true ? (
+              <View style={styles.followUpRow}>
+                <Ionicons name="calendar-outline" size={12} color={COLORS.textMuted} />
+                <Text style={styles.followUpText}>
+                  Next follow-up:{" "}
+                  {new Date(item.followUpAt).toLocaleString("en-ZA", {
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Text>
+              </View>
+            ) : null}
         </View>
 
         <View style={styles.leadAction}>
@@ -179,6 +454,124 @@ export default function LeadsScreen() {
         </View>
     </Pressable>
   );
+
+  const renderTaskItem = ({ item }: { item: AssignedTask }) => {
+    const primaryAction =
+      item.status === "pending"
+        ? { label: "Start", next: "in-progress" as const }
+        : item.status === "in-progress"
+          ? { label: "Complete", next: "completed" as const }
+          : null;
+
+    return (
+      <Pressable
+        onPress={() => {
+          if (item.leadSubmissionId) router.push(`/leads/${item.leadSubmissionId}`);
+        }}
+        disabled={!item.leadSubmissionId}
+        style={{
+          backgroundColor: COLORS.card,
+          borderRadius: 14,
+          padding: 14,
+          borderWidth: 1,
+          borderColor: COLORS.border,
+          marginBottom: 10,
+          opacity: item.leadSubmissionId ? 1 : 0.95,
+        }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: COLORS.text, fontWeight: "800", fontSize: 14 }} numberOfLines={1}>
+              {item.title || "Task"}
+            </Text>
+            {item.description ? (
+              <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 6 }} numberOfLines={2}>
+                {item.description}
+              </Text>
+            ) : null}
+          </View>
+
+          <View style={{ alignItems: "flex-end", gap: 8 }}>
+            <Badge
+              variant="muted"
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                backgroundColor: COLORS.cardHighlight,
+                borderColor: COLORS.border,
+              }}
+            >
+              <Text style={{ color: COLORS.textMuted, fontSize: 10, fontWeight: "700" }}>{item.priority.toUpperCase()}</Text>
+            </Badge>
+
+            {item.type !== "general" ? (
+              <Badge
+                variant="muted"
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  backgroundColor: COLORS.cardHighlight,
+                  borderColor: COLORS.border,
+                }}
+              >
+                <Text style={{ color: COLORS.textMuted, fontSize: 10, fontWeight: "700" }}>
+                  {item.type.replace("_", " ").toUpperCase()}
+                </Text>
+              </Badge>
+            ) : null}
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <Pressable onPress={() => setTaskStatusModalTask(item)} hitSlop={10}>
+                <Badge
+                  variant="muted"
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    backgroundColor: COLORS.cardHighlight,
+                    borderColor: COLORS.border,
+                  }}
+                >
+                  <Text style={{ color: COLORS.textMuted, fontSize: 10, fontWeight: "700" }}>{taskStatusLabel(item.status)}</Text>
+                </Badge>
+              </Pressable>
+
+              {primaryAction ? (
+                <Pressable
+                  onPress={() => void updateTaskStatus(item.id, primaryAction.next).catch(() => {})}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    backgroundColor: COLORS.primary,
+                    borderWidth: 1,
+                    borderColor: COLORS.primary,
+                  }}
+                >
+                  <Text style={{ color: COLORS.primaryForeground, fontWeight: "900", fontSize: 12 }}>{primaryAction.label}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        </View>
+
+        {item.dueDate ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 }}>
+            <Ionicons name="calendar-outline" size={12} color={COLORS.textMuted} />
+            <Text style={{ color: COLORS.textMuted, fontSize: 12 }}>
+              Due:{" "}
+              {item.dueDate.toLocaleString("en-ZA", {
+                weekday: "short",
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </Text>
+          </View>
+        ) : null}
+      </Pressable>
+    );
+  };
 
   if (!canSeeLeads) {
     return (
@@ -197,10 +590,20 @@ export default function LeadsScreen() {
         <Pressable onPress={() => router.navigate('/')} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="#000000" />
         </Pressable>
-        <Text style={styles.headerTitle}>Leads</Text>
-        <Pressable style={styles.calendarButton} onPress={() => setIsCalendarVisible(true)}>
+        <Text style={styles.headerTitle}>{topTab === "assigned" ? "Work" : "Leads"}</Text>
+        {topTab === "assigned" ? (
+          <View style={{ width: 40 }} />
+        ) : (
+          <Pressable
+            style={styles.calendarButton}
+            onPress={() => {
+              setShowLeadFilters(true);
+              setIsCalendarVisible(true);
+            }}
+          >
             <Ionicons name={startDate ? "calendar" : "calendar-outline"} size={24} color={startDate ? COLORS.primary : COLORS.text} />
-        </Pressable>
+          </Pressable>
+        )}
       </View>
 
       {/* Date Filter Modal */}
@@ -253,74 +656,273 @@ export default function LeadsScreen() {
         </View>
       </Modal>
 
-      <FlatList
-        data={filteredLeads}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
+      {visibleTabs.length > 1 ? (
+        <View style={styles.topTabs}>
+          {visibleTabs.map((t) => {
+            const active = topTab === t.key;
+            return (
+              <Pressable key={t.key} onPress={() => setTopTab(t.key)} style={styles.topTab}>
+                <Ionicons name={t.icon} size={20} color={active ? COLORS.text : COLORS.textMuted} />
+                <Text style={[styles.topTabLabel, active && styles.topTabLabelActive]}>{t.label}</Text>
+                <View style={[styles.topTabUnderline, active && styles.topTabUnderlineActive]} />
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
+      {topTab === "assigned" ? (
+        <FlatList
+          data={filteredTasks}
+          keyExtractor={(item) => item.id}
+          renderItem={renderTaskItem}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
             <>
-                {/* Score Section */}
-                <View style={styles.scoreSection}>
-                    <View style={styles.scoreCircleOuter}>
-                        <View style={styles.scoreCircleInner}>
-                            <Ionicons name="people" size={32} color="#a855f7" /> 
-                        </View>
-                        {/* Progress Ring Simulation (Static for now) */}
-                        <View style={[styles.progressRing, { borderTopColor: '#a855f7', borderRightColor: '#a855f7' }]} />
-                    </View>
-                    <Text style={styles.scoreTitle}>Total Active Leads</Text>
-                    <Text style={styles.scoreSubtitle}>{stats.total} leads in pipeline</Text>
+              <View style={styles.notificationCard}>
+                <View style={styles.notificationContent}>
+                  <Text style={styles.notificationTitle}>Today</Text>
+                  <Text style={styles.notificationText}>
+                    {taskCounts.today} due today • {taskCounts.overdue} overdue
+                  </Text>
                 </View>
+                <View style={styles.notificationIcon}>
+                  <Ionicons name="calendar" size={24} color={COLORS.card} />
+                </View>
+              </View>
 
-                {/* Filter Indicator */}
-                {(filterStatus !== "all" || startDate) && (
-                    <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 20, gap: 8, flexWrap: 'wrap' }}>
-                        {filterStatus !== "all" && (
-                            <Pressable onPress={() => { router.setParams({ status: 'all' }); setFilterStatus('all'); }}>
-                                <Badge variant="default" style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-                                    <Text style={{ color: '#000', fontWeight: 'bold' }}>
-                                        Status: {filterStatus.toUpperCase()} <Ionicons name="close-circle" size={14} />
-                                    </Text>
-                                </Badge>
-                            </Pressable>
-                        )}
-                        {startDate && (
-                            <Pressable onPress={clearDateFilter}>
-                                <Badge variant="default" style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: COLORS.primary }}>
-                                    <Text style={{ color: '#000', fontWeight: 'bold' }}>
-                                        {startDate} {endDate ? ` - ${endDate}` : ''} <Ionicons name="close-circle" size={14} />
-                                    </Text>
-                                </Badge>
-                            </Pressable>
-                        )}
-                    </View>
+              <View style={styles.stageFilterRow}>
+                {[
+                  { label: "All", value: "all" as const },
+                  { label: "Today", value: "today" as const },
+                  { label: "Overdue", value: "overdue" as const },
+                ].map((s) => {
+                  const active = taskDueFilter === s.value;
+                  return (
+                    <Pressable
+                      key={s.value}
+                      onPress={() => setTaskDueFilter(s.value)}
+                      style={[styles.stageChip, active && styles.stageChipActive]}
+                    >
+                      <Text style={[styles.stageChipText, active && styles.stageChipTextActive]}>{s.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View style={styles.stageFilterRow}>
+                {TASK_STATUS_CHOICES.filter((s) => s.value === "all" || s.value === "pending" || s.value === "in-progress" || s.value === "completed").map(
+                  (s) => {
+                    const active = taskStatusFilter === s.value;
+                    return (
+                      <Pressable
+                        key={s.value}
+                        onPress={() => setTaskStatusFilter(s.value)}
+                        style={[styles.stageChip, active && styles.stageChipActive]}
+                      >
+                        <Text style={[styles.stageChipText, active && styles.stageChipTextActive]}>{s.label}</Text>
+                      </Pressable>
+                    );
+                  },
                 )}
+              </View>
 
-                {/* Notification Card */}
-                <View style={styles.notificationCard}>
-                    <View style={styles.notificationContent}>
-                        <Text style={styles.notificationTitle}>Action Required</Text>
-                        <Text style={styles.notificationText}>
-                            You have {stats.newLeads} new leads waiting for response.
-                        </Text>
-                    </View>
-                    <View style={styles.notificationIcon}>
-                        <Ionicons name="notifications" size={24} color={COLORS.card} />
-                    </View>
-                </View>
-
-                {/* List Header */}
-                <View style={styles.sectionHeader}>
-                    <Ionicons name="sunny-outline" size={20} color={COLORS.primary} />
-                    <Text style={styles.sectionHeaderText}>New Enquiries</Text>
-                </View>
+              <View style={styles.sectionHeader}>
+                <Ionicons name="briefcase-outline" size={20} color={COLORS.primary} />
+                <Text style={styles.sectionHeaderText}>Assigned Tasks</Text>
+              </View>
             </>
-        }
-        ListFooterComponent={<View style={{ height: 100 }} />} // Space for bottom button + nav
-      />
+          }
+          ListEmptyComponent={
+            <View style={{ backgroundColor: COLORS.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: COLORS.border }}>
+              <Text style={{ color: COLORS.textMuted, fontSize: 12 }}>No tasks found.</Text>
+            </View>
+          }
+          ListFooterComponent={
+            <View style={{ paddingTop: 8, paddingBottom: 100 }}>
+              <Pressable
+                onPress={() => setShowAssignedLeads((v) => !v)}
+                style={[styles.sectionHeader, { marginTop: 8, justifyContent: "space-between" }]}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <Ionicons name="people-outline" size={20} color={COLORS.primary} />
+                  <Text style={styles.sectionHeaderText}>My Leads ({assignedLeads.length})</Text>
+                </View>
+                <Ionicons name={showAssignedLeads ? "chevron-up" : "chevron-down"} size={18} color={COLORS.textMuted} />
+              </Pressable>
+
+              {showAssignedLeads ? assignedLeads.slice(0, 20).map((l) => <View key={l.id}>{renderLeadItem({ item: l })}</View>) : null}
+              {showAssignedLeads && assignedLeads.length > 20 ? (
+                <Text style={{ color: COLORS.textMuted, fontSize: 12, marginTop: 6 }}>
+                  Showing first 20 leads.
+                </Text>
+              ) : null}
+            </View>
+          }
+        />
+      ) : (
+        <FlatList
+          data={filteredLeads}
+          keyExtractor={(item) => item.id}
+          renderItem={renderLeadItem}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            <>
+              {isAdmin ? (
+                <View style={styles.scoreSection}>
+                  <View style={styles.scoreCircleOuter}>
+                    <View style={styles.scoreCircleInner}>
+                      <Ionicons name="people" size={32} color="#a855f7" />
+                    </View>
+                    <View style={[styles.progressRing, { borderTopColor: "#a855f7", borderRightColor: "#a855f7" }]} />
+                  </View>
+                  <Text style={styles.scoreTitle}>Total Active Leads</Text>
+                  <Text style={styles.scoreSubtitle}>{stats.total} leads in pipeline</Text>
+                </View>
+              ) : null}
+
+              {(filterStatus !== "all" || startDate) && (
+                <View style={{ flexDirection: "row", justifyContent: "center", marginBottom: 20, gap: 8, flexWrap: "wrap" }}>
+                  {filterStatus !== "all" && (
+                    <Pressable
+                      onPress={() => {
+                        router.setParams({ status: "all" });
+                        setFilterStatus("all");
+                      }}
+                    >
+                      <Badge variant="default" style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+                        <Text style={{ color: "#000", fontWeight: "bold" }}>
+                          Status: {filterStatus.toUpperCase()} <Ionicons name="close-circle" size={14} />
+                        </Text>
+                      </Badge>
+                    </Pressable>
+                  )}
+                  {startDate && (
+                    <Pressable onPress={clearDateFilter}>
+                      <Badge variant="default" style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: COLORS.primary }}>
+                        <Text style={{ color: "#000", fontWeight: "bold" }}>
+                          {startDate} {endDate ? ` - ${endDate}` : ""} <Ionicons name="close-circle" size={14} />
+                        </Text>
+                      </Badge>
+                    </Pressable>
+                  )}
+                </View>
+              )}
+
+              {topTab !== "archived" && isAdmin ? (
+                <View style={styles.notificationCard}>
+                  <View style={styles.notificationContent}>
+                    <Text style={styles.notificationTitle}>Action Required</Text>
+                    <Text style={styles.notificationText}>You have {stats.newLeads} new leads waiting for response.</Text>
+                  </View>
+                  <View style={styles.notificationIcon}>
+                    <Ionicons name="notifications" size={24} color={COLORS.card} />
+                  </View>
+                </View>
+              ) : null}
+
+              {topTab === "leads" ? (
+                <>
+                  <Pressable
+                    onPress={() => setShowLeadFilters((v) => !v)}
+                    style={[
+                      styles.notificationCard,
+                      { marginTop: 0, marginBottom: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+                    ]}
+                  >
+                    <View>
+                      <Text style={styles.notificationTitle}>Filters</Text>
+                      <Text style={styles.notificationText}>
+                        {filterStage === "all" ? "All stages" : String(filterStage).replace(/_/g, " ")} •{" "}
+                        {startDate ? (endDate ? `${startDate} – ${endDate}` : startDate) : "All dates"}
+                      </Text>
+                    </View>
+                    <Ionicons name={showLeadFilters ? "chevron-up" : "chevron-down"} size={20} color={COLORS.textMuted} />
+                  </Pressable>
+
+                  {showLeadFilters ? (
+                    <View style={{ marginBottom: 6 }}>
+                      <View style={styles.stageFilterRow}>
+                        {CRM_STAGE_CHOICES.map((s) => {
+                          const active = filterStage === s.value;
+                          return (
+                            <Pressable
+                              key={s.value}
+                              onPress={() => setFilterStage(s.value)}
+                              style={[styles.stageChip, active && styles.stageChipActive]}
+                            >
+                              <Text style={[styles.stageChipText, active && styles.stageChipTextActive]}>{s.label}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
+
+              <View style={styles.sectionHeader}>
+                <Ionicons name="sunny-outline" size={20} color={COLORS.primary} />
+                <Text style={styles.sectionHeaderText}>
+                  {topTab === "archived"
+                    ? "Archived Leads"
+                    : filterStage === "all"
+                      ? "Leads"
+                      : `${String(filterStage).replace(/_/g, " ")} Leads`}
+                </Text>
+              </View>
+            </>
+          }
+          ListFooterComponent={<View style={{ height: 100 }} />}
+        />
+      )}
+
+      <Modal
+        visible={!!taskStatusModalTask}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTaskStatusModalTask(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setTaskStatusModalTask(null)} />
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Update status</Text>
+              <Pressable onPress={() => setTaskStatusModalTask(null)}>
+                <Ionicons name="close" size={22} color={COLORS.textMuted} />
+              </Pressable>
+            </View>
+            {(["pending", "in-progress", "completed"] as const).map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => {
+                  if (!taskStatusModalTask) return;
+                  void updateTaskStatus(taskStatusModalTask.id, s)
+                    .then(() => setTaskStatusModalTask(null))
+                    .catch(() => setTaskStatusModalTask(null));
+                }}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
+                  backgroundColor: taskStatusModalTask?.status === s ? COLORS.cardHighlight : COLORS.card,
+                  marginBottom: 10,
+                }}
+              >
+                <Text style={{ color: COLORS.text, fontWeight: "800" }}>
+                  {s === "pending" ? "Not Started" : s === "in-progress" ? "In Progress" : "Completed"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </Modal>
 
       {/* Floating Action Button */}
       {/* <View style={styles.fabContainer}>
@@ -361,6 +963,38 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  topTabs: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "flex-end",
+    paddingHorizontal: 10,
+    marginBottom: 18,
+  },
+  topTab: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    minWidth: 80,
+  },
+  topTabLabel: {
+    marginTop: 6,
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  topTabLabelActive: {
+    color: COLORS.text,
+  },
+  topTabUnderline: {
+    marginTop: 10,
+    height: 3,
+    width: 28,
+    borderRadius: 999,
+    backgroundColor: "transparent",
+  },
+  topTabUnderlineActive: {
+    backgroundColor: COLORS.primary,
   },
   calendarButton: {
     padding: 8,
@@ -448,6 +1082,32 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.text,
   },
+  stageFilterRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 18,
+  },
+  stageChip: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  stageChipActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  stageChipText: {
+    color: COLORS.textMuted,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  stageChipTextActive: {
+    color: COLORS.primaryForeground,
+  },
   leadCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -488,6 +1148,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.danger,
     fontWeight: '500',
+  },
+  followUpRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 6,
+  },
+  followUpText: {
+    fontSize: 11,
+    color: COLORS.textMuted,
+    fontWeight: "600",
+    flexShrink: 1,
   },
   leadAction: {
     marginLeft: 12,

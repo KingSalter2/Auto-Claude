@@ -7,9 +7,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
 
 import { useTheme } from "../../src/theme/useTheme";
-import { subscribeAssignedLeads, subscribeNewLeadCount, subscribePendingFollowUps, subscribeRecentLeads } from "../../src/services/leadService";
+import { subscribeAssignedLeads, subscribeNewLeadCount, subscribePendingFollowUps } from "../../src/services/leadService";
 import { useAuth } from "../../src/auth/AuthContext";
-import { subscribeRecentInventoryVehicles } from "../../src/services/vehicleService";
 import { subscribeNotifications, subscribeUnreadNotificationCount, upsertNotification } from "../../src/services/notificationService";
 
 function TabIcon({
@@ -138,60 +137,6 @@ export default function TabLayout() {
     });
   }, [userProfile?.email]);
 
-  const leadInitRef = useRef(false);
-  const leadLastCheckRef = useRef(0);
-  useEffect(() => {
-    if (!userProfile?.email) return;
-    if (!canSeeLeads) return;
-
-    const email = userProfile.email.trim().toLowerCase();
-    const key = `automate.notifications.leads.new.lastCheck.${email}`;
-    let unsub: (() => void) | null = null;
-    let cancelled = false;
-
-    void (async () => {
-      const raw = await AsyncStorage.getItem(key);
-      const lastCheck = Number(raw ?? "0");
-      leadLastCheckRef.current = Number.isFinite(lastCheck) ? lastCheck : 0;
-      leadInitRef.current = leadLastCheckRef.current > 0;
-
-      if (cancelled) return;
-      unsub = subscribeRecentLeads({
-        take: 25,
-        onNext: (leads) => {
-          const nowMs = Date.now();
-          for (const lead of leads) {
-            if (lead.status !== "new") continue;
-            const createdAtMs = Date.parse(lead.createdAt);
-            if (!Number.isFinite(createdAtMs)) continue;
-            if (leadLastCheckRef.current > 0 && createdAtMs <= leadLastCheckRef.current) continue;
-            if (!leadInitRef.current && leadLastCheckRef.current === 0) continue;
-
-            void upsertNotification({
-              type: "lead_new",
-              recipientEmail: email,
-              recipientUid: user?.uid ?? null,
-              title: "New lead",
-              message: "A new lead just came in.",
-              entityType: "lead_submission",
-              entityId: lead.id,
-              link: `/leads/${lead.id}`,
-              eventKey: lead.id,
-            }).catch(() => {});
-          }
-          leadInitRef.current = true;
-          leadLastCheckRef.current = nowMs;
-          void AsyncStorage.setItem(key, String(nowMs));
-        },
-      });
-    })();
-
-    return () => {
-      cancelled = true;
-      unsub?.();
-    };
-  }, [canSeeLeads, user?.uid, userProfile?.email]);
-
   const assignedInitRef = useRef(false);
   const assignedLastCheckRef = useRef(0);
   useEffect(() => {
@@ -283,43 +228,6 @@ export default function TabLayout() {
     });
   }, [canSeeLeads, user?.uid, userProfile?.email]);
 
-  const vehicleInitRef = useRef(false);
-  const vehicleStatusRef = useRef(new Map<string, string>());
-  useEffect(() => {
-    if (!userProfile?.email) return;
-    if (!canSeeInventory) return;
-
-    const email = userProfile.email.trim().toLowerCase();
-    return subscribeRecentInventoryVehicles({
-      take: 50,
-      onNext: (vehicles) => {
-        for (const v of vehicles) {
-          const prev = vehicleStatusRef.current.get(v.id);
-          vehicleStatusRef.current.set(v.id, v.status);
-          if (!vehicleInitRef.current) continue;
-          if (prev && prev !== v.status) {
-            const title = "Vehicle status changed";
-            const message = `${[String(v.make ?? ""), String(v.model ?? "")].filter(Boolean).join(" ")}${
-              v.stockNumber ? ` (#${v.stockNumber})` : ""
-            } is now ${v.status}.`;
-            void upsertNotification({
-              type: "vehicle_status_changed",
-              recipientEmail: email,
-              recipientUid: user?.uid ?? null,
-              title,
-              message,
-              entityType: "inventory",
-              entityId: v.id,
-              link: `/inventory/${v.id}`,
-              eventKey: `${v.id}__${prev}->${v.status}`,
-            }).catch(() => {});
-          }
-        }
-        vehicleInitRef.current = true;
-      },
-    });
-  }, [canSeeInventory, user?.uid, userProfile?.email]);
-
   const tabBarStyle = useMemo(
     () => ({
       position: "absolute" as const,
@@ -368,48 +276,54 @@ export default function TabLayout() {
             tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
           }}
         />
-        <Tabs.Screen
-          name="leads"
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              router.replace("/leads");
-            },
-          }}
-          options={{
-            title: "Leads",
-            headerShown: false,
-            tabBarIcon: ({ color }) => <TabIcon name="users" color={color} badgeCount={newLeadCount} />,
-          }}
-        />
-        <Tabs.Screen
-          name="inventory"
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              router.replace("/inventory");
-            },
-          }}
-          options={{
-            title: "Inventory",
-            headerShown: false,
-            tabBarIcon: ({ color }) => <TabIcon name="car" color={color} />,
-          }}
-        />
-        <Tabs.Screen
-          name="contacts"
-          listeners={{
-            tabPress: (e) => {
-              e.preventDefault();
-              router.replace("/contacts");
-            },
-          }}
-          options={{
-            title: "Contacts",
-            headerShown: false,
-            tabBarIcon: ({ color }) => <TabIcon name="address-book" color={color} />,
-          }}
-        />
+        {canSeeLeads ? (
+          <Tabs.Screen
+            name="leads"
+            listeners={{
+              tabPress: (e) => {
+                e.preventDefault();
+                router.replace("/leads");
+              },
+            }}
+            options={{
+              title: "Leads",
+              headerShown: false,
+              tabBarIcon: ({ color }) => <TabIcon name="users" color={color} badgeCount={newLeadCount} />,
+            }}
+          />
+        ) : null}
+        {canSeeInventory ? (
+          <Tabs.Screen
+            name="inventory"
+            listeners={{
+              tabPress: (e) => {
+                e.preventDefault();
+                router.replace("/inventory");
+              },
+            }}
+            options={{
+              title: "Inventory",
+              headerShown: false,
+              tabBarIcon: ({ color }) => <TabIcon name="car" color={color} />,
+            }}
+          />
+        ) : null}
+        {canSeeLeads ? (
+          <Tabs.Screen
+            name="contacts"
+            listeners={{
+              tabPress: (e) => {
+                e.preventDefault();
+                router.replace("/contacts");
+              },
+            }}
+            options={{
+              title: "Contacts",
+              headerShown: false,
+              tabBarIcon: ({ color }) => <TabIcon name="address-book" color={color} />,
+            }}
+          />
+        ) : null}
         <Tabs.Screen
           name="notifications"
           options={{

@@ -106,6 +106,7 @@ function AuthGate() {
       <Stack.Screen name="leads/[id]" />
       <Stack.Screen name="inventory/[id]" />
       <Stack.Screen name="inventory/edit/[id]" />
+      <Stack.Screen name="calendar" />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

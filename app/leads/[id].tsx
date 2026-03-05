@@ -1,17 +1,28 @@
-import { Linking, Pressable, StyleSheet, Text, View, ScrollView, Alert, ActivityIndicator, Dimensions } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View, ScrollView, Alert, ActivityIndicator, Dimensions, Modal, TextInput, Keyboard } from "react-native";
 import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Notifications from "expo-notifications";
+import { collection, onSnapshot, orderBy, query, Timestamp } from "firebase/firestore";
 
 import { Screen } from "../../src/components/common/Screen";
 import { Button } from "../../src/components/ui/Button";
-import type { LeadStatus, LeadSubmission } from "../../src/models/lead";
-import { getLead, updateLeadStatus } from "../../src/services/leadService";
+import type { CrmStage, LeadStatus, LeadSubmission } from "../../src/models/lead";
+import {
+  assignLead,
+  createLeadTaskAssignment,
+  setLeadFollowUp,
+  setLeadFollowUpDone,
+  subscribeLead,
+  updateLeadCrmStage,
+  updateLeadStatus,
+} from "../../src/services/leadService";
 import { timeAgo, formatCurrency } from "../../src/utils/format";
 import { useAuth } from "../../src/auth/AuthContext";
 import { EmptyState } from "../../src/components/common/EmptyState";
+import { firebaseDb } from "../../src/lib/firebase";
 
 // Theme based on the "New Exercise" dark UI guide
 const THEME = {
@@ -26,11 +37,13 @@ const THEME = {
   info: "#3b82f6",
 };
 
-const STATUS_CHOICES: Array<{ label: string; value: LeadStatus; icon: keyof typeof Ionicons.glyphMap }> = [
-  { label: "New", value: "new", icon: "flash" },
-  { label: "Reviewed", value: "reviewed", icon: "eye" },
+const CRM_STAGE_CHOICES: Array<{ label: string; value: CrmStage; icon: keyof typeof Ionicons.glyphMap }> = [
+  { label: "New", value: "new", icon: "sparkles" },
   { label: "Contacted", value: "contacted", icon: "call" },
-  { label: "Archived", value: "archived", icon: "archive" },
+  { label: "Test Drive", value: "test_drive", icon: "car-sport" },
+  { label: "Finance", value: "finance", icon: "card" },
+  { label: "Unqualified", value: "unqualified", icon: "close-circle" },
+  { label: "Sold", value: "sold", icon: "checkmark-circle" },
 ];
 
 function digitsOnly(v: string) {
@@ -68,16 +81,28 @@ function asDisplayValue(value: unknown): string {
 
 export default function LeadDetailsScreen() {
   const router = useRouter();
-  const { canAccess } = useAuth();
+  const { canAccess, user, userProfile } = useAuth();
   const canSeeLeads = canAccess("Leads & CRM");
   const params = useLocalSearchParams<{ id: string }>();
   const id = params.id;
   const insets = useSafeAreaInsets();
+  const actorEmail = (userProfile?.email ?? user?.email ?? null)?.trim().toLowerCase() ?? null;
 
   const [lead, setLead] = useState<LeadSubmission | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isFollowUpTimeOpen, setIsFollowUpTimeOpen] = useState(false);
+  const [pendingFollowUpDate, setPendingFollowUpDate] = useState<Date | null>(null);
+  const [followUpNoteDraft, setFollowUpNoteDraft] = useState("");
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isAssignPickerOpen, setIsAssignPickerOpen] = useState(false);
+  const [staffUsers, setStaffUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [assignSelectedEmail, setAssignSelectedEmail] = useState<string | null>(null);
+  const [assignSelectedName, setAssignSelectedName] = useState<string | null>(null);
+  const [assignNoteDraft, setAssignNoteDraft] = useState("");
+  const [assignPriority, setAssignPriority] = useState<"low" | "medium" | "high">("medium");
+  const [showSubmissionExtras, setShowSubmissionExtras] = useState(false);
 
   const payload = lead?.payload ?? {};
   const getString = useMemo(
@@ -190,43 +215,270 @@ export default function LeadDetailsScreen() {
   }, [getNumber, getString, lead, payload, submissionMessage]);
 
   useEffect(() => {
-    let cancelled = false;
     if (!canSeeLeads) {
       setLead(null);
       setIsLoading(false);
       setError(null);
-      return () => {
-        cancelled = true;
-      };
+      return () => {};
     }
-    (async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const data = await getLead(id);
-        if (!cancelled) setLead(data);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load lead");
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    setIsLoading(true);
+    setError(null);
+    return subscribeLead({
+      id,
+      onNext: (data) => {
+        setLead(data);
+        setIsLoading(false);
+      },
+      onError: (e) => {
+        setError(e instanceof Error ? e.message : "Failed to load lead");
+        setIsLoading(false);
+      },
+    });
   }, [canSeeLeads, id]);
 
-  const handleStatusChange = async (newStatus: LeadStatus) => {
-      if (!lead) return;
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setIsKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setIsKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(firebaseDb, "users"), orderBy("createdAt", "desc"));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const mapped = snap.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          const email = typeof data.email === "string" ? data.email : d.id;
+          const name = typeof data.name === "string" && data.name.trim().length > 0 ? data.name : email;
+          const createdAtRaw = data.createdAt;
+          const createdAt =
+            createdAtRaw instanceof Timestamp ? createdAtRaw.toDate().getTime() : createdAtRaw instanceof Date ? createdAtRaw.getTime() : 0;
+          return { id: d.id, name, email, createdAt };
+        });
+        mapped.sort((a, b) => b.createdAt - a.createdAt);
+        setStaffUsers(mapped.map(({ id, name, email }) => ({ id, name, email })));
+      },
+      () => setStaffUsers([]),
+    );
+    return () => unsub();
+  }, []);
+
+  const isArchived = lead?.status === "archived";
+  const effectiveCrmStage: CrmStage = (lead?.crmStage ?? (lead?.status === "new" ? "new" : "contacted")) as CrmStage;
+  const activeStatusLabel = isArchived
+    ? "Archived"
+    : CRM_STAGE_CHOICES.find((x) => x.value === effectiveCrmStage)?.label ?? "Status";
+
+  const formatErrorMessage = (e: unknown, fallback: string) => {
+    if (e instanceof Error && typeof e.message === "string" && e.message.trim().length > 0) return e.message;
+    if (typeof e === "object" && e !== null && "code" in e && typeof (e as { code?: unknown }).code === "string") {
+      return `${fallback} (${(e as { code: string }).code})`;
+    }
+    return fallback;
+  };
+
+  const syncFollowUpLocalReminders = async (opts: {
+    leadId: string;
+    customerName: string;
+    followUpAt: Date | null;
+    followUpNote: string | null;
+    leadSummary: string | null;
+    done: boolean;
+  }) => {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
+    for (const n of scheduled) {
+      const raw = n.content.data as unknown;
+      const data = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+      if (data.kind === "followup" && data.leadId === opts.leadId) {
+        await Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {});
+      }
+    }
+
+    if (!opts.followUpAt || opts.done) return;
+
+    const permission = await Notifications.getPermissionsAsync().catch(() => null);
+    const granted = permission?.granted ?? permission?.ios?.status === Notifications.IosAuthorizationStatus.AUTHORIZED;
+    if (!granted) {
+      const req = await Notifications.requestPermissionsAsync().catch(() => null);
+      const ok = req?.granted ?? req?.ios?.status === Notifications.IosAuthorizationStatus.AUTHORIZED;
+      if (!ok) return;
+    }
+
+    const now = Date.now();
+    const times = [
+      { minutes: 30, label: "30 min" },
+      { minutes: 15, label: "15 min" },
+      { minutes: 0, label: "now" },
+    ] as const;
+
+    const baseBody = [opts.leadSummary ?? "", opts.followUpNote ?? ""].filter(Boolean).join("\n");
+
+    for (const t of times) {
+      const triggerMs = opts.followUpAt.getTime() - t.minutes * 60_000;
+      if (triggerMs <= now + 3_000) continue;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: t.minutes === 0 ? `Follow-up due: ${opts.customerName}` : `Follow-up in ${t.label}: ${opts.customerName}`,
+          body: baseBody || "Tap to open the lead.",
+          data: { type: "lead", leadId: opts.leadId, kind: "followup", minutes: t.minutes },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: new Date(triggerMs) },
+      }).catch(() => {});
+    }
+  };
+
+  const handleCrmStageChange = async (nextStage: CrmStage) => {
+    if (!lead) return;
+    if (isArchived) return;
+    setIsUpdating(true);
+    try {
+      await updateLeadCrmStage({ id: lead.id, crmStage: nextStage, actorEmail });
+    } catch {
+      Alert.alert("Error", "Failed to update pipeline stage");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleArchiveLead = async () => {
+    if (!lead) return;
+    Alert.alert("Archive lead?", "This will hide the lead from your active pipeline.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Archive",
+        style: "destructive",
+        onPress: async () => {
+          setIsUpdating(true);
+          try {
+            await updateLeadStatus(lead.id, "archived", actorEmail);
+          } catch {
+            Alert.alert("Error", "Failed to archive lead");
+          } finally {
+            setIsUpdating(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleUnassign = async () => {
+    if (!lead) return;
+    setIsUpdating(true);
+    try {
+      await assignLead({ id: lead.id, assignedToEmail: null, actorEmail });
+      setIsAssignPickerOpen(false);
+    } catch {
+      Alert.alert("Error", "Failed to unassign lead");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleConfirmAssign = async () => {
+    if (!lead) return;
+    const selectedEmail = (assignSelectedEmail ?? "").trim().toLowerCase();
+    if (!selectedEmail) {
+      Alert.alert("Missing assignee", "Select a staff member to assign this task.");
+      return;
+    }
+    const assignedToName =
+      (assignSelectedName && assignSelectedName.trim().length > 0 ? assignSelectedName.trim() : selectedEmail) || selectedEmail;
+
+    const assignedByName = userProfile?.name?.trim() || user?.email || "User";
+    const assignedByEmail = actorEmail;
+
+    setIsUpdating(true);
+    try {
+      await assignLead({ id: lead.id, assignedToEmail: selectedEmail, actorEmail, notify: false });
+      await createLeadTaskAssignment({
+        lead,
+        assignedToEmail: selectedEmail,
+        assignedToName,
+        assignedByEmail,
+        assignedByName,
+        note: assignNoteDraft.trim().length > 0 ? assignNoteDraft.trim() : null,
+        priority: assignPriority,
+        status: "pending",
+      });
+      setIsAssignPickerOpen(false);
+    } catch {
+      Alert.alert("Error", "Failed to assign task");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleSetFollowUpPreset = async (preset: "today" | "tomorrow" | "next7" | "clear") => {
+    if (!lead) return;
+    if (preset === "clear") {
       setIsUpdating(true);
       try {
-          await updateLeadStatus(lead.id, newStatus);
-          setLead(prev => prev ? { ...prev, status: newStatus } : null);
+        await setLeadFollowUp({ id: lead.id, followUpAt: null, followUpNote: null, actorEmail });
+        await syncFollowUpLocalReminders({
+          leadId: lead.id,
+          customerName: lead.customer?.name || "Customer",
+          followUpAt: null,
+          followUpNote: null,
+          leadSummary: null,
+          done: true,
+        });
       } catch (e) {
-          Alert.alert("Error", "Failed to update status");
+        Alert.alert("Error", formatErrorMessage(e, "Failed to update follow-up"));
       } finally {
-          setIsUpdating(false);
+        setIsUpdating(false);
       }
+      return;
+    }
+
+    const when = new Date();
+    when.setSeconds(0, 0);
+    if (preset === "tomorrow") when.setDate(when.getDate() + 1);
+    if (preset === "next7") when.setDate(when.getDate() + 7);
+    when.setHours(9, 0, 0, 0);
+    setPendingFollowUpDate(when);
+    setFollowUpNoteDraft(lead.followUpNote ?? "");
+    setIsFollowUpTimeOpen(true);
+  };
+
+  const timeOptions = useMemo(() => {
+    const options: Array<{ label: string; hour: number; minute: number }> = [];
+    for (let hour = 8; hour <= 18; hour += 1) {
+      options.push({ label: `${String(hour).padStart(2, "0")}:00`, hour, minute: 0 });
+      if (hour !== 18) options.push({ label: `${String(hour).padStart(2, "0")}:30`, hour, minute: 30 });
+    }
+    return options;
+  }, []);
+
+  const followUpSummary = useMemo(() => {
+    if (!lead?.followUpAt) return null;
+    const ms = Date.parse(lead.followUpAt);
+    if (!Number.isFinite(ms)) return null;
+    return new Date(ms).toLocaleString("en-ZA", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  }, [lead?.followUpAt]);
+
+  const handleToggleFollowUpDone = async () => {
+    if (!lead) return;
+    setIsUpdating(true);
+    try {
+      const nextDone = !(lead.followUpDone ?? false);
+      await setLeadFollowUpDone({ id: lead.id, done: nextDone, actorEmail });
+      await syncFollowUpLocalReminders({
+        leadId: lead.id,
+        customerName: lead.customer?.name || "Customer",
+        followUpAt: lead.followUpAt ? new Date(lead.followUpAt) : null,
+        followUpNote: lead.followUpNote ?? null,
+        leadSummary: null,
+        done: nextDone,
+      });
+    } catch (e) {
+      Alert.alert("Error", formatErrorMessage(e, "Failed to update follow-up status"));
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const contactActions = useMemo(() => {
@@ -408,6 +660,13 @@ export default function LeadDetailsScreen() {
     statusTextActive: {
         color: THEME.background,
     },
+    statusSelectedLabel: {
+        marginTop: 10,
+        color: THEME.textMuted,
+        fontWeight: "800",
+        textAlign: "center",
+        letterSpacing: 0.6,
+    },
     vehicleCard: {
         flexDirection: 'row',
         gap: 16,
@@ -436,6 +695,83 @@ export default function LeadDetailsScreen() {
         fontSize: 15,
         fontWeight: "700",
         color: THEME.primary,
+    },
+    followUpHint: {
+        marginTop: 12,
+        color: THEME.textMuted,
+        fontSize: 12,
+        fontWeight: "700",
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.65)",
+        justifyContent: "flex-end",
+        padding: 16,
+    },
+    modalCard: {
+        backgroundColor: THEME.card,
+        borderRadius: 20,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: THEME.border,
+    },
+    modalHeaderRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 8,
+    },
+    modalTitle: {
+        color: THEME.text,
+        fontSize: 16,
+        fontWeight: "900",
+    },
+    modalSubtitle: {
+        color: THEME.textMuted,
+        fontSize: 12,
+        fontWeight: "700",
+        marginBottom: 12,
+    },
+    followUpNoteInput: {
+        backgroundColor: THEME.background,
+        borderWidth: 1,
+        borderColor: THEME.border,
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        color: THEME.text,
+        fontSize: 13,
+        fontWeight: "600",
+        minHeight: 60,
+        marginBottom: 12,
+    },
+    modalCloseBtn: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: THEME.background,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: THEME.border,
+    },
+    timeGrid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 10,
+    },
+    timeChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 999,
+        backgroundColor: THEME.background,
+        borderWidth: 1,
+        borderColor: THEME.border,
+    },
+    timeChipText: {
+        color: THEME.text,
+        fontWeight: "800",
+        fontSize: 12,
     },
   });
 
@@ -506,59 +842,267 @@ export default function LeadDetailsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        
-        {/* Status Workflow */}
-        <View>
-            <Text style={styles.sectionTitle}>Status</Text>
-            <View style={styles.statusContainer}>
-                {STATUS_CHOICES.map((s) => {
-                    const isActive = lead.status === s.value;
-                    return (
-                        <Pressable 
-                            key={s.value} 
-                            style={[styles.statusItem, isActive && styles.statusItemActive]}
-                            onPress={() => handleStatusChange(s.value)}
-                            disabled={isUpdating}
-                        >
-                            <Ionicons 
-                                name={s.icon} 
-                                size={14} 
-                                color={isActive ? THEME.background : THEME.textMuted} 
-                            />
-                            {isActive && (
-                                <Text style={[styles.statusText, styles.statusTextActive]}>
-                                    {s.label}
-                                </Text>
-                            )}
-                        </Pressable>
-                    );
-                })}
-            </View>
-        </View>
-
         {/* Quick Actions */}
         {contactActions.length > 0 && (
-            <View>
-                <Text style={styles.sectionTitle}>Quick Actions</Text>
-                <View style={styles.actionsGrid}>
-                    {contactActions.map((action, idx) => (
-                        <Pressable 
-                            key={idx} 
-                            style={[styles.actionButton]} 
-                            onPress={action.onPress}
-                        >
-                            <View style={{ 
-                                width: 40, height: 40, borderRadius: 20, 
-                                backgroundColor: action.color + '20', 
-                                alignItems: 'center', justifyContent: 'center' 
-                            }}>
-                                <Ionicons name={action.icon} size={20} color={action.color} />
-                            </View>
-                        </Pressable>
-                    ))}
-                </View>
+          <View>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.actionsGrid}>
+              {contactActions.map((action, idx) => (
+                <Pressable key={idx} style={[styles.actionButton]} onPress={action.onPress}>
+                  <View
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 20,
+                      backgroundColor: action.color + "20",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Ionicons name={action.icon} size={20} color={action.color} />
+                  </View>
+                </Pressable>
+              ))}
             </View>
+          </View>
         )}
+
+        <View>
+          <Text style={styles.sectionTitle}>Status</Text>
+          <View style={styles.statusContainer}>
+            {CRM_STAGE_CHOICES.map((s) => {
+              const isActive = effectiveCrmStage === s.value;
+              return (
+                <Pressable
+                  key={s.value}
+                  style={[styles.statusItem, isActive && styles.statusItemActive]}
+                  onPress={() => handleCrmStageChange(s.value)}
+                  disabled={isUpdating || isArchived}
+                >
+                  <Ionicons name={s.icon} size={14} color={isActive ? THEME.background : THEME.textMuted} />
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.statusSelectedLabel}>{activeStatusLabel}</Text>
+          {isArchived ? (
+            <View style={{ marginTop: 12 }}>
+              <View
+                style={{
+                  backgroundColor: "rgba(239,68,68,0.12)",
+                  borderColor: THEME.destructive,
+                  borderWidth: 1,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  borderRadius: 14,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                <Ionicons name="archive" size={18} color={THEME.destructive} />
+                <Text style={{ color: THEME.text, fontWeight: "700", flex: 1 }}>Archived</Text>
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+        <View>
+          <Text style={styles.sectionTitle}>Assignment</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.label}>Assigned To</Text>
+              <Text style={styles.value} numberOfLines={1}>
+                {lead.assignedToEmail || "Unassigned"}
+              </Text>
+            </View>
+            <View style={[styles.row, styles.rowLast, { justifyContent: "flex-end" }]}>
+              <Button
+                onPress={() => {
+                  const currentEmail = (lead.assignedToEmail ?? "").trim().toLowerCase();
+                  setAssignSelectedEmail(currentEmail.length > 0 ? currentEmail : null);
+                  setAssignSelectedName(null);
+                  setAssignNoteDraft("");
+                  setAssignPriority("medium");
+                  setIsAssignPickerOpen(true);
+                }}
+                disabled={isUpdating}
+              >
+                Assign task
+              </Button>
+            </View>
+          </View>
+        </View>
+
+        <Modal visible={isAssignPickerOpen} transparent animationType="fade" onRequestClose={() => setIsAssignPickerOpen(false)}>
+          <Pressable style={[styles.modalOverlay, { justifyContent: "center" }]} onPress={() => setIsAssignPickerOpen(false)}>
+            <Pressable style={[styles.modalCard, { width: "100%", maxWidth: 520, alignSelf: "center" }]} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Assign task</Text>
+                <Pressable onPress={() => setIsAssignPickerOpen(false)} style={styles.modalCloseBtn}>
+                  <Ionicons name="close" size={18} color={THEME.textMuted} />
+                </Pressable>
+              </View>
+              <Text style={styles.modalSubtitle}>Select a staff member, add a note, set priority.</Text>
+
+              <TextInput
+                value={assignNoteDraft}
+                onChangeText={setAssignNoteDraft}
+                placeholder="Note (optional)"
+                placeholderTextColor={THEME.textMuted}
+                style={styles.followUpNoteInput}
+                multiline
+              />
+
+              <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
+                {(["low", "medium", "high"] as const).map((p) => {
+                  const active = assignPriority === p;
+                  return (
+                    <Pressable
+                      key={p}
+                      onPress={() => setAssignPriority(p)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        borderRadius: 999,
+                        borderWidth: 1,
+                        borderColor: active ? THEME.primary : THEME.border,
+                        backgroundColor: active ? "rgba(250,204,21,0.16)" : THEME.background,
+                      }}
+                    >
+                      <Text style={{ color: active ? THEME.primary : THEME.textMuted, fontWeight: "800", fontSize: 12 }}>
+                        {p === "low" ? "Low" : p === "medium" ? "Medium" : "High"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled">
+                {actorEmail ? (
+                  <Pressable
+                    onPress={() => {
+                      setAssignSelectedEmail(actorEmail);
+                      setAssignSelectedName(userProfile?.name?.trim() || user?.email || "Me");
+                    }}
+                    disabled={isUpdating}
+                    style={{
+                      paddingVertical: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: THEME.border,
+                      backgroundColor: assignSelectedEmail === actorEmail ? "rgba(250,204,21,0.10)" : "transparent",
+                    }}
+                  >
+                    <Text style={{ color: THEME.text, fontWeight: "900" }}>Me</Text>
+                    <Text style={{ color: THEME.textMuted, fontSize: 12, marginTop: 4 }} numberOfLines={1}>
+                      {actorEmail}
+                    </Text>
+                  </Pressable>
+                ) : null}
+
+                {staffUsers.map((u) => {
+                  const email = u.email.trim().toLowerCase();
+                  const selected = assignSelectedEmail === email;
+                  return (
+                    <Pressable
+                      key={u.id}
+                      onPress={() => {
+                        setAssignSelectedEmail(email);
+                        setAssignSelectedName(u.name);
+                      }}
+                      disabled={isUpdating}
+                      style={{
+                        paddingVertical: 12,
+                        borderBottomWidth: 1,
+                        borderBottomColor: THEME.border,
+                        backgroundColor: selected ? "rgba(250,204,21,0.10)" : "transparent",
+                      }}
+                    >
+                      <Text style={{ color: THEME.text, fontWeight: "900" }} numberOfLines={1}>
+                        {u.name}
+                      </Text>
+                      <Text style={{ color: THEME.textMuted, fontSize: 12, marginTop: 4 }} numberOfLines={1}>
+                        {email}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              <View style={{ flexDirection: "row", gap: 10, justifyContent: "flex-end", marginTop: 14 }}>
+                <Button variant="outline" onPress={handleUnassign} disabled={isUpdating || !lead.assignedToEmail}>
+                  Unassign
+                </Button>
+                <Button onPress={() => void handleConfirmAssign()} disabled={isUpdating || !assignSelectedEmail}>
+                  Assign task
+                </Button>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+
+        <View>
+          <Text style={styles.sectionTitle}>Follow-up</Text>
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.label}>Due</Text>
+              <Text style={styles.value}>{lead.followUpAt ? new Date(lead.followUpAt).toLocaleString() : "—"}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Done</Text>
+              <Text style={styles.value}>{lead.followUpDone ? "Yes" : "No"}</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Notes</Text>
+              <Text style={styles.value} numberOfLines={3}>
+                {lead.followUpNote && lead.followUpNote.trim().length > 0 ? lead.followUpNote.trim() : "—"}
+              </Text>
+            </View>
+            <View style={[styles.row, styles.rowLast, { justifyContent: "flex-end" }]}>
+              <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                <Button
+                  onPress={() => {
+                    const when = lead.followUpAt ? new Date(lead.followUpAt) : new Date();
+                    when.setSeconds(0, 0);
+                    if (!lead.followUpAt) when.setHours(9, 0, 0, 0);
+                    setPendingFollowUpDate(when);
+                    setFollowUpNoteDraft(lead.followUpNote ?? "");
+                    setIsFollowUpTimeOpen(true);
+                  }}
+                  disabled={isUpdating}
+                >
+                  Set follow-up
+                </Button>
+                {lead.followUpAt ? (
+                  <Button variant="outline" onPress={() => handleSetFollowUpPreset("clear")} disabled={isUpdating}>
+                    Clear
+                  </Button>
+                ) : null}
+                <Button variant="outline" onPress={handleToggleFollowUpDone} disabled={isUpdating}>
+                  {lead.followUpDone ? "Mark pending" : "Mark done"}
+                </Button>
+              </View>
+            </View>
+            {followUpSummary ? <Text style={styles.followUpHint}>Next follow-up: {followUpSummary}</Text> : null}
+          </View>
+        </View>
+
+        {!isArchived ? (
+          <View>
+            <Text style={styles.sectionTitle}>Archive</Text>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Remove from pipeline</Text>
+                <Text style={styles.value}>—</Text>
+              </View>
+              <View style={[styles.row, styles.rowLast, { justifyContent: "flex-end" }]}>
+                <Button variant="destructive" onPress={handleArchiveLead} disabled={isUpdating} icon="archive">
+                  Archive lead
+                </Button>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {/* Customer Details */}
         <View>
@@ -649,15 +1193,27 @@ export default function LeadDetailsScreen() {
 
                     {submissionDetails?.extras.length ? (
                       <View style={{ marginTop: 12 }}>
-                        <Text style={[styles.sectionTitle, { marginBottom: 10 }]}>More Details</Text>
-                        <View style={{ gap: 10 }}>
-                          {submissionDetails.extras.map((x, idx) => (
-                            <View key={`${x.label}-${idx}`} style={{ flexDirection: "row", justifyContent: "space-between", gap: 16 }}>
-                              <Text style={[styles.label, { flex: 1 }]} numberOfLines={1}>{x.label}</Text>
-                              <Text style={[styles.value, { flex: 1 }]} numberOfLines={3}>{x.value}</Text>
-                            </View>
-                          ))}
-                        </View>
+                        <Pressable
+                          onPress={() => setShowSubmissionExtras((v) => !v)}
+                          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}
+                        >
+                          <Text style={styles.sectionTitle}>More Details</Text>
+                          <Ionicons name={showSubmissionExtras ? "chevron-up" : "chevron-down"} size={18} color={THEME.textMuted} />
+                        </Pressable>
+                        {showSubmissionExtras ? (
+                          <View style={{ gap: 10 }}>
+                            {submissionDetails.extras.map((x, idx) => (
+                              <View key={`${x.label}-${idx}`} style={{ flexDirection: "row", justifyContent: "space-between", gap: 16 }}>
+                                <Text style={[styles.label, { flex: 1 }]} numberOfLines={1}>
+                                  {x.label}
+                                </Text>
+                                <Text style={[styles.value, { flex: 1 }]} numberOfLines={3}>
+                                  {x.value}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        ) : null}
                       </View>
                     ) : null}
                 </View>
@@ -666,6 +1222,122 @@ export default function LeadDetailsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <Modal visible={isFollowUpTimeOpen} transparent animationType="fade" onRequestClose={() => setIsFollowUpTimeOpen(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => {
+            if (isKeyboardVisible) {
+              Keyboard.dismiss();
+              return;
+            }
+            setIsFollowUpTimeOpen(false);
+          }}
+        >
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Pick a time</Text>
+              <Pressable
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setIsFollowUpTimeOpen(false);
+                }}
+                style={styles.modalCloseBtn}
+              >
+                <Ionicons name="close" size={18} color={THEME.text} />
+              </Pressable>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              {pendingFollowUpDate
+                ? pendingFollowUpDate.toLocaleDateString("en-ZA", { weekday: "long", day: "2-digit", month: "long" })
+                : ""}
+            </Text>
+
+            <View style={{ flexDirection: "row", gap: 8, marginBottom: 12, justifyContent: "center", flexWrap: "wrap" }}>
+              {[
+                { label: "Today", days: 0 },
+                { label: "Tomorrow", days: 1 },
+                { label: "+7 days", days: 7 },
+              ].map((d) => (
+                <Pressable
+                  key={d.label}
+                  disabled={isUpdating}
+                  onPress={() => {
+                    const base = pendingFollowUpDate ? new Date(pendingFollowUpDate) : new Date();
+                    const next = new Date(base);
+                    next.setDate(next.getDate() + d.days);
+                    next.setSeconds(0, 0);
+                    setPendingFollowUpDate(next);
+                  }}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: THEME.border,
+                    backgroundColor: THEME.background,
+                  }}
+                >
+                  <Text style={{ color: THEME.textMuted, fontWeight: "800", fontSize: 12 }}>{d.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <TextInput
+              value={followUpNoteDraft}
+              onChangeText={setFollowUpNoteDraft}
+              placeholder="Add follow-up notes..."
+              placeholderTextColor={THEME.textMuted}
+              multiline
+              blurOnSubmit
+              onSubmitEditing={() => Keyboard.dismiss()}
+              style={styles.followUpNoteInput}
+            />
+
+            <View style={styles.timeGrid}>
+              {timeOptions.map((t) => (
+                <Pressable
+                  key={t.label}
+                  style={styles.timeChip}
+                  disabled={isUpdating || !pendingFollowUpDate}
+                  onPress={async () => {
+                    if (!lead || !pendingFollowUpDate) return;
+                    if (!actorEmail) {
+                      Alert.alert("Error", "Missing signed-in email address");
+                      return;
+                    }
+                    const next = new Date(pendingFollowUpDate);
+                    next.setHours(t.hour, t.minute, 0, 0);
+                    const note = followUpNoteDraft.trim();
+                    setIsUpdating(true);
+                    try {
+                      Keyboard.dismiss();
+                      await setLeadFollowUp({ id: lead.id, followUpAt: next, followUpNote: note.length > 0 ? note : null, actorEmail });
+                      await syncFollowUpLocalReminders({
+                        leadId: lead.id,
+                        customerName: lead.customer?.name || "Customer",
+                        followUpAt: next,
+                        followUpNote: note.length > 0 ? note : null,
+                        leadSummary: `${TYPE_LABEL[lead.type]}${lead.source ? ` • Source: ${lead.source}` : ""}${lead.vehicle?.name ? ` • Vehicle: ${lead.vehicle.name}` : ""}`,
+                        done: false,
+                      });
+                      setIsFollowUpTimeOpen(false);
+                      setPendingFollowUpDate(null);
+                    } catch (e) {
+                      Alert.alert("Error", formatErrorMessage(e, "Failed to update follow-up"));
+                    } finally {
+                      setIsUpdating(false);
+                    }
+                  }}
+                >
+                  <Text style={styles.timeChipText}>{t.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
